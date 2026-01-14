@@ -1,12 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { Camera2D } from '../../game/base/Camera2D';
-import { Sprite2D } from '../../game/base/Sprite2D';
-import { AnimatedSprite2D } from '../../game/base/AnimatedSprite2D';
-import { Texture } from '../../game/base/Texture';
-import { GameLoop } from '../../game/common/GameLoop';
-import { Renderer } from '../../game/common/Renderer';
-import { SpriteManager } from '../../game/common/SpriteManager';
-import { assets } from '../../game/common/Assets';
+import { Camera2D } from '../../game/engine/base/Camera2D';
+import { Sprite2D } from '../../game/engine/base/Sprite2D';
+import { AnimatedSprite2D } from '../../game/engine/base/AnimatedSprite2D';
+import { Texture } from '../../game/engine/base/Texture';
+import { GameLoop } from '../../game/engine/common/GameLoop';
+import { Renderer } from '../../game/engine/common/Renderer';
+import { SpriteManager } from '../../game/engine/common/SpriteManager';
+import { assets } from '../../game/engine/common/Assets';
 
 const GameView = () => {
   const canvasRef = useRef(null);
@@ -52,20 +52,20 @@ const GameView = () => {
       }
 
       // 加载动画帧纹理
-      const frameTextures = [new Texture(playerCanvas)];
+      const frameTextures = [Texture.fromImage(playerCanvas)];
       
       try {
         // 加载第一帧 (player.png)
-        const img1 = await assets.get('image', '/player.png');
-        frameTextures[0] = new Texture(img1);
+        const img1 = await assets.getImage('/player.png');
+        frameTextures[0] = Texture.fromImage(img1);
       } catch (e) {
         console.warn('Failed to load player.png, using fallback', e);
       }
 
       try {
         // 加载第二帧 (player1.png)
-        const img2 = await assets.get('image', '/player1.png');
-        frameTextures.push(new Texture(img2));
+        const img2 = await assets.getImage('/player1.png');
+        frameTextures.push(Texture.fromImage(img2));
       } catch (e) {
         console.warn('Failed to load player1.png, using fallback', e);
         // 如果只有一张图片，复制第一帧作为第二帧

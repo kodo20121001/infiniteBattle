@@ -1,0 +1,187 @@
+[
+  {
+    "id": 201,
+    "name": "剑士模型",
+    "type": "2d",
+    "scale": 1.0,
+    "defaultAction": "idle",
+    "actions": [
+      {
+        "name": "idle",
+        "path": "/unit/101/idle",
+        "frameCount": 8,
+        "duration": 1.0,
+        "loop": true
+      },
+      {
+        "name": "run",
+        "path": "/unit/101/run",
+        "frameCount": 8,
+        "duration": 0.8,
+        "loop": true
+      },
+      {
+        "name": "attack",
+        "path": "/unit/101/attack",
+        "frameCount": 6,
+        "duration": 0.6,
+        "loop": false
+      },
+      {
+        "name": "die",
+        "path": "/unit/101/die",
+        "frameCount": 8,
+        "duration": 1.0,
+        "loop": false
+      }
+    ]
+  },
+  {
+    "id": 202,
+    "name": "弓箭手模型",
+    "type": "2d",
+    "scale": 1.0,
+    "defaultAction": "idle",
+    "actions": [
+      {
+        "name": "idle",
+        "path": "/unit/102/idle",
+        "frameCount": 8,
+        "duration": 1.0,
+        "loop": true
+      },
+      {
+        "name": "run",
+        "path": "/unit/102/run",
+        "frameCount": 8,
+        "duration": 0.8,
+        "loop": true
+      },
+      {
+        "name": "attack",
+        "path": "/unit/102/attack",
+        "frameCount": 10,
+        "duration": 1.2,
+        "loop": false
+      },
+      {
+        "name": "die",
+        "path": "/unit/102/die",
+        "frameCount": 8,
+        "duration": 1.0,
+        "loop": false
+      }
+    ]
+  },
+  {
+    "id": 203,
+    "name": "法师模型",
+    "type": "2d",
+    "scale": 1.0,
+    "defaultAction": "idle",
+    "actions": [
+      {
+        "name": "idle",
+        "path": "/unit/103/idle",
+        "frameCount": 8,
+        "duration": 1.2,
+        "loop": true
+      },
+      {
+        "name": "run",
+        "path": "/unit/103/run",
+        "frameCount": 8,
+        "duration": 0.8,
+        "loop": true
+      },
+      {
+        "name": "attack",
+        "path": "/unit/103/attack",
+        "frameCount": 12,
+        "duration": 1.5,
+        "loop": false
+      },
+      {
+        "name": "die",
+        "path": "/unit/103/die",
+        "frameCount": 8,
+        "duration": 1.0,
+        "loop": false
+      }
+    ]
+  },
+  {
+    "id": 204,
+    "name": "骑士模型",
+    "type": "2d",
+    "scale": 1.2,
+    "defaultAction": "idle",
+    "actions": [
+      {
+        "name": "idle",
+        "path": "/unit/104/idle",
+        "frameCount": 8,
+        "duration": 1.0,
+        "loop": true
+      },
+      {
+        "name": "run",
+        "path": "/unit/104/run",
+        "frameCount": 8,
+        "duration": 0.7,
+        "loop": true
+      },
+      {
+        "name": "attack",
+        "path": "/unit/104/attack",
+        "frameCount": 8,
+        "duration": 0.8,
+        "loop": false
+      },
+      {
+        "name": "die",
+        "path": "/unit/104/die",
+        "frameCount": 8,
+        "duration": 1.0,
+        "loop": false
+      }
+    ]
+  },
+  {
+    "id": 205,
+    "name": "刺客模型",
+    "type": "2d",
+    "scale": 0.9,
+    "defaultAction": "idle",
+    "actions": [
+      {
+        "name": "idle",
+        "path": "/unit/105/idle",
+        "frameCount": 8,
+        "duration": 1.0,
+        "loop": true
+      },
+      {
+        "name": "run",
+        "path": "/unit/105/run",
+        "frameCount": 8,
+        "duration": 0.6,
+        "loop": true
+      },
+      {
+        "name": "attack",
+        "path": "/unit/105/attack",
+        "frameCount": 5,
+        "duration": 0.5,
+        "loop": false
+      },
+      {
+        "name": "die",
+        "path": "/unit/105/die",
+        "frameCount": 8,
+        "duration": 1.0,
+        "loop": false
+      }
+    ]
+  }
+]
