@@ -1,0 +1,29 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "🎮 启动游戏（正常模式）",
+            "url": "http://localhost:5173",
+            "webRoot": "${workspaceFolder}"
+        },
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "🛠️ 编辑器中心",
+            "url": "http://localhost:5173?mode=editor",
+            "webRoot": "${workspaceFolder}"
+        },
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "⚔️ 技能行为编辑器",
+            "url": "http://localhost:5173?mode=editor&type=skill-behavior",
+            "webRoot": "${workspaceFolder}"
+        },
+    ]
+}
