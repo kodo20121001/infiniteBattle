@@ -1,15 +1,15 @@
-import { Node } from "cc";
-import { Mathf } from '../../../utils/Mathf';
 import { Runtime } from "../Runtime"
 import { FixedVector2 } from "../base/fixed/FixedVector2";
 import { one_frame_time } from "../Def";
+import { transform3dTo2d, transformHeightToScreenY } from "../base/PositionTransform";
+import { angleToDirection, vec2Lerp } from "../base/AngleUtils";
 
 export class TransformSync {
 
     object : any;
     actor : any;
     skt : Node;
-    init;  
+    init: boolean = false;  
 
     constructor(object, actor, skt?) {
         this.object = object; 
@@ -27,13 +27,13 @@ export class TransformSync {
 
         if(this.object)
         {
-            let pos = Mathf.transform3dTo2d([this.actor.pos.x, this.actor.pos.y, 0]);
+            let pos = transform3dTo2d([this.actor.pos.x, this.actor.y, this.actor.pos.y]);
             if(this.actor.offset)
             {
                 pos[0] += this.actor.offset[0];
                 pos[1] += this.actor.offset[1];
             }
-            let posY = pos[1] + Mathf.transformYToPosY(this.actor.y);
+            let posY = pos[1] + transformHeightToScreenY(this.actor.y);
 
             if(this.init)
             {
@@ -42,14 +42,14 @@ export class TransformSync {
             }
             else
             {
-                let lerp = Mathf.lerp(this.object.position, {x: pos[0], y: posY}, 1 / (60 * one_frame_time));
+                let lerp = vec2Lerp(this.object.position, {x: pos[0], y: posY}, 1 / (60 * one_frame_time));
                 this.object.setPosition(lerp.x, lerp.y);
             }
         }
 
         if(this.skt)
         {
-            const dir = Mathf.getDir(this.actor.angleY)
+            const dir = angleToDirection(this.actor.angleY)
             
             // 根据angleY来决定朝向
             if (dir <= 2) {

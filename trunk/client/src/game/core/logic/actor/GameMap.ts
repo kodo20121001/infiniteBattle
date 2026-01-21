@@ -1,12 +1,15 @@
-import { map } from "../../../../module/home/MapData";
-import { Mathf } from "../../../../utils/Mathf";
+
 import { Runtime } from "../../Runtime";
 import { FixedVector2 } from "../../base/fixed/FixedVector2";
 import { Actor } from "./Actor";
+import { getMapConfig, MapConfig } from "../../config/MapConfig";
+import type { MapPath, MapPoint } from "../../config/MapConfig";
 
 export class GameMap extends Actor
 {
-    positions
+    private mapId: number = 1; // 地图ID，写死为1
+    private mapConfig: MapConfig | undefined;
+    positions = {}
     paths = {}
     atkPaths = []
     defPaths = []
@@ -17,30 +20,82 @@ export class GameMap extends Actor
     {
         Runtime.map = this
 
-        this.paths["101"] = 
-        {
-            0 : [this.setPath(14288), this.setPath(14884), this.setPath(15676)],
-            1 : [this.setPath(14291), this.setPath(14887), this.setPath(15679)],
-            2 : [this.setPath(14294), this.setPath(14890), this.setPath(15682)],
-        }
-        this.paths["201"] =
-        {
-            0 : [this.setPath(20747), this.setPath(22770), this.setPath(22771), this.setPath(22772), this.setPath(22773)],
-            1 : [this.setPath(20747), this.setPath(22770), this.setPath(22771), this.setPath(22772), this.setPath(22773)],
-            2 : [this.setPath(20747), this.setPath(22770), this.setPath(22771), this.setPath(22772), this.setPath(22773)],
-        }
-
-        this.positions = 
-        {
-            [1]: {
-                [1]: new FixedVector2(-15, 0)
-            },
-        }
-
-        this.InitAtkAndDefPath();
-        this.InitCanMovePaths();
+        // 从配置中加载地图数据
+        this.loadMapConfig();
 
         super.StartLogic()
+    }
+
+    /**
+     * 从配置中加载地图数据
+     */
+    private loadMapConfig() {
+        this.mapConfig = getMapConfig(this.mapId);
+        if (!this.mapConfig) {
+            console.error(`地图配置 ID ${this.mapId} 未找到`);
+            return;
+        }
+
+        // 从配置加载路径数据
+        this.loadPaths();
+
+        // 从配置加载位置数据
+        this.loadPositions();
+    }
+
+    /**
+     * 从配置加载路径数据
+     */
+    private loadPaths() {
+        if (!this.mapConfig || !this.mapConfig.paths) {
+            console.warn('地图配置中没有路径数据');
+            return;
+        }
+
+        // 按路径ID分组
+        for (const mapPath of this.mapConfig.paths) {
+            if (!this.paths[mapPath.id]) {
+                this.paths[mapPath.id] = {};
+            }
+            
+            // 将路径点转换为 FixedVector2
+            const pathPoints = mapPath.points.map(point => 
+                new FixedVector2(point.x, point.y)
+            );
+
+            // 使用路径名称作为子键（如果没有名称则使用0）
+            const pathKey = mapPath.name || '0';
+            this.paths[mapPath.id][pathKey] = pathPoints;
+        }
+
+        console.log('加载路径数据:', this.paths);
+    }
+
+    /**
+     * 从配置加载位置数据
+     */
+    private loadPositions() {
+        if (!this.mapConfig || !this.mapConfig.points) {
+            console.warn('地图配置中没有位置数据');
+            this.positions = {};
+            return;
+        }
+
+        this.positions = {};
+
+        // 将点转换为位置数据
+        for (const point of this.mapConfig.points) {
+            const pointId = point.id ?? 0;
+            
+            // 以点ID作为键，存储为 region 1 的位置
+            if (!this.positions[1]) {
+                this.positions[1] = {};
+            }
+            
+            this.positions[1][pointId] = new FixedVector2(point.x, point.y);
+        }
+
+        console.log('加载位置数据:', this.positions);
     }
     
 
@@ -57,96 +112,5 @@ export class GameMap extends Actor
     GetPosition(region, positionName)
     {
         return {pos: this.positions[region][positionName].clone(), angleY: 0}
-    }
-
-    InitAtkAndDefPath()
-    {
-        const atkNodes = Runtime.configs.Get('map')['atkNode']
-        atkNodes.forEach((node, index) => {
-            let pos = this.GetGrid(node.id);
-            pos.push(node.angle);
-            this.atkPaths.push(pos)
-        })
-        const defNodes = Runtime.configs.Get('map')['defNode']
-        defNodes.forEach((node, index) => {
-            let pos = this.GetGrid(node.id);
-            pos.push(node.angle);
-            this.defPaths.push(pos)
-        })
-    }
-
-    InitCanMovePaths()
-    {
-        this.obstacles = map.GetMapBakingData();
-        if(!this.obstacles || this.obstacles.length <= 0)
-            return;
-
-        this.obstacles.forEach(obstacle => {
-            Runtime.gameGrids.InsertObstacle(obstacle)
-        })
-
-    }
-
-    GetAtkPosition(index): any
-    {
-        return index < this.atkPaths.length ? this.atkPaths[index] : null;
-    }
-
-    GetDefPosition(index): any
-    {
-        return index < this.defPaths.length ? this.defPaths[index] : null;
-    }
-
-    GetBuildingInfo(id):any
-    {
-        let buildings = Runtime.configs.Get('map')['buildings'];
-        let buildingInfo = {}
-        buildings.forEach(building => {
-            if(building.buildingId == id)
-            {
-                let pos = Mathf.transform2dTo3d([building.x, building.y]);
-                let location = map.GetGrid(building.location);
-                const boundData : [number, number][] = [];
-                building.bounds.forEach(bound => {
-                    let node = map.GetGrid(bound);
-                    boundData.push([node.gx - location.gx, node.gy - location.gy]);
-                })
-                let radius = Math.sqrt(boundData.length) / 2 //todo
-                radius = radius * 0.88;
-                buildingInfo = {pos: pos, bounds: boundData, radius: radius};
-                return;
-            }
-        });
-        return buildingInfo;
-    }
-
-    private GetGrid(id):any
-    {
-        let node = map.GetGrid(id);
-        if(node == undefined)
-            return null;
-        let pos = Mathf.transform2dTo3d([node.x, node.y]);
-        return pos;
-    }
-
-    CanMove(pos)
-    {
-        let point = Mathf.transform3dTo2d([pos.x, pos.y, 0]);
-        let info = map.HitTestNode(point[0], point[1]);
-        if(info && info.length >= 3)
-        {
-            if(info[3]['type'] == 0)
-                return true;
-            else
-                return false;
-        }
-
-        return false;
-    }
-
-    private setPath(point: number)
-    {
-        let pos = this.GetGrid(point)
-        return new FixedVector2(pos[0], pos[1]);
     }
 }

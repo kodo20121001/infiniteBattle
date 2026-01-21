@@ -1,4 +1,4 @@
-import { Mathf } from "../../engine/util/Mathf";
+import { angleToDirection } from "../base/AngleUtils";
 import { ActorType, AttackInfo, CreateContext, one_frame_time } from "../Def";
 import { Runtime } from "../Runtime";
 import { FixedVector2 } from "../base/fixed/FixedVector2";
@@ -194,7 +194,7 @@ export enum FrameType {
         let offsetY = bulletData.FireOffset[1];
         let offsetZ = bulletData.FireOffset[2] ? bulletData.FireOffset[2] : 0;
   
-        const dir = Mathf.getDir(angleY);
+        const dir = angleToDirection(angleY);
         offsetX = dir === 3 || dir === 4 ? -offsetX : offsetX;
         offsetY = dir === 2 || dir === 3 ? -offsetY : offsetY;
   

@@ -5,14 +5,9 @@ import { Component } from "./Component";
 import { FixedVector2 } from "../../base/fixed/FixedVector2";
 import { ActorType, GridToPosition, PositionToGrid, unit_move_block_wait_time, unit_move_min_step, unit_move_step, unit_search_target_interval_time, unit_chase_target_interval_time, one_frame_time, unit_turn_to_target_interval_time, unit_avoid_block_walk_time, unit_skill_pos_ratio, unit_chase_target_time_one_times, unit_move_to_skill_pos_min_dis, unit_try_cast_skill_interval_time } from "../../Def";
 import { aStar, smoothPath } from "../../util/AStar";
-import { debugArray } from "../../util/Debug";
 import { Skill } from "../Skill";
-import { getBattleAttributes } from '../../../../module/roleModule/AttributeConst';
-import { Attr } from '../../../../manager/CfgMgr';
 import { BattleAttributes, PrimaryAttr, SecondaryAttr } from './BattleAttributes';
 import { BattleCalculator, BattleDamageInfo } from "./BattleCalculator";
-import { ConfigManager } from "../../../../common/ConfigManager";
-import { FrameType } from "../../../../module/home/SkillStruct";
 import { PassiveSkillTrigger } from "./PassiveSkills";
 
 export class UnitBehavior extends Component
@@ -88,7 +83,7 @@ export class UnitBehavior extends Component
         }
 
         this.UpdateBeHit()
-        if (this.owner.hp <= 0)
+        if (this.owner.hp < 0)
         {
             this.Die()
             return

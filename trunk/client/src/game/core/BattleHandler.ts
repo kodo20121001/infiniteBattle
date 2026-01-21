@@ -1,4 +1,4 @@
-import Logger from "../../utils/Logger";
+import { Logger } from "../engine/common";
 import { Runtime } from "./Runtime";
 //import { RoomLogic } from "../player/logic/Room";
 

@@ -1,9 +1,6 @@
-import { instantiate, Node, path, Prefab, sp, Sprite } from 'cc';
-import { ResMgr } from "../../../manager/ResMgr";
 import { Effect } from "./Effect";
-import { HomeScene } from "../../../module/home/HomeScene";
 import { BulletView } from "./BulletView";
-import { SpriteLabel } from '../../../utils/SpriteLabel';
+import { SpriteLabel } from "../../engine/base/SpriteLabel";
 
 export class GameObjectPool {
 
@@ -18,25 +15,25 @@ export class GameObjectPool {
 
     constructor()
     {
-      this.poolLay = new Node("PoolLay");
-      this.poolLay.active = false;
-      HomeScene.ins.AddEntity(this.poolLay);
+      // this.poolLay = new Node("PoolLay");
+      // this.poolLay.active = false;
+      // HomeScene.ins.AddEntity(this.poolLay);
 
-      this.effectLay = new Node("EffectLay");
-      this.effectLay.layer = 1;
-      this.effectLay.setPosition(0, 1);
-      HomeScene.ins.AddEntity(this.effectLay);
+      // this.effectLay = new Node("EffectLay");
+      // this.effectLay.layer = 1;
+      // this.effectLay.setPosition(0, 1);
+      // HomeScene.ins.AddEntity(this.effectLay);
 
-      this.effectBgLay = new Node("effectBgLay");
-      this.effectBgLay.layer = 1;
-      this.effectBgLay.setPosition(0, 100000);
-      HomeScene.ins.AddEntity(this.effectBgLay);
+      // this.effectBgLay = new Node("effectBgLay");
+      // this.effectBgLay.layer = 1;
+      // this.effectBgLay.setPosition(0, 100000);
+      // HomeScene.ins.AddEntity(this.effectBgLay);
 
 
-      this.uiLay = new Node("UILay");
-      this.uiLay.layer = 1;
-      this.uiLay.setPosition(0, 0);
-      HomeScene.ins.AddEntity(this.uiLay);
+      // this.uiLay = new Node("UILay");
+      // this.uiLay.layer = 1;
+      // this.uiLay.setPosition(0, 0);
+      // HomeScene.ins.AddEntity(this.uiLay);
     }
     // // 存储音效对象的池
     // private soundEffectsPool: SoundEffect[] = [];

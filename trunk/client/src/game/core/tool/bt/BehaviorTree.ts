@@ -1,7 +1,6 @@
 
 import {BtNode, BtRet} from './BtNode'
 import { BtFactoryInst } from './BtFactory'
-import { Runtime } from '../../Runtime'
 
 export class BehaviorTree {
 
@@ -35,10 +34,8 @@ export class BehaviorTree {
             this.isOver = true
     }
 
-    static Create(name)
+    static Create(config: any)
     {
-        let config = Runtime.configs.Get(name)
-        
         var bt = new BehaviorTree()
         bt.rootNode = BtFactoryInst.CreateNode(bt, config.type, config.data, config.children)
 

@@ -1,3 +1,5 @@
+import { Configs } from "../../common/Configs";
+
 /**
  * 模型类型枚举
  */
@@ -28,13 +30,6 @@ export interface ModelConfig {
     actions: ModelAction[];    // 所有动作列表
     scale?: number;            // 默认缩放
     defaultAction?: string;    // 默认动作
-}
-
-// 避免循环依赖，后续动态导入
-let Configs: any;
-
-export function setConfigsModule(cm: any) {
-    Configs = cm;
 }
 
 /**

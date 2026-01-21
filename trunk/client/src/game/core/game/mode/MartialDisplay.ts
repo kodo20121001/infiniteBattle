@@ -1,9 +1,9 @@
 import { ActorType, CreateContext, map_grid_size } from "../../Def";
 import { Runtime } from "../../Runtime"
 import { FixedVector2 } from "../../base/fixed/FixedVector2";
+import { getUnitConfig } from "../../config/UnitConfig";
 import { SecondaryAttr, BattleAttrScale } from "../../logic/component/BattleAttributes";
 import { Actor } from "../../logic/actor/Actor";
-import { ConfigManager } from "../../../../common/ConfigManager";
 
 
 // 演武模式
@@ -39,7 +39,7 @@ export class MartialDisplay {
         let camp = 1;
         let group = camp * 101;
 
-        let config = Runtime.configs.Get("role_type")[roleType];
+        let config = getUnitConfig(roleType);
         let pos = Runtime.map.GetAtkPosition(0);
         let context: CreateContext = {
             actorType: ActorType.hero,
@@ -81,7 +81,7 @@ export class MartialDisplay {
         {
             let group = camp * 100 + i;
 
-            let config = Runtime.configs.Get("role_type")[101];
+            let config = getUnitConfig(101);
             let pos = Runtime.map.GetAtkPosition(i);
             let context: CreateContext = {
                 actorType: ActorType.hero,
@@ -105,7 +105,7 @@ export class MartialDisplay {
         {
             let group = camp * 100 + i;
 
-            let config = Runtime.configs.Get("role_type")[101];
+            let config = getUnitConfig(101);
             let pos = Runtime.map.GetDefPosition(i);
             let context: CreateContext = {
                 actorType: ActorType.hero,

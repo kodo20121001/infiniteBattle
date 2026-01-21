@@ -6,6 +6,7 @@ import { AnimationClip } from "../../engine/base/AnimationClip";
 import { assets } from "../../engine/common/Assets";
 import { getModelConfig, getModelActions } from "../config/ModelConfig";
 import { getUnitConfig } from "../config/UnitConfig";
+import { World } from "../../engine/common/World";
 import { TransformSync } from './TransformSync';
 import { SpriteManager } from "../../engine/common";
 
@@ -21,9 +22,11 @@ export class UnitView2D {
         }
 
         // 异步加载动作，不阻塞 Start
-        this.loadAndInitialize(this.actor.unitType).catch(err => {
+        this.loadAndInitialize(this.actor.createContext.unitType).catch(err => {
             console.error('Failed to load unit animations:', err);
         });
+
+        
     }
 
     private async loadAndInitialize(unitType: number) {
@@ -81,6 +84,14 @@ export class UnitView2D {
             this.sprite = new AnimatedSprite2D(clips);
             this.sprite.setPosition(0, 0);
 
+            // 添加精灵到 World
+            try {
+                const world = World.getInstance();
+                world.getSpriteManager().add(`unit_${this.actor?.actorId}`, this.sprite);
+            } catch (err) {
+                console.warn('Failed to add sprite to World:', err);
+            }
+
             // 获取默认动作并播放
             const defaultAction = modelConfig.defaultAction || clips[0].name;
             this.sprite.play(defaultAction, true);
@@ -96,22 +107,14 @@ export class UnitView2D {
                     }
                 };
             }
-
-            // 添加到显示对象
-            // SpriteManager.a
-            // if (Runtime.stage) {
-            //     Runtime.stage.addChild(this.sprite as any);
-            // }
         } catch (error) {
             console.error('UnitView2D initialization failed:', error);
         }
     }
 
     Update() {
-        const delta = Runtime.ticker.deltaTime;
-
         if (this.sprite) {
-            this.sprite.update(delta);
+            this.sprite.update();
         }
         if (this.tranSync) {
             this.tranSync.update();

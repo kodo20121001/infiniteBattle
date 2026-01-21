@@ -1,6 +1,6 @@
-import { _decorator, Component, Graphics, Vec2, sys, Color,Node } from 'cc';
-import { Mathf } from '../../../utils/Mathf';
-const { ccclass, property } = _decorator;
+import { Component, Graphics, Vec2 } from 'cc';
+
+const ANGLE = 53.13010235415598; // 等距投影角度
 
 @ccclass('DrawLine')
 export class DrawLine extends Component {
@@ -99,7 +99,7 @@ export class DrawLine extends Component {
                         this.drawEllipse(drawing.center, drawing.radius, graphics);
                         break;
                     case 'rhombus' :
-                        this.drawRhombus(drawing.center, drawing.radius, Mathf.ANGLE, graphics);
+                        this.drawRhombus(drawing.center, drawing.radius, ANGLE, graphics);
                         break;
                 }
                 graphics.stroke(); // 绘制线条
@@ -147,7 +147,7 @@ export class DrawLine extends Component {
     }
 
     private drawEllipse(center: Vec2, radius: number, graphics: Graphics) {
-        graphics.ellipse(center.x, center.y, radius, radius * Math.tan(Mathf.ANGLE / 2 * Math.PI / 180));
+        graphics.ellipse(center.x, center.y, radius, radius * Math.tan(ANGLE / 2 * Math.PI / 180));
     }
 
 }

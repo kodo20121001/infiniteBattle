@@ -1,5 +1,4 @@
-
-import Logger from "../../../../utils/Logger";
+import { Logger } from "../../../engine/common";
 import FixedMaths, {} from "./FixedMaths"
 
 export class FixedVector2 {

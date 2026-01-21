@@ -4,9 +4,12 @@
  * - position：相机在世界中的位置（世界坐标 x, y, z）
  * - zoom：缩放倍数
  */
+
+import { Vector3 } from './Vector3';
+
 export class Camera2D {
-    private _position = { x: 0, y: 0, z: 0 };
-    private _targetPosition = { x: 0, y: 0, z: 0 };
+    private _position = new Vector3(0, 0, 0);
+    private _targetPosition = new Vector3(0, 0, 0);
     private _zoom = 1;
     private _smoothing = 0.15; // 平滑跟随系数 (0-1)
 
@@ -40,8 +43,8 @@ export class Camera2D {
     /**
      * 获取位置（世界坐标）
      */
-    get position() {
-        return { ...this._position };
+    get position(): Vector3 {
+        return this._position;
     }
 
     /**
@@ -172,8 +175,8 @@ export class Camera2D {
      * 重置相机
      */
     reset(): void {
-        this._position = { x: 0, y: 0, z: 0 };
-        this._targetPosition = { x: 0, y: 0, z: 0 };
+        this._position = new Vector3(0, 0, 0);
+        this._targetPosition = new Vector3(0, 0, 0);
         this._zoom = 1;
     }
 

@@ -1,5 +1,4 @@
 import { Actor } from "../logic/actor/Actor";
-import { Node } from 'cc';
 
 export class Audio  {
 

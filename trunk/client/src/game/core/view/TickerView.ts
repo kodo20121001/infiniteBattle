@@ -1,6 +1,4 @@
-import { _decorator, math, Node, randomRange, tween, Vec3 } from 'cc';
-import { SpriteLabel } from '../../../utils/SpriteLabel';
-import { Mathf } from '../../../utils/Mathf';
+import { transform3dTo2d } from "../base/PositionTransform";
 import { Runtime } from '../Runtime';
 
 export class TickerView {
@@ -37,7 +35,7 @@ export class TickerView {
 
         label.string =  number > 0 ? "+" + Math.ceil(number).toString()  : Math.floor(number).toString();
         
-        let posView = Mathf.transform3dTo2d([data.pos.x, data.pos.y, 0]);
+        let posView = transform3dTo2d([data.pos.x, data.hitY || 0, data.pos.y]);
         if(data.offset)
         {
             posView[1] += data.offset * 1.3 + randomRange(-0.2, 0.2) * 64;

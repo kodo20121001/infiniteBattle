@@ -1,4 +1,6 @@
 import { Texture } from './Texture';
+import { Vector2 } from './Vector2';
+import { Vector3 } from './Vector3';
 
 /**
  * Sprite2D - 2D 精灵类
@@ -6,10 +8,10 @@ import { Texture } from './Texture';
  * z坐标用于深度排序和视觉层次
  */
 export class Sprite2D {
-    protected _position = { x: 0, y: 0, z: 0 };
-    protected _scale = { x: 1, y: 1 };
+    protected _position: Vector3 = new Vector3(0, 0, 0);
+    protected _scale: Vector2 = new Vector2(1, 1);
     protected _rotation = 0;
-    protected _anchor = { x: 0.5, y: 0.5 };
+    protected _anchor: Vector2 = new Vector2(0.5, 0.5);
     protected _alpha = 1;
     protected _visible = true;
     protected _destroyed = false;
@@ -54,14 +56,22 @@ export class Sprite2D {
     /**
      * 位置（3D坐标）
      */
-    get position() {
-        return { ...this._position };
+    get position(): Vector3 {
+        return this._position;
+    }
+
+    set position(value: Vector3) {
+        this._position = value.clone();
     }
 
     setPosition(x: number, y: number, z: number = 0): void {
         this._position.x = x;
         this._position.y = y;
         this._position.z = z;
+    }
+
+    getPosition(): Vector3 {
+        return this._position;
     }
 
     /**
@@ -100,13 +110,21 @@ export class Sprite2D {
     /**
      * 缩放
      */
-    get scale() {
-        return { ...this._scale };
+    get scale(): Vector2 {
+        return this._scale;
+    }
+
+    set scale(value: Vector2) {
+        this._scale = value.clone();
     }
 
     setScale(x: number, y: number): void {
         this._scale.x = x;
         this._scale.y = y;
+    }
+
+    getScale(): Vector2 {
+        return this._scale;
     }
 
     /**
@@ -123,13 +141,21 @@ export class Sprite2D {
     /**
      * 锚点 (0-1)
      */
-    get anchor() {
-        return { ...this._anchor };
+    get anchor(): Vector2 {
+        return this._anchor;
+    }
+
+    set anchor(value: Vector2) {
+        this._anchor = value.clone();
     }
 
     setAnchor(x: number, y: number): void {
         this._anchor.x = x;
         this._anchor.y = y;
+    }
+
+    getAnchor(): Vector2 {
+        return this._anchor;
     }
 
     /**

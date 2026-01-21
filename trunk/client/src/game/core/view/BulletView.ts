@@ -1,8 +1,6 @@
-import { HomeScene } from "../../../module/home/HomeScene";
 import { Actor } from "../logic/actor/Actor";
 import { Runtime } from "../Runtime";
 import { Effect } from "./Effect";
-import { Node} from "cc";
 import { TransformSync } from "./TransformSync";
 
 export class BulletView  {

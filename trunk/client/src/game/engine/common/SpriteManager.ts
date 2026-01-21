@@ -74,6 +74,17 @@ export class SpriteManager {
     }
 
     /**
+     * 更新所有精灵
+     */
+    update(): void {
+        for (const sprite of this.spriteList) {
+            if (!sprite.destroyed && typeof sprite.update === 'function') {
+                sprite.update();
+            }
+        }
+    }
+
+    /**
      * 渲染所有精灵（支持 WebGL）
      */
     render(gl: WebGL2RenderingContext): void {

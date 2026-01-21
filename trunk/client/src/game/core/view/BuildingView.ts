@@ -1,10 +1,6 @@
-import { instantiate, Prefab, ProgressBar, Node, sp, Vec3 } from "cc";
 import { Actor } from "../logic/actor/Actor";
-import { AnimationSpine } from "./AnimationSpine";
 import { TransformSync } from "./TransformSync";
-import { HomeScene } from "../../../module/home/HomeScene";
-import { ResMgr } from "../../../manager/ResMgr";
-import { Mathf } from "../../../utils/Mathf";
+import { transform3dTo2d } from "../base/PositionTransform";
 import { Runtime } from "../Runtime";
 import { BuffType } from "../logic/component/Buffs";
 import { Effect } from "./Effect";
@@ -99,7 +95,7 @@ export class BuildingView {
         let self = this
         let prefab: Prefab = await ResMgr.GetResources<Prefab>(res);
         self.transform = instantiate(prefab);
-        let pos = Mathf.transform3dTo2d([self.actor.pos.x, self.actor.pos.y, 0]);
+        let pos = transform3dTo2d([self.actor.pos.x, self.actor.y || 0, self.actor.pos.y]);
         self.transform.setPosition(pos[0], pos[1]);
         let scale = self.actor.scale;
         self.transform.setScale(scale, scale);

@@ -1,13 +1,20 @@
 import { ActorType, CreateContext, map_grid_size } from "../../Def";
 import { Runtime } from "../../Runtime"
 import { FixedVector2 } from "../../base/fixed/FixedVector2";
+import { getUnitConfig } from "../../config/UnitConfig";
 import { SecondaryAttr, BattleAttrScale } from "../../logic/component/BattleAttributes";
 import { Actor } from "../../logic/actor/Actor";
-import { ConfigManager } from "../../../../common/ConfigManager";
+import { BtRet } from "../../tool/bt/BtNode";
+import { Configs } from "../../../common/Configs";
 
 
 // 技能编辑器模式
 export class SkillEditor {
+
+    bt_config = {
+        type: 'BtNodeFirstResponseSuccess', children: [
+        ]
+    }
 
     onInitHeroFinish; // 初始化攻击方阵容后回调
     onBattleOver;
@@ -27,7 +34,7 @@ export class SkillEditor {
 
     InitRoleBattle() {
         this.AddAttacker(101);
-        this.AddDefender(102);
+        //this.AddDefender(102);
 
         if (this.onInitHeroFinish)
             this.onInitHeroFinish();
@@ -37,8 +44,8 @@ export class SkillEditor {
         let camp = 1;
         let group = camp * 101;
 
-        let config = Runtime.configs.Get("role_type")[roleType];
-        let pos = Runtime.map.GetAtkPosition(0);
+        let config = Configs.Get("unit")[roleType];
+        let pos = Runtime.map.GetPosition(1, 1);
         let context: CreateContext = {
             actorType: ActorType.hero,
             unitType: roleType,
@@ -49,8 +56,8 @@ export class SkillEditor {
             scale: 1,
             group: group,
             skillSlotId: 0,
-            skills: Runtime.configs.GetSkillIds(config),
-            passiveSkills: config.passive_skills,
+            skills: config.skillIds,
+            passiveSkills: [],
         };
 
         this.attacker = Runtime.gameLogic.CreateActor(context);
@@ -60,7 +67,7 @@ export class SkillEditor {
         let camp = 2;
         let group = camp * 101;
 
-        let config = Runtime.configs.Get("role_type")[roleType];
+        let config = getUnitConfig(roleType);
         let pos = Runtime.map.GetDefPosition(0);
         let context: CreateContext = {
             actorType: ActorType.hero,
@@ -103,6 +110,8 @@ export class SkillEditor {
     }
 
     initAttr(config: any) {
+        return
+
         let attr: any = {};
         let secondaryAttr = {};
 

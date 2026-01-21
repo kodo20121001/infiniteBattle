@@ -1,4 +1,3 @@
-import { ConfigManager } from "../../common/ConfigManager"
 import { AbstractGame } from "./game/Game"
 import { Collector } from "./logic/Collector"
 import { GameGrids } from "./logic/GameGrids_grid"
@@ -24,7 +23,7 @@ export class Runtime {
     static collector: Collector
 
     //==========================================================================================
-    static gameView:GameView
+    static gameView: GameView
     static camera2D: Camera2D  // 2D Camera instance
     static ticker: any  
     //==========================================================================================

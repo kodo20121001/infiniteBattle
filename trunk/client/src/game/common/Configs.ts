@@ -8,7 +8,7 @@ interface IConfigManager {
 /**
  * Configs - 静态配置管理器
  * 类似 Assets，提供全局配置访问接口
- * 仅管理 unit 和 model 两个配置表
+ * 管理 unit、model 和 map 配置表
  */
 export class Configs {
     private static configs: any = {};
@@ -20,6 +20,7 @@ export class Configs {
     static init(configManager: IConfigManager) {
         Configs.configs['unit'] = configManager.Get('unit');
         Configs.configs['model'] = configManager.Get('model');
+        Configs.configs['map'] = configManager.Get('map');
     }
 
     /**

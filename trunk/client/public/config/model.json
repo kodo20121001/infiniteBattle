@@ -12,27 +12,6 @@
         "frameCount": 8,
         "duration": 1.0,
         "loop": true
-      },
-      {
-        "name": "run",
-        "path": "/unit/101/run",
-        "frameCount": 8,
-        "duration": 0.8,
-        "loop": true
-      },
-      {
-        "name": "attack",
-        "path": "/unit/101/attack",
-        "frameCount": 6,
-        "duration": 0.6,
-        "loop": false
-      },
-      {
-        "name": "die",
-        "path": "/unit/101/die",
-        "frameCount": 8,
-        "duration": 1.0,
-        "loop": false
       }
     ]
   },

@@ -159,7 +159,7 @@ export class GameLogic
             })
 
         Runtime.battleModule.InitBattleActor()
-        this.battleProcess = BehaviorTree.Create('battleProcess')
+        this.battleProcess = BehaviorTree.Create(Runtime.battleModule.bt_config)
 
         this.battleProcess.Start({
             gameLogic: this,

@@ -1,6 +1,7 @@
 import { Sprite2D } from './Sprite2D';
 import { AnimationClip } from './AnimationClip';
 import { assets } from '../common/Assets';
+import { Time } from '../common/Time';
 
 /**
  * AnimatedSprite2D - 动画精灵
@@ -27,6 +28,13 @@ export class AnimatedSprite2D extends Sprite2D {
       throw new Error('AnimatedSprite2D requires at least one AnimationClip');
     }
     
+    // 设置第一个 clip 为当前 clip 并调用 super
+    const firstClip = clipsArray[0];
+    super(firstClip.frames[0]);
+    
+    // 调用 super 之后才能使用 this
+    this.currentClip = firstClip;
+    
     // 注册所有 clips
     clipsArray.forEach(clip => {
       if (!clip || clip.getFrameCount() === 0) {
@@ -34,10 +42,6 @@ export class AnimatedSprite2D extends Sprite2D {
       }
       this.clips.set(clip.name, clip);
     });
-    
-    // 设置第一个 clip 为当前 clip
-    this.currentClip = clipsArray[0];
-    super(this.currentClip.frames[0]);
   }
 
   /**
@@ -85,7 +89,8 @@ export class AnimatedSprite2D extends Sprite2D {
     this.currentFrameIndex = 0;
     this.frameTime = 0;
     this.setTexture(clip.frames[0]);
-    this.play(loop);
+    this.isPlaying = true;
+    this.isLooping = loop;
     return true;
   }
 
@@ -181,11 +186,12 @@ export class AnimatedSprite2D extends Sprite2D {
   /**
    * 更新动画状态
    */
-  update(deltaTime: number): void {
+  update(): void {
     if (!this.isPlaying || this.currentClip.frames.length <= 1) {
       return;
     }
 
+    const deltaTime = Time.deltaTime;
     const frameDuration = this.currentClip.getFrameDuration();
     this.frameTime += deltaTime;
 

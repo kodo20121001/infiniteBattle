@@ -1,6 +1,7 @@
 import { ActorType, one_frame_time, unit_move_min_step, unit_move_step } from "../../Def";
 import { Runtime } from "../../Runtime";
 import { FixedVector2 } from "../../base/fixed/FixedVector2";
+import { getUnitConfig } from "../../config/UnitConfig";
 import { BattleAttributes, PrimaryAttr, SecondaryAttr } from "../component/BattleAttributes";
 import { Buffs } from "../component/Buffs";
 import { PassiveSkills } from "../component/PassiveSkills";
@@ -72,10 +73,10 @@ export class Unit extends Actor
 
     StartLogic()
     {
-        this.unitTypeConfig = Runtime.configs.Get('role_type')[this.createContext.unitType]
+        this.unitTypeConfig = getUnitConfig(this.createContext.unitType);
         this.skills = this.createContext.skills;
         this.passiveSkills = this.createContext.passiveSkills? this.createContext.passiveSkills : undefined;
-        this.hitY = this.unitTypeConfig.BehitPoint
+        this.hitY = this.unitTypeConfig.hitY
         console.assert(this.unitTypeConfig, this.createContext.unitType)
 
         let pos = new FixedVector2(this.createContext.pos.x, this.createContext.pos.y)
@@ -99,7 +100,7 @@ export class Unit extends Actor
         this.attrs.InitCurHP();
 
         this.turningSpeed = 20 //todo
-        this.sightRange = this.unitTypeConfig.AttackRange
+        this.sightRange = this.unitTypeConfig.sightRange
         this.scale = this.createContext.scale
         
         Runtime.collector.PushUnit(this)

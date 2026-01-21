@@ -4,7 +4,7 @@ import { Unit } from "../actor/Unit";
 import { PrimaryAttr, SecondaryAttr } from './BattleAttributes';
 import { PassiveSkillTrigger } from "./PassiveSkills";
 
-export type BattleDamageInfo = {
+export class BattleDamageInfo {
     value: number;          // 总数值
     hp: number;             // 生命值
     shield: number;         // 护盾值

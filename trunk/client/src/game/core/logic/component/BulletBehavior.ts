@@ -5,7 +5,6 @@ import { FixedVector2 } from "../../base/fixed/FixedVector2";
 import { ActorSearcher } from "../ActorSearcher";
 import { Component } from "./Component";
 import { bullet_move_min_step, bullet_move_step } from "../../Def";
-import { Mathf } from "../../../../utils/Mathf";
 import { Bullet } from "../actor/Bullet";
 import { PassiveSkills, PassiveSkillTrigger } from './PassiveSkills';
 

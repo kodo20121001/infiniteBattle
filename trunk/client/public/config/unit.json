@@ -2,26 +2,41 @@
   {
     "id": 101,
     "name": "剑士",
-    "modelId": 201
+    "modelId": 201,
+    "skillIds": [],
+    "hitY": 1.2,
+    "sightRange": 800
   },
   {
     "id": 102,
     "name": "弓箭手",
-    "modelId": 202
+    "modelId": 202,
+    "skillIds": [2001, 2002],
+    "hitY": 1.0,
+    "sightRange": 1000
   },
   {
     "id": 103,
     "name": "法师",
-    "modelId": 203
+    "modelId": 203,
+    "skillIds": [3001, 3002, 3003, 3004],
+    "hitY": 1.1,
+    "sightRange": 900
   },
   {
     "id": 104,
     "name": "骑士",
-    "modelId": 204
+    "modelId": 204,
+    "skillIds": [4001, 4002],
+    "hitY": 1.5,
+    "sightRange": 700
   },
   {
     "id": 105,
     "name": "刺客",
-    "modelId": 205
+    "modelId": 205,
+    "skillIds": [5001, 5002, 5003],
+    "hitY": 1.0,
+    "sightRange": 850
   }
 ]

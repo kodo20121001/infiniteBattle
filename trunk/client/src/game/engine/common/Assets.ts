@@ -72,9 +72,15 @@ class Assets {
     const images: HTMLImageElement[] = [];
     let index = 0;
 
+    // 提取路径和文件名前缀
+    // 例如: /unit/101/idle -> path=/unit/101/idle, name=idle
+    const lastSlashIndex = basePath.lastIndexOf('/');
+    const folderPath = basePath.substring(0, lastSlashIndex);
+    const namePrefix = basePath.substring(lastSlashIndex + 1);
+
     while (true) {
       try {
-        const url = `${basePath}${index}`;
+        const url = `${basePath}/${namePrefix}${index}.png`;
         const img = await Assets.loadImage(url);
         images.push(img);
         index++;

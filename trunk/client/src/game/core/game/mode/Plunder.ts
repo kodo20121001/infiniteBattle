@@ -1,10 +1,32 @@
 import { ActorType, CreateContext, map_grid_size } from "../../Def";
 import { Runtime } from "../../Runtime"
+import { getUnitConfig } from "../../config/UnitConfig";
 import { GoToCommand } from "../../logic/component/UnitBehavior";
 import { FixedVector2 } from "../../base/fixed/FixedVector2";
+import { BtRet } from "../../tool/bt/BtNode";
 
 
 export class Plunder {
+
+    bt_config = {
+
+        type: 'BtNodeFirstResponseSuccess', children: [
+            {
+                type: 'BtNodeSequence', children: [
+                    {type: 'BtNodeWaitComMethod', data: {com: 'battleModule', call: 'IsPart1Over', params: []}},
+                    {type: 'BtNodeCallComMethod', data: {com: 'battleModule', call: 'GoEnemyHome', params: []}},
+                    {type: 'BtNodeWaitComMethod', data: {com: 'battleModule', call: 'IsMoveOver', params: []}},
+                ], data: {ret: BtRet.bt_ret_failure}
+            },
+            {
+                type: 'BtNodeSequence', children: [
+                    {type: 'BtNodeWaitComMethod', data: {com: 'battleModule', call: 'IsBattleOver', params: []}},
+                    {type: 'BtNodeWaitComMethod', data: {com: 'battleModule', call: 'BattleShow', params: []}},
+                ]
+            }
+        ]
+    }
+
 
     onInitHeroFinish; // 初始化攻击方阵容后回调
     onBattleOver;
@@ -69,7 +91,7 @@ export class Plunder {
             let pos = Runtime.map.GetAtkPosition(i);
             let group = camp * 100 + i;
 
-            let roleConfig = Runtime.configs.Get("role_type")[role.type];
+            let roleConfig = getUnitConfig(role.type);
             let context: CreateContext = {
                 actorType: ActorType.hero,
                 unitType: roleConfig.RoleType,
@@ -112,7 +134,7 @@ export class Plunder {
             if (!role)
                 continue;
 
-            let roleConfig = Runtime.configs.Get("role_type")[role.type];
+            let roleConfig = getUnitConfig(role.type);
             let group = camp * 100 + i;
             let pos = Runtime.map.GetDefPosition(i);
             let context: CreateContext = {
@@ -152,7 +174,7 @@ export class Plunder {
             if(!buildingInfo.pos)
                 continue;
             
-            let unitTypeConfig = Runtime.configs.Get('role_type')[buildingConfig.RoleId];
+            let unitTypeConfig = getUnitConfig(buildingConfig.RoleId);
             if(!unitTypeConfig)
                 continue;
 
@@ -184,7 +206,7 @@ export class Plunder {
 
         let facingBack = !(angle > 90 && angle < 270);
         let dir = facingBack ? 1 : -1;
-        let unitTypeConfig = Runtime.configs.Get("role_type")[soldier.id];
+        let unitTypeConfig = getUnitConfig(soldier.id);
         for(let k = 0; k < 6; k++)
         {
             if (k == 1)

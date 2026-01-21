@@ -1,7 +1,7 @@
-import { SceneCamera } from "../../../module/SceneCamera";
-import { Mathf } from "../../../utils/Mathf";
+import { transform3dTo2d } from "../base/PositionTransform";
+import { vec2Lerp } from "../base/AngleUtils";
 import { ActorType } from "../Def";
-import { Runtime } from "../Runtime"; // 假设这里Runtime正确配置了Three.js的环境
+import { Runtime } from "../Runtime";
 
 export class CameraView {
     
@@ -19,18 +19,18 @@ export class CameraView {
     }
 
     Start(){
-        this.offset = { x: 0, y: 0 };
-        this.scale = 1;
-        const shot = Runtime.configs.Get("camera").Shot;
-        if (shot && shot.length >= 3) {
-            [this.offset.x, this.offset.y, this.scale] = shot;
-        }
-        const cameraPos = SceneCamera.instance.node.position;
-        SceneCamera.Zoom(this.scale);
-        SceneCamera.LookAt(cameraPos.x + this.offset.x, cameraPos.y + this.offset.y);
+        // this.offset = { x: 0, y: 0 };
+        // this.scale = 1;
+        // const shot = Runtime.configs.Get("camera").Shot;
+        // if (shot && shot.length >= 3) {
+        //     [this.offset.x, this.offset.y, this.scale] = shot;
+        // }
+        // const cameraPos = SceneCamera.instance.node.position;
+        // SceneCamera.Zoom(this.scale);
+        // SceneCamera.LookAt(cameraPos.x + this.offset.x, cameraPos.y + this.offset.y);
 
-        this.orthoHeight = SceneCamera.instance.orthoHeight;
-        this.position = { x: cameraPos.x + this.offset.x, y: cameraPos.y + this.offset.y };
+        // this.orthoHeight = SceneCamera.instance.orthoHeight;
+        // this.position = { x: cameraPos.x + this.offset.x, y: cameraPos.y + this.offset.y };
     }
 
 
@@ -77,8 +77,8 @@ export class CameraView {
 
         if(!this.isShake)
         {
-            let pos = Mathf.transform3dTo2d([this.pos.x, this.pos.y, 0]);
-            let lerpPos = Mathf.lerp(SceneCamera.instance.node.position, {x: pos[0] + this.offset.x, y: pos[1] + this.offset.y}, 0.2);
+            let pos = transform3dTo2d([this.pos.x, 0, this.pos.y]);
+            let lerpPos = vec2Lerp(SceneCamera.instance.node.position, {x: pos[0] + this.offset.x, y: pos[1] + this.offset.y}, 0.2);
             SceneCamera.LookAt(lerpPos.x, lerpPos.y);
             this.position = { x: lerpPos.x, y: lerpPos.y };
         }

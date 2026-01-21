@@ -1,12 +1,25 @@
 import { ActorType, CreateContext, map_grid_size } from "../../Def";
 import { Runtime } from "../../Runtime"
+import { getUnitConfig } from "../../config/UnitConfig";
 import { GoToCommand } from "../../logic/component/UnitBehavior";
 import { FixedVector2 } from "../../base/fixed/FixedVector2";
 import { SecondaryAttr, BattleAttrScale } from "../../logic/component/BattleAttributes";
-import { ConfigManager } from "../../../../common/ConfigManager";
 
 // 冒险模式
 export class Adventure {
+
+
+    bt_config  = {
+
+        type: 'BtNodeFirstResponse', children: [
+            {
+                type: 'BtNodeSequence', children: [
+                    {type: 'BtNodeWaitComMethod', data: {com: 'battleModule', call: 'IsBattleOver', params: []}},
+                    {type: 'BtNodeWaitComMethod', data: {com: 'battleModule', call: 'BattleShow', params: []}},
+                ]
+            }
+        ]
+    }
 
 
     onInitHeroFinish; // 初始化攻击方阵容后回调
@@ -61,7 +74,7 @@ export class Adventure {
             if (!role)
                 continue;
     
-            let roleConfig = Runtime.configs.Get("role_type")[role.type];
+            let roleConfig = getUnitConfig(role.type);
             if (!roleConfig)
                 continue;
     
@@ -106,7 +119,7 @@ export class Adventure {
 
             let monsterConfig = Runtime.configs.Get("monster")[info];
     
-            let roleConfig = Runtime.configs.Get("role_type")[monsterConfig.ImageID];
+            let roleConfig = getUnitConfig(monsterConfig.ImageID);
             if (!roleConfig)
                 continue;
 
@@ -147,7 +160,7 @@ export class Adventure {
             
             if(roleConfig.FollowerType.length > monsterConfig.Quality - 1)
             {
-                let soldierConfig = Runtime.configs.Get("role_type")[roleConfig.FollowerType[monsterConfig.Quality - 1]];
+                let soldierConfig = getUnitConfig(roleConfig.FollowerType[monsterConfig.Quality - 1]);
                 this.addMonsterSoldier(soldierConfig, context.camp, pos, context.group, pos[3], monsterConfig["LeaderShip"] * stageConfig["LeaderShipScale"]);
             }
         }
@@ -204,7 +217,7 @@ export class Adventure {
 
         let facingBack = !(angle > 90 && angle < 270);
         let dir = facingBack ? 1 : -1;
-        let unitTypeConfig = Runtime.configs.Get("role_type")[soldier.id];
+        let unitTypeConfig = getUnitConfig(soldier.id);
         for(let k = 0; k < 6; k++)
         {
             if (k == 1)

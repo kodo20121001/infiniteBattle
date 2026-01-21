@@ -1,6 +1,5 @@
 import FixedMaths from "./base/fixed/FixedMaths"
 import { FixedVector2 } from "./base/fixed/FixedVector2"
-import { Actor } from "./logic/actor/Actor"
 
 export class ActorType
 {
@@ -77,7 +76,7 @@ export function GridToPosition(grid) : FixedVector2
     return new FixedVector2(grid.x * map_grid_size, grid.y * map_grid_size)
 }
 
-export type CreateContext = {
+export class CreateContext {
     actorType: number;
     unitType: number;
     camp: number;
@@ -115,9 +114,10 @@ export type CreateContext = {
     tureDamage?:number[]
 }
 
-export type AttackInfo = {
-    hitConfig: any,
-    ratio: number,
-    attacker: Actor,
+export class AttackInfo {
+    hitConfig: any
+    ratio: number
+    attacker: any
     tureDamage?: number[]
 }
+

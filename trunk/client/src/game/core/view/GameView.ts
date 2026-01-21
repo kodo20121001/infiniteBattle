@@ -5,12 +5,10 @@ import { BulletView } from "./BulletView";
 import { CameraView } from "./CameraView";
 import { Effect } from './Effect';
 import { MapView } from "./MapView";
-import {UnitViewSpine} from "./UnitViewSpine";
 import { Audio } from "./Audio";
 import { TickerView } from "./TickerView";
 import { GameObjectPool } from "./GameObjectPool";
-import { AudioGroup, AudioMgr } from "../../../manager/AudioMgr";
-import { folder_sound } from "../../../manager/ResMgr";
+import { UnitView2D } from "./UnitView2D";
 
 
 export class GameView
@@ -28,7 +26,7 @@ export class GameView
         this.cameraView = new CameraView
         this.tickerView = new TickerView
         this.gameObjectPool = new GameObjectPool
-
+        
         Runtime.gameLogic.onCreateActor = this.onCreateActor.bind(this)
         Runtime.gameLogic.onDestroyActor = this.onDestroyActor.bind(this)
         Runtime.gameLogic.onPlayEffect = this.onPlayEffect.bind(this)
@@ -47,7 +45,7 @@ export class GameView
         }
 
         this.cameraView.Start()
-        this.tickerView.Start()
+        //this.tickerView.Start()
     }
 
     Update()
@@ -104,7 +102,7 @@ export class GameView
         let actorView
         if (actor.actorType == ActorType.hero)
         {
-            actorView = new UnitViewSpine()
+            actorView = new UnitView2D()
         }
         else if (actor.actorType == ActorType.map)
         {
@@ -113,7 +111,7 @@ export class GameView
         }
         else if (actor.actorType == ActorType.soldier)
         {
-            actorView = new UnitViewSpine()
+            actorView = new UnitView2D()
         }
         else if (actor.actorType == ActorType.bullet)
         {

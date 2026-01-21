@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "name": "新地图-1",
+    "mapWidth": 1000,
+    "mapHeight": 1000,
+    "gridWidth": 50,
+    "gridHeight": 50,
+    "imageTree": [
+      {
+        "id": 1,
+        "name": "image-1",
+        "x": 0,
+        "y": 0,
+        "path": "/map/82aab099fd819b2b22ed627034c4e766.png"
+      }
+    ],
+    "points": [
+      {
+        "id": 1,
+        "x": 223.35844994617867,
+        "y": 515.6081808396125
+      }
+    ],
+    "paths": [],
+    "triggerAreas": [],
+    "gridCells": []
+  },
+  {
+    "id": 2,
+    "name": "新地图-2",
+    "mapWidth": 1000,
+    "mapHeight": 1000,
+    "gridWidth": 50,
+    "gridHeight": 50,
+    "imageTree": [],
+    "points": [],
+    "paths": [],
+    "triggerAreas": [],
+    "gridCells": [125, 167, 230, 224]
+  }
+]

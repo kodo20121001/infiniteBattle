@@ -1,3 +1,5 @@
+import { Configs } from "../../common/Configs";
+
 /**
  * 单位配置
  */
@@ -5,13 +7,9 @@ export interface UnitConfig {
     id: number;                // 单位ID
     name: string;              // 单位名称
     modelId: number;           // 对应的模型ID
-}
-
-// 避免循环依赖，后续动态导入
-let Configs: any;
-
-export function setConfigsModule(cm: any) {
-    Configs = cm;
+    skillIds: number[];        // 技能ID列表
+    hitY: number;              // 受击点高度
+    sightRange: number;        // 视野范围
 }
 
 /**

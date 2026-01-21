@@ -1,11 +1,8 @@
-import { ResMgr } from "../../../manager/ResMgr";
 import { Actor } from "../logic/actor/Actor";
-import { Node, sp, AnimationClip, path, Component, Prefab, instantiate, isValid } from 'cc';
 import { Runtime } from "../Runtime";
-import { HomeScene } from "../../../module/home/HomeScene";
-import { Mathf } from "../../../utils/Mathf";
+import { transform3dTo2d, transformHeightToScreenY } from "../base/PositionTransform";
 
-export class Effect extends Component {
+export class Effect  {
 
     actor: Actor;
     private $skeBody: sp.Skeleton;
@@ -154,14 +151,14 @@ export class Effect extends Component {
                 break;
         }
 
-        let viewPos = Mathf.transform3dTo2d([data.pos.x, data.pos.y, 0]);
+        let viewPos = transform3dTo2d([data.pos.x, data.hitY || 0, data.pos.y]);
         if (data.Offset && data.Offset.length == 2) {
             viewPos[0] += data.Offset[0];
             viewPos[1] += data.Offset[1];
         }
 
         if(data.hitY)
-            viewPos[1] += Mathf.transformYToPosY(data.hitY);
+            viewPos[1] += transformHeightToScreenY(data.hitY);
 
         if (this.parent) {
             viewPos[0] -= this.parent.position.x;
