@@ -330,4 +330,23 @@ export class Renderer {
     getSpriteManager(): SpriteManager {
         return this.spriteManager;
     }
+
+    /**
+     * 销毁渲染器并释放 WebGL 资源
+     */
+    destroy(): void {
+        // 删除 WebGL 资源
+        if (this.spriteProgram) {
+            this.gl.deleteProgram(this.spriteProgram);
+        }
+        if (this.spriteVAO) {
+            this.gl.deleteVertexArray(this.spriteVAO);
+        }
+        if (this.spriteVBO) {
+            this.gl.deleteBuffer(this.spriteVBO);
+        }
+        if (this.spriteIndexBuffer) {
+            this.gl.deleteBuffer(this.spriteIndexBuffer);
+        }
+    }
 }

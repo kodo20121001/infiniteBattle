@@ -124,10 +124,20 @@ export class MapConfig {
     // 阻挡格列表
     gridCells: GridCell[];     // 阻挡格索引列表
 
+    // 建筑区域格子配置（可选）
+    buildGridWidth?: number;    // 建筑格子宽度
+    buildGridHeight?: number;   // 建筑格子高度
+    buildOffsetX?: number;      // 建筑格子起始 X 偏移
+    buildOffsetY?: number;      // 建筑格子起始 Y 偏移
+    buildGridCells?: GridCell[];// 可建筑格索引列表（行优先）
+
     constructor(id: number, name: string, mapWidth: number, mapHeight: number, 
                 gridWidth: number, gridHeight: number, gridCells: GridCell[],
                 imageTree?: ImageNode[], points?: MapPoint[], paths?: MapPath[],
-                triggerAreas?: TriggerArea[]) {
+                triggerAreas?: TriggerArea[],
+                buildGridWidth?: number, buildGridHeight?: number,
+                buildOffsetX?: number, buildOffsetY?: number,
+                buildGridCells?: GridCell[]) {
         this.id = id;
         this.name = name;
         this.mapWidth = mapWidth;
@@ -139,6 +149,13 @@ export class MapConfig {
         this.points = points;
         this.paths = paths;
         this.triggerAreas = triggerAreas;
+
+        // 建筑区域配置（可选）
+        this.buildGridWidth = buildGridWidth;
+        this.buildGridHeight = buildGridHeight;
+        this.buildOffsetX = buildOffsetX;
+        this.buildOffsetY = buildOffsetY;
+        this.buildGridCells = buildGridCells;
     }
 }
 
@@ -181,6 +198,59 @@ export function getGridCenter(index: number, mapConfig: MapConfig): MapPoint {
     return {
         x: gridX * mapConfig.gridWidth + mapConfig.gridWidth / 2,
         y: gridY * mapConfig.gridHeight + mapConfig.gridHeight / 2
+    };
+}
+
+/**
+ * 计算建筑区域的列数
+ */
+export function getBuildGridCols(mapConfig: MapConfig): number {
+    const bw = mapConfig.buildGridWidth ?? mapConfig.gridWidth;
+    return Math.floor(mapConfig.mapWidth / bw);
+}
+
+/**
+ * 计算建筑区域的行数
+ */
+export function getBuildGridRows(mapConfig: MapConfig): number {
+    const bh = mapConfig.buildGridHeight ?? mapConfig.gridHeight;
+    return Math.floor(mapConfig.mapHeight / bh);
+}
+
+/**
+ * 根据坐标获取建筑格子索引（行优先），若不在建筑区域返回 -1
+ */
+export function getBuildGridIndex(x: number, y: number, mapConfig: MapConfig): number {
+    const bw = mapConfig.buildGridWidth ?? mapConfig.gridWidth;
+    const bh = mapConfig.buildGridHeight ?? mapConfig.gridHeight;
+    const ox = mapConfig.buildOffsetX ?? 0;
+    const oy = mapConfig.buildOffsetY ?? 0;
+    const lx = x - ox;
+    const ly = y - oy;
+    if (lx < 0 || ly < 0) return -1;
+    const cols = getBuildGridCols(mapConfig);
+    const rows = getBuildGridRows(mapConfig);
+    const gx = Math.floor(lx / bw);
+    const gy = Math.floor(ly / bh);
+    // 越界（超出地图范围）不计入
+    if (gx < 0 || gy < 0 || gx >= cols || gy >= rows) return -1;
+    return gy * cols + gx;
+}
+
+/**
+ * 根据建筑格子索引获取格子中心坐标
+ */
+export function getBuildGridCenter(index: number, mapConfig: MapConfig): MapPoint {
+    const bw = mapConfig.buildGridWidth ?? mapConfig.gridWidth;
+    const bh = mapConfig.buildGridHeight ?? mapConfig.gridHeight;
+    const ox = mapConfig.buildOffsetX ?? 0;
+    const oy = mapConfig.buildOffsetY ?? 0;
+    const cols = getBuildGridCols(mapConfig);
+    const gx = index % cols;
+    const gy = Math.floor(index / cols);
+    return {
+        x: ox + gx * bw + bw / 2,
+        y: oy + gy * bh + bh / 2
     };
 }
 

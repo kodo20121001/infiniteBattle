@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import BlockTool from './mapeditor/BlockTool';
+import BuildTool from './mapeditor/BuildTool';
 import ImageTool from './mapeditor/ImageTool';
 import InfoTool from './mapeditor/InfoTool';
 import PathTool from './mapeditor/PathTool';
@@ -26,7 +27,7 @@ const MapEditor = () => {
   const [triggersText, setTriggersText] = useState('');
   const [imageTreeText, setImageTreeText] = useState('');
   const [imageVersion, setImageVersion] = useState(0); // 用于触发重绘
-  const [tool, setTool] = useState('block'); // block | point | path | image
+  const [tool, setTool] = useState('block'); // block | build | point | path | image
   const [selectedPointId, setSelectedPointId] = useState(null);
   const [dragPointId, setDragPointId] = useState(null);
   const [currentPathId, setCurrentPathId] = useState(null);
@@ -179,6 +180,19 @@ const MapEditor = () => {
     return Math.floor(mapData.mapHeight / mapData.gridHeight);
   }, [mapData]);
 
+  // 建筑网格列/行数（考虑偏移）
+  const buildColCount = useMemo(() => {
+    if (!mapData) return 0;
+    const bw = mapData.buildGridWidth ?? mapData.gridWidth;
+    return Math.floor(mapData.mapWidth / bw);
+  }, [mapData]);
+
+  const buildRowCount = useMemo(() => {
+    if (!mapData) return 0;
+    const bh = mapData.buildGridHeight ?? mapData.gridHeight;
+    return Math.floor(mapData.mapHeight / bh);
+  }, [mapData]);
+
   // 预加载图片
   useEffect(() => {
     if (!mapData?.imageTree) return;
@@ -291,6 +305,41 @@ const MapEditor = () => {
       );
     });
 
+    // 建筑网格线与可建筑格
+    if (buildColCount > 0 && buildRowCount > 0) {
+      const bw = mapData.buildGridWidth ?? mapData.gridWidth;
+      const bh = mapData.buildGridHeight ?? mapData.gridHeight;
+      const ox = mapData.buildOffsetX ?? 0;
+      const oy = mapData.buildOffsetY ?? 0;
+      // 网格线（根据偏移的余数起始，保持列/行数只受格子尺寸影响）
+      ctx.strokeStyle = 'rgba(34,197,94,0.25)';
+      const startX = ((ox % bw) + bw) % bw;
+      const startY = ((oy % bh) + bh) % bh;
+      for (let x = startX; x <= mapData.mapWidth; x += bw) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, mapData.mapHeight);
+        ctx.stroke();
+      }
+      for (let y = startY; y <= mapData.mapHeight; y += bh) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(mapData.mapWidth, y);
+        ctx.stroke();
+      }
+      // 可建筑格
+      ctx.fillStyle = 'rgba(34,197,94,0.35)';
+      (mapData.buildGridCells ?? []).forEach((idx) => {
+        const gx = idx % buildColCount;
+        const gy = Math.floor(idx / buildColCount);
+        const px = ox + gx * bw;
+        const py = oy + gy * bh;
+        if (px < mapData.mapWidth && py < mapData.mapHeight) {
+          ctx.fillRect(px, py, bw, bh);
+        }
+      });
+    }
+
     // 触发区域简要渲染
     if (mapData.triggerAreas) {
       mapData.triggerAreas.forEach((area) => {
@@ -350,7 +399,7 @@ const MapEditor = () => {
     }
 
     ctx.restore();
-  }, [mapData, gridColCount, imageVersion]);
+  }, [mapData, gridColCount, buildColCount, imageVersion]);
 
   const handleToggleCell = (index) => {
     if (!mapData || index < 0) return;
@@ -381,6 +430,27 @@ const MapEditor = () => {
       if (gx < 0 || gy < 0 || gx >= gridColCountLocal || gy >= gridRowCountLocal) return;
       const index = gy * gridColCountLocal + gx;
       handleToggleCell(index);
+    } else if (tool === 'build') {
+      const bw = mapData.buildGridWidth ?? mapData.gridWidth;
+      const bh = mapData.buildGridHeight ?? mapData.gridHeight;
+      const ox = mapData.buildOffsetX ?? 0;
+      const oy = mapData.buildOffsetY ?? 0;
+      const lx = x - ox;
+      const ly = y - oy;
+      if (lx < 0 || ly < 0) return;
+      const cols = buildColCount;
+      const rows = buildRowCount;
+      const gx = Math.floor(lx / bw);
+      const gy = Math.floor(ly / bh);
+      if (gx < 0 || gy < 0 || gx >= cols || gy >= rows) return;
+      const index = gy * cols + gx;
+      setMapData((prev) => {
+        const next = structuredClone(prev);
+        const arr = next.buildGridCells ?? (next.buildGridCells = []);
+        const pos = arr.indexOf(index);
+        if (pos >= 0) arr.splice(pos, 1); else arr.push(index);
+        return next;
+      });
     } else if (tool === 'point') {
       const hit = (mapData.points ?? []).find((p) => {
         const dx = p.x - x; const dy = p.y - y; return dx * dx + dy * dy <= 10 * 10;
@@ -664,7 +734,13 @@ const MapEditor = () => {
       points: [],
       paths: [],
       triggerAreas: [],
-      gridCells: []
+      gridCells: [],
+      // 建筑区域默认与地图格一致，起始偏移为 0
+      buildGridWidth: 50,
+      buildGridHeight: 50,
+      buildOffsetX: 0,
+      buildOffsetY: 0,
+      buildGridCells: []
     };
     setMaps([...maps, newMap]);
     setSelectedId(newId);
@@ -756,15 +832,23 @@ const MapEditor = () => {
         </div>
 
         {/* 工具栏 */}
-        <div className="flex gap-2 text-sm p-4 pb-3 flex-shrink-0">
-          {[{ id: 'info', label: '基础信息', icon: 'ℹ️' }, { id: 'block', label: '阻挡', icon: '⬛' }, { id: 'point', label: '关键点', icon: '📍' }, { id: 'path', label: '路径', icon: '〰️' }, { id: 'trigger', label: '触发区', icon: '⭕' }, { id: 'image', label: '图片', icon: '🖼️' }].map((btn) => (
+        <div className="grid grid-cols-4 gap-2 text-sm p-4 pb-3 flex-shrink-0">
+          {[
+            { id: 'info', label: '基础信息' },
+            { id: 'block', label: '阻挡' },
+            { id: 'build', label: '建筑区' },
+            { id: 'point', label: '关键点' },
+            { id: 'path', label: '路径' },
+            { id: 'trigger', label: '触发区' },
+            { id: 'image', label: '图片' }
+          ].map((btn) => (
             <button
               key={btn.id}
               onClick={() => setTool(btn.id)}
-              className={`flex-1 py-2 rounded border text-sm ${tool === btn.id ? 'border-blue-500 bg-blue-600/40 text-white' : 'border-slate-700 bg-slate-900 text-slate-200'}`}
+              className={`py-2 rounded border text-sm ${tool === btn.id ? 'border-blue-500 bg-blue-600/40 text-white' : 'border-slate-700 bg-slate-900 text-slate-200'}`}
               title={btn.label}
             >
-              <span className="mr-1">{btn.icon}</span>{btn.label}
+              <span className="block text-center whitespace-nowrap">{btn.label}</span>
             </button>
           ))}
         </div>
@@ -789,6 +873,9 @@ const MapEditor = () => {
           {tool === 'block' && (
             <BlockTool gridColCount={gridColCount} gridRowCount={gridRowCount} />
           )}
+          {tool === 'build' && (
+            <BuildTool mapData={mapData} setMapData={setMapData} buildCols={buildColCount} buildRows={buildRowCount} />
+          )}
         </div>
       </div>
 
@@ -805,7 +892,7 @@ const MapEditor = () => {
         />
         <div className="absolute top-4 left-4 bg-black/50 px-4 py-2 rounded-lg backdrop-blur-sm text-sm">
           <div className="font-semibold">地图预览</div>
-          <div className="text-slate-300">模式：{tool === 'block' ? '阻挡刷子' : tool === 'point' ? '关键点' : '路径'} | 点击画布进行编辑</div>
+          <div className="text-slate-300">模式：{tool === 'block' ? '阻挡刷子' : tool === 'build' ? '建筑刷子' : tool === 'point' ? '关键点' : '路径'} | 点击画布进行编辑</div>
         </div>
         
         {/* Toast 提示 */}

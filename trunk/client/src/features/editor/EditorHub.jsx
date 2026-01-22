@@ -3,6 +3,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 // 动态导入具体编辑器
 const SkillBehaviorEditor = lazy(() => import('./SkillBehaviorEditor.jsx'));
 const MapEditor = lazy(() => import('./MapEditor.jsx'));
+const BuildingModelEditor = lazy(() => import('./BuildingModelEditor.jsx'));
 
 const EditorHub = ({ onBack }) => {
   const [currentEditor, setCurrentEditor] = useState(null); // null 表示在编辑器列表页
@@ -58,6 +59,15 @@ const EditorHub = ({ onBack }) => {
       icon: '🗺️',
       color: 'from-yellow-600 to-orange-600',
       route: 'map-editor',
+      disabled: false
+    },
+    {
+      id: 'building-model',
+      title: '建筑模型编辑器',
+      description: '编辑建筑模型的图片、锚点与占格',
+      icon: '🏠',
+      color: 'from-emerald-600 to-teal-600',
+      route: 'building-model',
       disabled: false
     },
     {
@@ -121,6 +131,30 @@ const EditorHub = ({ onBack }) => {
       <Suspense fallback={<LoadingFallback />}>
         <div className="relative w-full h-screen">
           <MapEditor />
+          <div className="absolute top-4 right-4 flex gap-2 bg-black/50 p-2 rounded-lg backdrop-blur-sm z-10">
+            <button 
+              onClick={handleBackToHub}
+              className="px-3 py-1 text-xs rounded bg-gray-600 hover:bg-gray-700 text-white"
+            >
+              返回编辑器中心
+            </button>
+            <button 
+              onClick={onBack}
+              className="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              返回主界面
+            </button>
+          </div>
+        </div>
+      </Suspense>
+    );
+  }
+
+  if (currentEditor === 'building-model') {
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <div className="relative w-full h-screen">
+          <BuildingModelEditor />
           <div className="absolute top-4 right-4 flex gap-2 bg-black/50 p-2 rounded-lg backdrop-blur-sm z-10">
             <button 
               onClick={handleBackToHub}
