@@ -1,0 +1,73 @@
+[
+  {
+    "id": 1,
+    "segments": [
+      {
+        "id": 1,
+        "name": "分段-1",
+        "events": [
+          {
+            "id": 1,
+            "type": "damage",
+            "time": 0,
+            "data": {
+              "ratio": 1
+            }
+          },
+          {
+            "id": 2,
+            "type": "effect",
+            "time": 200,
+            "data": {
+              "id": 101
+            }
+          },
+          {
+            "id": 3,
+            "type": "shake",
+            "time": 260,
+            "data": {
+              "power": 1
+            }
+          },
+          {
+            "id": 4,
+            "type": "bullet",
+            "time": 400,
+            "data": {
+              "bulletId": 1
+            }
+          },
+          {
+            "id": 5,
+            "type": "sound",
+            "time": 420,
+            "data": {
+              "url": "sfx/skill1.mp3"
+            }
+          },
+          {
+            "id": 6,
+            "type": "animation",
+            "time": 489,
+            "data": {
+              "name": "atk"
+            }
+          },
+          {
+            "id": 7,
+            "type": "end",
+            "time": 645,
+            "data": {}
+          },
+          {
+            "id": 8,
+            "type": "damage",
+            "time": 692,
+            "data": {}
+          }
+        ]
+      }
+    ]
+  }
+]

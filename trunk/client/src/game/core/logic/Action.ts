@@ -9,14 +9,14 @@ import { PassiveSkillTrigger } from "./component/PassiveSkills";
 
 
 export enum FrameType {
-    Box = 1,    // 伤害盒子
+    Damage = 1, // 伤害盒子
     Effect = 2, // 特效
     Shake = 3,  // 震屏
     Bullet = 4, // 子弹
     Sound = 5,  // 声音
-    End = 6,
-    Animation = 7, // 动画
-  }
+    Animation = 6, // 动画
+    End = 10,
+}
   
  export class Action {
     flow: Timeline;

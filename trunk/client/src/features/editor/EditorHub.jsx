@@ -26,15 +26,6 @@ const EditorHub = ({ onBack }) => {
       route: 'skill-behavior'
     },
     {
-      id: 'skill-timeline',
-      title: '技能时间轴编辑器',
-      description: '编辑技能的时间轴、动画和特效序列',
-      icon: '⏱️',
-      color: 'from-blue-600 to-cyan-600',
-      route: 'skill-timeline',
-      disabled: true
-    },
-    {
       id: 'ai-behavior',
       title: 'AI行为树编辑器',
       description: '编辑单位的AI行为树和决策逻辑',
@@ -267,20 +258,7 @@ const EditorHub = ({ onBack }) => {
         </div>
       </div>
 
-      {/* 底部提示 */}
-      <div className="max-w-7xl mx-auto px-6 py-4">
-        <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">💡</span>
-            <div>
-              <h4 className="text-sm font-semibold text-blue-300 mb-1">提示</h4>
-              <p className="text-xs text-blue-200/80">
-                目前只有「技能行为编辑器」可用，其他编辑器正在开发中。你可以通过URL参数直接访问：<code className="bg-black/30 px-1 rounded">?mode=editor&type=skill-behavior</code>
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+
     </div>
   );
 };
