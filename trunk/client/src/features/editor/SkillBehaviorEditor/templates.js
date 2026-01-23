@@ -3,7 +3,6 @@ export const eventTemplates = {
   damage: {
     damageType: 'fixed',
     damageValue: 0,
-    damageRatio: 1,
     damageKey: '',
     triggerType: 'target',
     maxDistanceType: 'fixed',

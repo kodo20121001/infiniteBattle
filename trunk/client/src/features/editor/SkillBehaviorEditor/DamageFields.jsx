@@ -2,7 +2,7 @@ import React from 'react';
 
 // Damage event parameter panel
 const DamageFields = ({ evt, onUpdate }) => {
-  const damageType = evt.data?.damageType || 'fixed';
+  // 取消伤害类型选择，直接同时展示固定值与比例
   const triggerType = evt.data?.triggerType || 'target';
   // 保留数据字段但不再使用类型选择，直接显示默认值与key两个输入
   const rangeType = evt.data?.rangeType || 'circle';
@@ -10,57 +10,66 @@ const DamageFields = ({ evt, onUpdate }) => {
   return (
     <div className="space-y-2 text-xs text-slate-200">
       <div className="flex flex-wrap items-end gap-3">
-          <div className="space-y-1">
-            <div className="text-slate-400">伤害类型</div>
-            <select
-              className="w-28 bg-slate-900 border border-slate-700 rounded px-2 py-1"
-              value={damageType}
-              onChange={(e) => {
-                const val = e.target.value;
-                onUpdate((d) => {
-                  d.damageType = val;
-                  if (typeof d.damageValue !== 'number') d.damageValue = 0;
-                  if (typeof d.damageRatio !== 'number') d.damageRatio = 1;
-                  if (typeof d.damageKey !== 'string') d.damageKey = '';
-                });
-              }}
-            >
-              <option value="fixed">固定</option>
-              <option value="ratio">比例</option>
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <div className="text-slate-400">{damageType === 'fixed' ? '伤害值(默认)' : '伤害比例(默认)'}</div>
-            <input
-              type="number"
-              className="w-28 bg-slate-900 border border-slate-700 rounded px-2 py-1"
-              value={damageType === 'fixed' ? (Number(evt.data?.damageValue) || 0) : (Number(evt.data?.damageRatio) || 0)}
-              onChange={(e) => {
-                const val = Number(e.target.value) || 0;
-                onUpdate((d) => {
-                  if (damageType === 'fixed') {
-                    d.damageValue = val;
-                  } else {
-                    d.damageRatio = val;
-                  }
-                });
-              }}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <div className="text-slate-400">key</div>
-            <input
-              type="text"
-              className="w-28 bg-slate-900 border border-slate-700 rounded px-2 py-1"
-              value={evt.data?.damageKey || ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                onUpdate((d) => { d.damageKey = val; });
-              }}
-            />
-          </div>
+        <div className="space-y-1">
+          <div className="text-slate-400">伤害值</div>
+          <input
+            type="number"
+            className="w-28 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+            value={Number(evt.data?.damageValue) || 0}
+            onChange={(e) => {
+              const val = Number(e.target.value) || 0;
+              onUpdate((d) => { d.damageValue = val; });
+            }}
+          />
+        </div>
+        <div className="space-y-1">
+          <div className="text-slate-400">伤害值 key</div>
+          <input
+            type="text"
+            className="w-28 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+            value={evt.data?.damageKey || ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              onUpdate((d) => { d.damageKey = val; });
+            }}
+          />
+        </div>
+        <div className="space-y-1">
+          <div className="text-slate-400">伤害比例</div>
+          <input
+            type="number"
+            className="w-28 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+            value={typeof evt.data?.damageRatio === 'number' ? evt.data.damageRatio : ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              onUpdate((d) => {
+                if (val === '' || isNaN(Number(val))) {
+                  delete d.damageRatio;
+                } else {
+                  d.damageRatio = Number(val);
+                }
+              });
+            }}
+          />
+        </div>
+        <div className="space-y-1">
+          <div className="text-slate-400">伤害比例 key</div>
+          <input
+            type="text"
+            className="w-28 bg-slate-900 border border-slate-700 rounded px-2 py-1"
+            value={evt.data?.damageRatioKey || ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              onUpdate((d) => {
+                if (val === '') {
+                  delete d.damageRatioKey;
+                } else {
+                  d.damageRatioKey = val;
+                }
+              });
+            }}
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">

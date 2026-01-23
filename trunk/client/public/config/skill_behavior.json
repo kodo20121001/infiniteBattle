@@ -11,7 +11,8 @@
             "type": "damage",
             "time": 0,
             "data": {
-              "ratio": 1
+              "damageValue": 1,
+              "damageRatio": 1
             }
           },
           {
