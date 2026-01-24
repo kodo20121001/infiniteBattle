@@ -98,4 +98,5 @@ class Assets {
   }
 }
 
+export { Assets };
 export const assets = new Assets();

@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getDefaultDataForType } from './SkillBehaviorEditor/templates';
-import DamageFields from './SkillBehaviorEditor/DamageFields.jsx';
+import DamageFields from './SkillBehaviorEditor/DamageFields';
+import MoveByFields from './SkillBehaviorEditor/MoveByFields';
+import SkillDemoPreview from './SkillBehaviorEditor/DemoPreview';
 
 const eventTypes = [
   'damage',
+  'moveBy',
   'effect',
   'shake',
   'bullet',
@@ -81,6 +84,7 @@ const SkillBehaviorEditor = () => {
   const [dirHandle, setDirHandle] = useState(null);
   const [savePathName, setSavePathName] = useState('');
   const [toast, setToast] = useState('');
+  const [demoPreviewOpen, setDemoPreviewOpen] = useState(false);
   const timelineRef = useRef(null);
   const timelineDraggingRef = useRef(false);
   const timelineDragIdxRef = useRef(null);
@@ -511,6 +515,13 @@ const SkillBehaviorEditor = () => {
           <div className="flex gap-2">
             <button onClick={sortEvents} className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm">重排ID</button>
             <button onClick={addEvent} className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 rounded text-sm">新增事件</button>
+            <button
+              onClick={() => setDemoPreviewOpen(true)}
+              className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded text-sm font-semibold"
+              title="演示当前技能效果"
+            >
+              🎮 演示
+            </button>
           </div>
         </div>
 
@@ -642,9 +653,10 @@ const SkillBehaviorEditor = () => {
                     ))}
                   </select>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400">时间(ms)</span>
+                    <span className="text-xs text-slate-400">时间(s)</span>
                     <input
                       type="number"
+                      step="0.1"
                       className="w-28 bg-slate-900 border border-slate-700 rounded px-2 py-2 text-sm"
                       value={evt.time}
                       onChange={(e) => updateEvent(selectedEventIdx, { time: Number(e.target.value) || 0 })}
@@ -660,6 +672,12 @@ const SkillBehaviorEditor = () => {
               <div className="space-y-1">
                 {evt.type === 'damage' && (
                   <DamageFields
+                    evt={evt}
+                    onUpdate={(updater) => updateEventDataFields(selectedEventIdx, updater)}
+                  />
+                )}
+                {evt.type === 'moveBy' && (
+                  <MoveByFields
                     evt={evt}
                     onUpdate={(updater) => updateEventDataFields(selectedEventIdx, updater)}
                   />
@@ -684,6 +702,12 @@ const SkillBehaviorEditor = () => {
           {toast}
         </div>
       )}
+
+      <SkillDemoPreview
+        skillConfig={draft}
+        isOpen={demoPreviewOpen}
+        onClose={() => setDemoPreviewOpen(false)}
+      />
     </div>
   );
 };

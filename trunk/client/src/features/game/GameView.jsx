@@ -3,9 +3,7 @@ import { Camera2D } from '../../game/engine/base/Camera2D';
 import { Sprite2D } from '../../game/engine/base/Sprite2D';
 import { AnimatedSprite2D } from '../../game/engine/base/AnimatedSprite2D';
 import { Texture } from '../../game/engine/base/Texture';
-import { GameLoop } from '../../game/engine/common/GameLoop';
-import { Renderer } from '../../game/engine/common/Renderer';
-import { SpriteManager } from '../../game/engine/common/SpriteManager';
+import { World } from '../../game/engine/common/World';
 import { assets } from '../../game/engine/common/Assets';
 
 const GameView = () => {
@@ -21,16 +19,13 @@ const GameView = () => {
     canvas.width = width;
     canvas.height = height;
 
-    // 创建游戏组件
-    const camera = new Camera2D(width, height);
-    const spriteManager = new SpriteManager();
-    const renderer = new Renderer(canvas, camera, spriteManager);
-    const gameLoop = new GameLoop(60);
-
-    renderer.setBackgroundColor('#1a1a1a');
-
-    // 初始化相机到屏幕中心
-    camera.setPosition(width / 2, height / 2);
+    // 创建 World 实例，集成渲染、精灵管理、主循环
+    const world = new World({
+      canvas,
+      width,
+      height,
+      backgroundColor: '#1a1a1a',
+    });
 
     let destroyed = false;
 
@@ -53,33 +48,27 @@ const GameView = () => {
 
       // 加载动画帧纹理
       const frameTextures = [Texture.fromImage(playerCanvas)];
-      
       try {
-        // 加载第一帧 (player.png)
         const img1 = await assets.getImage('/player.png');
         frameTextures[0] = Texture.fromImage(img1);
       } catch (e) {
         console.warn('Failed to load player.png, using fallback', e);
       }
-
       try {
-        // 加载第二帧 (player1.png)
         const img2 = await assets.getImage('/player1.png');
         frameTextures.push(Texture.fromImage(img2));
       } catch (e) {
         console.warn('Failed to load player1.png, using fallback', e);
-        // 如果只有一张图片，复制第一帧作为第二帧
         frameTextures.push(frameTextures[0]);
       }
-
       if (destroyed) return null;
 
       // 创建动画精灵
       const playerSprite = new AnimatedSprite2D(frameTextures);
       playerSprite.setPosition(width / 2, height / 2);
-      playerSprite.setFrameDuration(0.5); // 500ms 每帧
-      playerSprite.play(true); // 循环播放
-      spriteManager.add('player', playerSprite);
+      playerSprite.setFrameDuration(0.5);
+      playerSprite.play(true);
+      world.spriteManager.add('player', playerSprite);
 
       // 游戏状态
       let playerVelocity = { x: 2, y: 2 };
@@ -88,37 +77,24 @@ const GameView = () => {
       const spriteRadius = Math.max(frameTextures[0].width, frameTextures[0].height) / 2;
 
       // 更新逻辑
-      gameLoop.onUpdate((deltaTime) => {
-        // 更新动画
+      world.gameLoop.onUpdate((deltaTime) => {
         playerSprite.update(deltaTime);
-
         const playerPos = playerSprite.position;
         const newX = playerPos.x + playerVelocity.x;
         const newY = playerPos.y + playerVelocity.y;
-
-        // 边界检测（世界坐标）
         if (newX <= spriteRadius || newX >= worldWidth - spriteRadius) {
           playerVelocity.x = -playerVelocity.x;
         }
         if (newY <= spriteRadius || newY >= worldHeight - spriteRadius) {
           playerVelocity.y = -playerVelocity.y;
         }
-
-        // 设置位置（x, y, z）
         playerSprite.setPosition(newX, newY, 0);
-        // 相机跟随精灵
-        //camera.setTarget(newX, newY);
-        //camera.update(deltaTime);
       });
-
       // 渲染逻辑
-      gameLoop.onRender(() => {
-        renderer.render();
+      world.gameLoop.onRender(() => {
+        world.renderer.render();
       });
-
-      // 启动游戏循环
-      gameLoop.start();
-
+      world.gameLoop.start();
       return playerSprite;
     };
 
@@ -128,15 +104,15 @@ const GameView = () => {
     const handleResize = () => {
       const newWidth = window.innerWidth;
       const newHeight = window.innerHeight;
-      renderer.resize(newWidth, newHeight);
+      world.renderer.resize(newWidth, newHeight);
     };
     window.addEventListener('resize', handleResize);
 
     return () => {
       destroyed = true;
       window.removeEventListener('resize', handleResize);
-      gameLoop.stop();
-      spriteManager.clear();
+      world.gameLoop.stop();
+      world.spriteManager.clear();
       assets.release('image', '/player.png');
       assets.release('image', '/player1.png');
     };

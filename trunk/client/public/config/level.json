@@ -1,0 +1,15 @@
+[
+  {
+    "id": 1,
+    "name": "关卡1",
+    "description": "",
+    "mapId": 1,
+    "camps": [],
+    "alliances": [],
+    "initialResources": {},
+    "startUnits": [],
+    "winCondition": "",
+    "loseCondition": "",
+    "triggers": []
+  }
+]

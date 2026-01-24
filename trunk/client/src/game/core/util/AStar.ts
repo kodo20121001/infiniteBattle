@@ -1,4 +1,4 @@
-import { FixedVector2 } from "../base/fixed/FixedVector2";
+import { FixedVector2 } from "../../core/base/fixed/FixedVector2";
 
 // function distance(a, b) {
 //     return FixedVector2.distance(a, b);

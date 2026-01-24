@@ -30,6 +30,10 @@ export interface ModelConfig {
     actions: ModelAction[];    // 所有动作列表
     scale?: number;            // 默认缩放
     defaultAction?: string;    // 默认动作
+    hp?: number;               // 生命值
+    speed?: number;            // 移动速度
+    attackPower?: number;      // 攻击力
+    defense?: number;          // 防御力
 }
 
 /**

@@ -8,11 +8,14 @@
         "events": [
           {
             "id": 1,
-            "type": "damage",
+            "type": "moveBy",
             "time": 0,
             "data": {
-              "damageValue": 1,
-              "damageRatio": 1
+              "distance": 10,
+              "distanceKey": "",
+              "angle": 0,
+              "angleKey": "",
+              "duration": 3
             }
           },
           {

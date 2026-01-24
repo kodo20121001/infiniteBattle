@@ -1,6 +1,6 @@
 import { PositionToGrid } from "../Def";
-import FixedMaths from "../base/fixed/FixedMaths";
-import { FixedVector2 } from "../base/fixed/FixedVector2";
+import FixedMaths from "../../core/base/fixed/FixedMaths";
+import { FixedVector2 } from "../../core/base/fixed/FixedVector2";
 
 function RotateGrids(grids, angleY) {
   return FixedMaths.rotate(grids, angleY)

@@ -2,6 +2,9 @@
 import FixedMaths, {} from "./FixedMaths"
 
 export class FixedVector3 {
+  x: number;
+  y: number;
+  z: number;
 
   constructor(x = 0, y = 0, z = 0) {
     this.x = x;
@@ -22,19 +25,19 @@ export class FixedVector3 {
     return FixedMaths.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
   }
 
-  sub(other) {
+  sub(other: FixedVector3) {
     return new FixedVector3(this.x - other.x, this.y - other.y, this.z - other.z);
   }
 
-  add(other) {
+  add(other: FixedVector3) {
     return new FixedVector3(this.x + other.x, this.y + other.y, this.z + other.z);
   }
 
-  mul(scalar) {
+  mul(scalar: number) {
     return new FixedVector3(this.x * scalar, this.y * scalar, this.z * scalar);
   }
 
-  div(scalar) {
+  div(scalar: number) {
     if (scalar !== 0) {
       return new FixedVector3(this.x / scalar, this.y / scalar, this.z / scalar);
     } else {
@@ -43,7 +46,7 @@ export class FixedVector3 {
     }
   }
 
-  distanceTo(other) {
+  distanceTo(other: FixedVector3) {
     var x = this.x - other.x;
     var y = this.y - other.y;
     var z = this.z - other.z;

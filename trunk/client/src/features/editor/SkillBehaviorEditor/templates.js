@@ -15,6 +15,13 @@ export const eventTemplates = {
     frontAngle: 0,
     frontDistance: 0
   },
+  moveBy: {
+    distance: 0,
+    distanceKey: '',
+    angle: 0,
+    angleKey: '',
+    duration: 0
+  },
   effect: {},
   shake: {},
   bullet: {},

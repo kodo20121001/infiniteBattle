@@ -209,13 +209,14 @@ export class Renderer {
         this.gl.bindVertexArray(this.spriteVAO);
 
         // 投影矩阵：屏幕空间正交投影（固定）
+        // 深度范围扩大到 -1000 到 1000，支持背景图层 (z=-100) 和前景图层
         const projMatrix = this.orthoMatrix(
             0,
             this.canvas.width,
             this.canvas.height,
             0,
-            -1,
-            1
+            -1000,
+            1000
         );
 
         // 视图矩阵：处理相机变换

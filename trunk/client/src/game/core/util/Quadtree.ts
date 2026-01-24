@@ -1,4 +1,4 @@
-import FixedMaths from "../base/fixed/FixedMaths";
+import FixedMaths from "../../core/base/fixed/FixedMaths";
 
 export class QuadTree {
     constructor(boundary, capacity, depth = 0, maxDepth = 10) {
