@@ -62,8 +62,28 @@ export class ClientGameRunner {
 
     /**
      * 加载和启动关卡
+     * @param levelId 关卡ID
+     * @param mapId 地图ID（可选，默认使用关卡配置中的 mapId）
      */
-    async loadLevel(levelConfig: LevelConfig, mapConfig: MapConfig): Promise<void> {
+    async loadLevel(levelId: number, mapId?: number): Promise<void> {
+        // 从配置表获取关卡配置
+        const { Configs } = await import('../../common/Configs');
+        const levelConfigs = Configs.Get('level') || {};
+        const levelConfig = levelConfigs[levelId];
+        
+        if (!levelConfig) {
+            throw new Error(`Level config not found: ${levelId}`);
+        }
+
+        // 获取地图配置
+        const mapConfigs = Configs.Get('map') || {};
+        const targetMapId = mapId ?? levelConfig.mapId;
+        const mapConfig = mapConfigs[targetMapId];
+        
+        if (!mapConfig) {
+            throw new Error(`Map config not found: ${targetMapId}`);
+        }
+
         // 使用 LevelManager 加载关卡
         this._levelManager.loadLevel(levelConfig, mapConfig);
         
@@ -263,31 +283,10 @@ export class ClientGameRunner {
     }
 
     /**
-     * 获取游戏实例
-     */
-    getGame(): Game {
-        return this._game;
-    }
-
-    /**
-     * 获取场景管理器
-     */
-    getSceneManager(): SceneManager {
-        return this._sceneManager;
-    }
-
-    /**
-     * 获取World
+     * 获取World（仅用于初始化阶段设置回调）
      */
     getWorld(): World {
         return this._world;
-    }
-
-    /**
-     * 获取关卡管理器
-     */
-    getLevelManager(): LevelManager {
-        return this._levelManager;
     }
 
     /**
@@ -395,26 +394,7 @@ export class ServerGameRunner {
         this._game.finish();
     }
 
-    /**
-     * 获取游戏实例
-     */
-    getGame(): Game {
-        return this._game;
-    }
 
-    /**
-     * 获取场景管理器
-     */
-    getSceneManager(): SceneManager {
-        return this._sceneManager;
-    }
-
-    /**
-     * 获取关卡管理器
-     */
-    getLevelManager(): LevelManager {
-        return this._levelManager;
-    }
 
     /**
      * 销毁服务器游戏运行器

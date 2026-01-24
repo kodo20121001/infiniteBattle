@@ -31,9 +31,14 @@ interface AutoSkill {
     castRange: number;         // 施法距离
 }
 
+interface BaseAttack {
+    lastAttackTime: number;    // 上次攻击时间（秒）
+}
+
 export class UnitCommandSystem extends GameSystem {
     private _commands: Map<string, CommandState> = new Map();
     private _autoSkills: Map<string, AutoSkill> = new Map();
+    private _baseAttacks: Map<string, BaseAttack> = new Map();
     private _game: Game;
 
     constructor(game: Game) {
@@ -67,6 +72,11 @@ export class UnitCommandSystem extends GameSystem {
                         this._tryCastSkill(skillSystem, actor, target, autoSkill.skillConfig);
                         autoSkill.lastCastTime = nowSeconds;
                     }
+                }
+                
+                // 处理基础攻击（HoldPosition / Guard 时自动攻击）
+                if ((cmd.type === 'HoldPosition' || cmd.type === 'Guard') && !autoSkill) {
+                    this._tryBaseAttack(skillSystem, actor, nowSeconds);
                 }
             }
 
@@ -115,6 +125,7 @@ export class UnitCommandSystem extends GameSystem {
     destroy(): void {
         this._commands.clear();
         this._autoSkills.clear();
+        this._baseAttacks.clear();
     }
 
     /**
@@ -176,5 +187,37 @@ export class UnitCommandSystem extends GameSystem {
             skillData: skillConfig,
             behaviorConfig: skillConfig,
         });
+    }
+
+    /**
+     * 尝试基础攻击（使用 attackSkillId）
+     */
+    private _tryBaseAttack(skillSystem: SkillSystem, actor: Actor, nowSeconds: number): void {
+        const attackSkillId = actor.getAttackSkillId();
+        if (attackSkillId <= 0) return; // 没有配置攻击技能
+
+        // 初始化该单位的攻击状态
+        if (!this._baseAttacks.has(actor.id)) {
+            this._baseAttacks.set(actor.id, { lastAttackTime: -999 });
+        }
+
+        const attackState = this._baseAttacks.get(actor.id)!;
+        
+        // 查找目标
+        const target = this._findNearestEnemy(actor, 300); // 默认攻击范围 300
+        if (!target) return;
+
+        // 攻击冷却（固定 1 秒）
+        const attackCooldown = 1.0;
+        if (nowSeconds - attackState.lastAttackTime >= attackCooldown) {
+            // 从配置表查询攻击技能和行为配置
+            skillSystem.castSkill({
+                caster: actor,
+                target,
+                skillId: attackSkillId
+                // 不传 skillData 和 behaviorConfig，让 castSkill 内部从配置表加载
+            });
+            attackState.lastAttackTime = nowSeconds;
+        }
     }
 }

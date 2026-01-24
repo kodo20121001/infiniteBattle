@@ -21,6 +21,10 @@ export class Configs {
         Configs.configs['unit'] = configManager.Get('unit');
         Configs.configs['model'] = configManager.Get('model');
         Configs.configs['map'] = configManager.Get('map');
+        Configs.configs['level'] = configManager.Get('level');
+        Configs.configs['skill'] = configManager.Get('skill');
+        Configs.configs['skill_behavior'] = configManager.Get('skill_behavior');
+        Configs.configs['building_model'] = configManager.Get('building_model');
     }
 
     /**

@@ -194,7 +194,8 @@ const LevelEditor = () => {
 
   // 新建/删除关卡
   const createLevel = () => {
-    const nextId = Math.max(0, ...levels.map(l => Number(l.id) || 0)) + 1;
+    // 只从正常关卡（ID < 9999）中取最大值，预留 9999+ 给特殊用途（如演示关卡）
+    const nextId = Math.max(0, ...levels.filter(l => l.id < 9999).map(l => Number(l.id) || 0)) + 1;
     const base = makeDefaultLevel(nextId);
     setLevels(prev => [...prev, base]);
     setSelectedId(nextId);

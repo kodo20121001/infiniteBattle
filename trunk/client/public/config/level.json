@@ -11,5 +11,46 @@
     "winCondition": "",
     "loseCondition": "",
     "triggers": []
+  },
+  {
+    "id": 9999,
+    "name": "技能演示",
+    "description": "技能编辑器专用演示关卡",
+    "mapId": 1,
+    "camps": [
+      { "id": 1, "name": "玩家", "playerControlled": true },
+      { "id": 2, "name": "敌人" }
+    ],
+    "alliances": [
+      { "sourceCampId": 1, "targetCampId": 2, "relation": "enemy", "shareVision": false }
+    ],
+    "initialResources": {},
+    "startUnits": [
+      {
+        "unitId": 101,
+        "campId": 1,
+        "positionName": 1,
+        "level": 1,
+        "command": {
+          "type": "HoldPosition",
+          "guardPos": { "x": 200, "y": 200 },
+          "visionRadius": 600
+        }
+      },
+      {
+        "unitId": 102,
+        "campId": 2,
+        "positionName": 2,
+        "level": 1,
+        "command": {
+          "type": "HoldPosition",
+          "guardPos": { "x": 400, "y": 200 },
+          "visionRadius": 200
+        }
+      }
+    ],
+    "winCondition": "",
+    "loseCondition": "",
+    "triggers": []
   }
 ]

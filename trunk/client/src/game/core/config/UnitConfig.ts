@@ -8,6 +8,7 @@ export interface UnitConfig {
     name: string;              // 单位名称
     modelId: number;           // 对应的模型ID
     skillIds: number[];        // 技能ID列表
+    attackSkillId: number;     // 基础攻击技能ID
     hitY: number;              // 受击点高度
     sightRange: number;        // 视野范围
 }

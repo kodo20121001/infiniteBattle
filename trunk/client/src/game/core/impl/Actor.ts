@@ -48,6 +48,8 @@ export class Actor {
     protected _hp: number = 100;
     protected _maxHp: number = 100;
     protected _speed: number = 5; // 单位：点/秒
+    protected _skillIds: number[] = []; // 技能ID列表
+    protected _attackSkillId: number = 0; // 基础攻击技能ID
 
     // 渲染相关（如果在客户端）
     protected _spriteId: string | null = null;
@@ -77,6 +79,8 @@ export class Actor {
         this._maxHp = modelConfig.hp || 100;
         this._hp = this._maxHp;
         this._speed = modelConfig.speed || 5;
+        this._skillIds = unitConfig.skillIds || [];
+        this._attackSkillId = unitConfig.attackSkillId || 0;
     }
 
     /**
@@ -141,6 +145,20 @@ export class Actor {
      */
     getSpeed(): number {
         return this._speed;
+    }
+
+    /**
+     * 获取技能ID列表
+     */
+    getSkillIds(): number[] {
+        return this._skillIds;
+    }
+
+    /**
+     * 获取基础攻击技能ID
+     */
+    getAttackSkillId(): number {
+        return this._attackSkillId;
     }
 
     /**

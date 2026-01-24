@@ -4,6 +4,7 @@
     "name": "剑士",
     "modelId": 201,
     "skillIds": [],
+    "attackSkillId": 1,
     "hitY": 1.2,
     "sightRange": 800
   },
@@ -12,6 +13,7 @@
     "name": "弓箭手",
     "modelId": 202,
     "skillIds": [2001, 2002],
+    "attackSkillId": 2001,
     "hitY": 1.0,
     "sightRange": 1000
   },

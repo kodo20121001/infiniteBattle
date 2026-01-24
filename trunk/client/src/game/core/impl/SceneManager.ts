@@ -44,6 +44,9 @@ export class SceneManager {
             }
         }
 
+        // 配置单位的初始命令和自动技能（如果有）
+        this._applyUnitCommands(levelConfig);
+
         console.log(`Scene loaded: ${levelConfig.name}`);
     }
 
@@ -104,6 +107,29 @@ export class SceneManager {
         for (const actor of actors) {
             this._game.removeActor(actor.id);
         }
+    }
+
+    /**
+     * 应用单位的初始命令配置
+     */
+    private _applyUnitCommands(levelConfig: LevelConfig): void {
+        if (!levelConfig.startUnits) return;
+
+        const commandSystem = this._game.getSystem('unitCommand');
+        if (!commandSystem) return;
+
+        const actors = this._game.getActors();
+        
+        // 为每个配置了命令的单位应用设置
+        levelConfig.startUnits.forEach((unitConfig: any, index: number) => {
+            const actor = actors[index]; // 按创建顺序对应
+            if (!actor) return;
+
+            // 设置初始命令
+            if (unitConfig.command) {
+                commandSystem.issueCommand(actor.id, unitConfig.command);
+            }
+        });
     }
 
     /**
