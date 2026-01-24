@@ -8,8 +8,9 @@ import { SpriteManager } from '../../engine/common/SpriteManager';
 
 export interface MapPoint {
     id: string | number;
-    x: number;
-    y: number;
+    x: number;  // 水平（米）
+    y: number;  // 高度（米）
+    z: number;  // 深度（米）
 }
 
 export interface MapImageNode {
@@ -23,15 +24,24 @@ export interface MapImageNode {
 export interface MapConfig {
     id: number;
     name: string;
-    mapWidth?: number;
-    mapHeight?: number;
-    gridWidth?: number;
-    gridHeight?: number;
+    mapWidth?: number;        // 地图宽度（米）
+    mapHeight?: number;       // 地图高度（米）
+    gridWidth?: number;       // 格子宽度（米）
+    gridHeight?: number;      // 格子高度（米）
+    colCount?: number;        // 网格列数（预计算）
+    rowCount?: number;        // 网格行数（预计算）
+    pixelsPerMeterX?: number;  // 横轴：1米对应多少像素（默认32）
+    pixelsPerMeterY?: number;  // 纵轴：1米对应多少像素（默认16，斜45度俯视）
+    viewportWidth?: number;    // 视口宽度（像素，默认800）
+    viewportHeight?: number;   // 视口高度（像素，默认600）
+    cameraX?: number;          // 相机初始X位置（世界坐标，米）
+    cameraY?: number;          // 相机初始Y位置（世界坐标，米）
+    cameraZ?: number;          // 相机初始Z位置（世界坐标，米）
     imageTree?: MapImageNode[];
     points?: MapPoint[];
     paths?: any[];
     triggerAreas?: any[];
-    gridCells?: any[];
+    gridCells?: number[];      // 阻挡格索引列表（0-based，行主序）
 }
 
 /**
@@ -42,10 +52,27 @@ export class GameMap {
     private _backgroundSprites: globalThis.Map<string, Sprite2D> = new globalThis.Map();
     private _spriteManager: SpriteManager;
     private _loadedImages: globalThis.Map<string, HTMLImageElement> = new globalThis.Map();
+    private _blockedCells: Set<number> = new Set();
 
     constructor(config: MapConfig, spriteManager: SpriteManager) {
         this._config = config;
         this._spriteManager = spriteManager;
+
+        // 预计算列/行数，若配置中未提供则按尺寸与格子大小推算并写回配置
+        const gw = config.gridWidth || 0;
+        const gh = config.gridHeight || 0;
+        if (gw > 0 && gh > 0 && config.mapWidth && config.mapHeight) {
+            const colCount = config.colCount ?? Math.floor(config.mapWidth / gw);
+            const rowCount = config.rowCount ?? Math.floor(config.mapHeight / gh);
+            this._config.colCount = colCount;
+            this._config.rowCount = rowCount;
+        }
+
+        if (config.gridCells && Array.isArray(config.gridCells)) {
+            config.gridCells.forEach((idx) => {
+                if (typeof idx === 'number' && idx >= 0) this._blockedCells.add(idx);
+            });
+        }
     }
 
     /**
@@ -64,7 +91,8 @@ export class GameMap {
                 img.onload = () => {
                     console.log(`✓ Loaded image: ${imageNode.path}`);
                     const sprite = new Sprite2D(img);
-                    sprite.setPosition(imageNode.x || 0, imageNode.y || 0, -100); // z = -100 放在后面
+                    sprite.setAnchor(0, 0);
+                    sprite.setPosition(imageNode.x || 0, imageNode.y || 0, -100);
                     const spriteId = `bg_${imageNode.id}`;
                     this._spriteManager.add(spriteId, sprite);
                     this._backgroundSprites.set(spriteId, sprite);
@@ -104,6 +132,33 @@ export class GameMap {
      */
     getConfig(): MapConfig {
         return this._config;
+    }
+
+    /**
+     * 将世界坐标转换为网格索引
+     * @returns { col, row, index } 或 null（越界或配置缺失）
+     */
+    worldToGrid(x: number, y: number): { col: number; row: number; index: number } | null {
+        const gw = this._config.gridWidth!;
+        const gh = this._config.gridHeight!;
+        const colCount = this._config.colCount!;
+        const rowCount = this._config.rowCount!;
+
+        const col = Math.floor(x / gw);
+        const row = Math.floor(y / gh);
+        if (col < 0 || row < 0 || col >= colCount || row >= rowCount) return null;
+
+        const index = row * colCount + col;
+        return { col, row, index };
+    }
+
+    /**
+     * 判断指定世界坐标是否可行走
+     */
+    isWalkable(x: number, y: number): boolean {
+        const grid = this.worldToGrid(x, y);
+        if (!grid) return false; // 越界或配置不完整
+        return !this._blockedCells.has(grid.index);
     }
 
     /**

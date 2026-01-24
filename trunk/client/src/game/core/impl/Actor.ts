@@ -3,7 +3,7 @@
  * 用于表示游戏世界中的角色、建筑等对象
  */
 
-import { FixedVector2 } from '../base/fixed/FixedVector2';
+import { FixedVector3 } from '../base/fixed/FixedVector3';
 import type { ModelConfig } from '../config/ModelConfig';
 import type { UnitConfig } from '../config/UnitConfig';
 
@@ -24,7 +24,8 @@ export enum ActorState {
 
 /**
  * 角色/单位基类
- * 使用 2D 位置 (x, z) + 高度 (y) 表示俯视角游戏中的位置
+ * 使用 3D 位置 (x, y, z) 表示游戏世界中的位置
+ * x: 水平方向, y: 高度, z: 深度
  */
 export class Actor {
     readonly id: string;                    // 实例的唯一标识
@@ -33,8 +34,7 @@ export class Actor {
     readonly unitType: number;              // 单位类型（对应 unit.json 的 id，如 101、102）
     readonly campId: number;
 
-    protected _position: FixedVector2;      // 地面位置 (x, z)
-    protected _height: number = 0;          // 离地高度 (y)
+    protected _position: FixedVector3;      // 3D 位置 (x, y, z)
     protected _rotation: number = 0;        // 旋转角度
     protected _scale: number = 1;
     protected _visible: boolean = true;
@@ -60,8 +60,7 @@ export class Actor {
         modelId: number,
         unitType: number,
         campId: number,
-        position: FixedVector2 = new FixedVector2(0, 0),
-        height: number = 0
+        position: FixedVector3 = new FixedVector3(0, 0, 0)
     ) {
         this.id = id;
         this.actorType = actorType;
@@ -69,7 +68,6 @@ export class Actor {
         this.unitType = unitType;
         this.campId = campId;
         this._position = position;
-        this._height = height;
     }
 
     /**
@@ -102,42 +100,28 @@ export class Actor {
     }
 
     /**
-     * 设置位置
+     * 设置位置 (x: 水平, y: 高度, z: 深度)
      */
-    setPosition(x: number, z: number, y: number = 0): void {
+    setPosition(x: number, y: number = 0, z: number = 0): void {
         this._position.x = x;
-        this._position.y = z;
-        this._height = y;
+        this._position.y = y;
+        this._position.z = z;
     }
 
     /**
-     * 获取地面位置 (x, z)
+     * 获取 3D 位置 (x, y, z)
      */
-    getPosition(): FixedVector2 {
+    getPosition(): FixedVector3 {
         return this._position;
     }
 
     /**
-     * 获取高度 (y)
+     * 移动 (dx: 水平, dy: 高度, dz: 深度)
      */
-    getHeight(): number {
-        return this._height;
-    }
-
-    /**
-     * 设置高度
-     */
-    setHeight(height: number): void {
-        this._height = height;
-    }
-
-    /**
-     * 移动
-     */
-    move(dx: number, dz: number, dy: number = 0): void {
+    move(dx: number, dy: number = 0, dz: number = 0): void {
         this._position.x += dx;
-        this._position.y += dz;
-        this._height += dy;
+        this._position.y += dy;
+        this._position.z += dz;
     }
 
     /**

@@ -6,7 +6,7 @@
 
 import type { Game } from './GameSystem';
 import type { SceneManager } from './SceneManager';
-import type { LevelConfig } from '../config/LevelConfig';
+import type { LevelConfig, LevelTriggerConfig, LevelActionConfig, LevelTriggerEventType } from '../config/LevelConfig';
 import type { MapConfig } from './Map';
 
 /**
@@ -42,6 +42,7 @@ export class LevelManager {
   private _listeners: Map<LevelEventType, Set<LevelEventListener>> = new Map();
   private _levelVariables: Map<string, any> = new Map();
   private _scheduledTasks: Map<string, NodeJS.Timeout> = new Map();
+  private _triggers: LevelTriggerConfig[] = [];
 
   constructor(game: Game, sceneManager: SceneManager) {
     this._game = game;
@@ -59,6 +60,7 @@ export class LevelManager {
 
     this._currentLevelConfig = levelConfig;
     this._currentMapConfig = mapConfig;
+    this._triggers = levelConfig.triggers || [];
 
     // 使用 SceneManager 加载场景
     this._sceneManager.loadScene(levelConfig, mapConfig);
@@ -91,8 +93,8 @@ export class LevelManager {
 
     this._isRunning = true;
 
-    // 初始化所有触发器（未来实现）
-    this._initializeTriggers();
+    // 运行关卡开始触发器
+    this._runEventTriggers('levelStart');
 
     // 触发关卡开始事件
     this._emit('levelStarted', {
@@ -186,6 +188,7 @@ export class LevelManager {
     this._clearScheduledTasks();
     this._clearListeners();
     this._levelVariables.clear();
+    this._triggers = [];
     this._currentLevelConfig = null;
     this._currentMapConfig = null;
     this._isRunning = false;
@@ -315,9 +318,59 @@ export class LevelManager {
   /**
    * 初始化触发器（未来实现）
    */
-  private _initializeTriggers(): void {
-    // TODO: 实现触发器系统
-    // 遍历 levelConfig.triggers 并初始化每个触发器
+  private _runEventTriggers(eventType: LevelTriggerEventType, context: any = {}): void {
+    if (!this._currentLevelConfig || this._triggers.length === 0) return;
+
+    const movement = this._game.getSystem('movement');
+    const actors = this._game.getActors();
+
+    const matched = this._triggers.filter(t => t.eventType === eventType);
+    for (const trigger of matched) {
+      // 暂不处理条件，直接执行动作
+      for (const action of trigger.actions || []) {
+        this._executeAction(action, { movement, actors });
+      }
+
+      this._emit('triggerFired', { triggerId: trigger.id, eventType });
+    }
+  }
+
+  private _executeAction(action: LevelActionConfig, ctx: { movement: any; actors: any[] }): void {
+    switch (action.type) {
+      case 'moveUnit':
+        this._handleMoveUnit(action.params, ctx);
+        break;
+      default:
+        console.warn(`[LevelManager] Unsupported action type: ${action.type}`);
+        break;
+    }
+  }
+
+  private _handleMoveUnit(params: any, ctx: { movement: any; actors: any[] }): void {
+    const { movement, actors } = ctx;
+    if (!movement) {
+      console.warn('[LevelManager] moveUnit: movement system missing');
+      return;
+    }
+
+    const targetPos = params?.targetPos;
+    if (!targetPos || targetPos.x === undefined || targetPos.y === undefined) {
+      console.warn('[LevelManager] moveUnit: invalid targetPos');
+      return;
+    }
+
+    // 选取目标单位：优先 actorId，其次 campId/unitType
+    let targetActor = actors.find(a => a.id === params.actorId);
+    if (!targetActor && params.campId !== undefined) {
+      targetActor = actors.find(a => a.campId === params.campId && (!params.unitType || a.unitType === params.unitType));
+    }
+    if (!targetActor) {
+      console.warn('[LevelManager] moveUnit: no actor found for selector');
+      return;
+    }
+
+    const speed = params.speed ?? targetActor.getSpeed?.() ?? 5;
+    movement.setMoveTarget(targetActor.id, [targetPos.x, targetPos.y], speed);
   }
 
   /**

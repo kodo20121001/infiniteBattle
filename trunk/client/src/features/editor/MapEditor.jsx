@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { worldToScreen, screenToWorld } from '../../game/core/base/WorldProjection';
 import BlockTool from './mapeditor/BlockTool';
 import BuildTool from './mapeditor/BuildTool';
 import ImageTool from './mapeditor/ImageTool';
@@ -40,6 +41,8 @@ const MapEditor = () => {
   const renderMetaRef = useRef({ scale: 1, offsetX: 0, offsetY: 0 });
   const imageCacheRef = useRef(new Map());
   const isMouseDownRef = useRef(false);
+  const isLeftMouseDownRef = useRef(false);
+  const isRightMouseDownRef = useRef(false);
 
   // 载入配置
   useEffect(() => {
@@ -124,6 +127,18 @@ const MapEditor = () => {
     }
   }, [selectedId, maps]);
 
+  // 当 map 尺寸或网格尺寸变化时，自动计算网格行列数并写回 state（不可手动编辑）
+  useEffect(() => {
+    if (!mapData) return;
+    const { mapWidth = 0, mapHeight = 0, gridWidth = 0, gridHeight = 0 } = mapData;
+    if (mapWidth <= 0 || mapHeight <= 0 || gridWidth <= 0 || gridHeight <= 0) return;
+    const colCount = Math.floor(mapWidth / gridWidth);
+    const rowCount = Math.floor(mapHeight / gridHeight);
+    if (colCount !== mapData.colCount || rowCount !== mapData.rowCount) {
+      setMapData((p) => ({ ...p, colCount, rowCount }));
+    }
+  }, [mapData?.mapWidth, mapData?.mapHeight, mapData?.gridWidth, mapData?.gridHeight]);
+
   // 同步 JSON 文本编辑器
   useEffect(() => {
     if (!mapData) return;
@@ -146,14 +161,16 @@ const MapEditor = () => {
     return arr.reduce((max, item) => (item?.id ?? 0) > max ? (item.id ?? 0) : max, 0) + 1;
   };
 
-  const findNearestPoint = (points, x, y, radius = 10) => {
+  const findNearestPoint = (points, x, z, radiusInMeters = 0.3) => {
+    // 在地面平面 (x-z) 上查找最近点，不考虑高度 y
+    // radius 以米为单位（0.3m 约等于默认密度下的 ~10px）
     if (!points || points.length === 0) return null;
     let best = null;
-    let bestDist = radius * radius;
+    let bestDist = radiusInMeters * radiusInMeters;
     points.forEach((p) => {
       const dx = p.x - x;
-      const dy = p.y - y;
-      const d2 = dx * dx + dy * dy;
+      const dz = p.z - z;
+      const d2 = dx * dx + dz * dz;
       if (d2 <= bestDist) {
         bestDist = d2;
         best = p;
@@ -165,31 +182,43 @@ const MapEditor = () => {
   const canvasToWorld = (evt) => {
     const rect = canvasRef.current.getBoundingClientRect();
     const { scale, offsetX, offsetY } = renderMetaRef.current;
-    const x = (evt.clientX - rect.left - offsetX) / scale;
-    const y = (evt.clientY - rect.top - offsetY) / scale;
-    return { x, y };
+    const pxPerMeterX = mapData?.pixelsPerMeterX && mapData.pixelsPerMeterX > 0 ? mapData.pixelsPerMeterX : 32;
+    const pxPerMeterY = mapData?.pixelsPerMeterY && mapData.pixelsPerMeterY > 0 ? mapData.pixelsPerMeterY : 16;
+    // 先得到画布像素坐标
+    const xPx = (evt.clientX - rect.left - offsetX) / scale;
+    const yPx = (evt.clientY - rect.top - offsetY) / scale;
+    // 使用 WorldProjection 转换为世界坐标（米）
+    const [worldX, worldZ, worldY] = screenToWorld(xPx, yPx, pxPerMeterX, pxPerMeterY);
+    // 返回标准游戏坐标：x(水平), y(高度), z(深度)
+    return { x: worldX, y: worldY, z: worldZ };
   };
 
   const gridColCount = useMemo(() => {
     if (!mapData) return 0;
-    return Math.floor(mapData.mapWidth / mapData.gridWidth);
+    const gw = mapData.gridWidth;
+    if (!gw || gw <= 0 || !mapData.mapWidth) return mapData.colCount ?? 0;
+    return mapData.colCount ?? Math.floor(mapData.mapWidth / gw);
   }, [mapData]);
 
   const gridRowCount = useMemo(() => {
     if (!mapData) return 0;
-    return Math.floor(mapData.mapHeight / mapData.gridHeight);
+    const gh = mapData.gridHeight;
+    if (!gh || gh <= 0 || !mapData.mapHeight) return mapData.rowCount ?? 0;
+    return mapData.rowCount ?? Math.floor(mapData.mapHeight / gh);
   }, [mapData]);
 
   // 建筑网格列/行数（考虑偏移）
   const buildColCount = useMemo(() => {
     if (!mapData) return 0;
     const bw = mapData.buildGridWidth ?? mapData.gridWidth;
+    if (!bw || bw <= 0 || !mapData.mapWidth) return 0;
     return Math.floor(mapData.mapWidth / bw);
   }, [mapData]);
 
   const buildRowCount = useMemo(() => {
     if (!mapData) return 0;
     const bh = mapData.buildGridHeight ?? mapData.gridHeight;
+    if (!bh || bh <= 0 || !mapData.mapHeight) return 0;
     return Math.floor(mapData.mapHeight / bh);
   }, [mapData]);
 
@@ -225,15 +254,24 @@ const MapEditor = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const padding = 12;
-    const maxWidth = canvas.parentElement?.clientWidth || mapData.mapWidth;
-    const maxHeight = canvas.parentElement?.clientHeight || mapData.mapHeight;
+
+    // 像素密度（米->像素）
+    const pxPerMeterX = mapData.pixelsPerMeterX && mapData.pixelsPerMeterX > 0 ? mapData.pixelsPerMeterX : 32;
+    const pxPerMeterY = mapData.pixelsPerMeterY && mapData.pixelsPerMeterY > 0 ? mapData.pixelsPerMeterY : 16;
+
+    // 地图尺寸换算到像素
+    const mapWidthPx = mapData.mapWidth * pxPerMeterX;
+    const mapHeightPx = mapData.mapHeight * pxPerMeterY;
+
+    const maxWidth = canvas.parentElement?.clientWidth || mapWidthPx;
+    const maxHeight = canvas.parentElement?.clientHeight || mapHeightPx;
     const scale = Math.min(
-      (maxWidth - padding * 2) / mapData.mapWidth,
-      (maxHeight - padding * 2) / mapData.mapHeight,
+      (maxWidth - padding * 2) / mapWidthPx,
+      (maxHeight - padding * 2) / mapHeightPx,
       1
     );
-    const drawWidth = mapData.mapWidth * scale;
-    const drawHeight = mapData.mapHeight * scale;
+    const drawWidth = mapWidthPx * scale;
+    const drawHeight = mapHeightPx * scale;
 
     canvas.width = maxWidth;
     canvas.height = maxHeight;
@@ -249,7 +287,7 @@ const MapEditor = () => {
 
     // 背景
     ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, mapData.mapWidth, mapData.mapHeight);
+    ctx.fillRect(0, 0, mapWidthPx, mapHeightPx);
 
     // 渲染图片树（先序）
     const drawNode = (node) => {
@@ -276,125 +314,162 @@ const MapEditor = () => {
     };
     mapData.imageTree?.forEach(drawNode);
 
-    // 网格
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = 1;
-    for (let x = 0; x <= mapData.mapWidth; x += mapData.gridWidth) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, mapData.mapHeight);
-      ctx.stroke();
-    }
-    for (let y = 0; y <= mapData.mapHeight; y += mapData.gridHeight) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(mapData.mapWidth, y);
-      ctx.stroke();
-    }
-
-    // 障碍格
-    ctx.fillStyle = 'rgba(239,68,68,0.45)';
-    mapData.gridCells?.forEach((idx) => {
-      const gx = idx % gridColCount;
-      const gy = Math.floor(idx / gridColCount);
-      ctx.fillRect(
-        gx * mapData.gridWidth,
-        gy * mapData.gridHeight,
-        mapData.gridWidth,
-        mapData.gridHeight
-      );
-    });
-
-    // 建筑网格线与可建筑格
-    if (buildColCount > 0 && buildRowCount > 0) {
-      const bw = mapData.buildGridWidth ?? mapData.gridWidth;
-      const bh = mapData.buildGridHeight ?? mapData.gridHeight;
-      const ox = mapData.buildOffsetX ?? 0;
-      const oy = mapData.buildOffsetY ?? 0;
-      // 网格线（根据偏移的余数起始，保持列/行数只受格子尺寸影响）
-      ctx.strokeStyle = 'rgba(34,197,94,0.25)';
-      const startX = ((ox % bw) + bw) % bw;
-      const startY = ((oy % bh) + bh) % bh;
-      for (let x = startX; x <= mapData.mapWidth; x += bw) {
+    // 网格（米->像素）
+    const gridWidthPx = mapData.gridWidth * pxPerMeterX;
+    const gridHeightPx = mapData.gridHeight * pxPerMeterY;
+    const hasValidGridSize = Number.isFinite(gridWidthPx) && gridWidthPx > 0 && Number.isFinite(gridHeightPx) && gridHeightPx > 0;
+    if (hasValidGridSize) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= mapWidthPx; x += gridWidthPx) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x, mapData.mapHeight);
+        ctx.lineTo(x, mapHeightPx);
         ctx.stroke();
       }
-      for (let y = startY; y <= mapData.mapHeight; y += bh) {
+      for (let y = 0; y <= mapHeightPx; y += gridHeightPx) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(mapData.mapWidth, y);
+        ctx.lineTo(mapWidthPx, y);
         ctx.stroke();
       }
-      // 可建筑格
-      ctx.fillStyle = 'rgba(34,197,94,0.35)';
-      (mapData.buildGridCells ?? []).forEach((idx) => {
-        const gx = idx % buildColCount;
-        const gy = Math.floor(idx / buildColCount);
-        const px = ox + gx * bw;
-        const py = oy + gy * bh;
-        if (px < mapData.mapWidth && py < mapData.mapHeight) {
-          ctx.fillRect(px, py, bw, bh);
-        }
+
+      // 障碍格（米->像素）
+      ctx.fillStyle = 'rgba(239,68,68,0.45)';
+      mapData.gridCells?.forEach((idx) => {
+        const gx = idx % gridColCount;
+        const gy = Math.floor(idx / gridColCount);
+        ctx.fillRect(
+          gx * gridWidthPx,
+          gy * gridHeightPx,
+          gridWidthPx,
+          gridHeightPx
+        );
       });
     }
 
-    // 触发区域简要渲染
+    // 建筑网格线与可建筑格（米->像素）
+    if (buildColCount > 0 && buildRowCount > 0) {
+      const buildGridWidthM = mapData.buildGridWidth ?? mapData.gridWidth;
+      const buildGridHeightM = mapData.buildGridHeight ?? mapData.gridHeight;
+      const bw = buildGridWidthM * pxPerMeterX;
+      const bh = buildGridHeightM * pxPerMeterY;
+      const ox = (mapData.buildOffsetX ?? 0) * pxPerMeterX;
+      const oy = (mapData.buildOffsetY ?? 0) * pxPerMeterY;
+      const hasValidBuildGrid = Number.isFinite(bw) && bw > 0 && Number.isFinite(bh) && bh > 0;
+      if (hasValidBuildGrid) {
+        // 网格线（根据偏移的余数起始，保持列/行数只受格子尺寸影响）
+        ctx.strokeStyle = 'rgba(34,197,94,0.25)';
+        const startX = ((ox % bw) + bw) % bw;
+        const startY = ((oy % bh) + bh) % bh;
+        for (let x = startX; x <= mapWidthPx; x += bw) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, mapHeightPx);
+          ctx.stroke();
+        }
+        for (let y = startY; y <= mapHeightPx; y += bh) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(mapWidthPx, y);
+          ctx.stroke();
+        }
+        // 可建筑格
+        ctx.fillStyle = 'rgba(34,197,94,0.35)';
+        (mapData.buildGridCells ?? []).forEach((idx) => {
+          const gx = idx % buildColCount;
+          const gy = Math.floor(idx / buildColCount);
+          const px = ox + gx * bw;
+          const py = oy + gy * bh;
+          if (px < mapWidthPx && py < mapHeightPx) {
+            ctx.fillRect(px, py, bw, bh);
+          }
+        });
+      }
+    }
+
+    // 触发区域渲染（使用worldToScreen投影）
     if (mapData.triggerAreas) {
       mapData.triggerAreas.forEach((area) => {
         if (area.type === 'circle') {
           ctx.strokeStyle = 'rgba(59,130,246,0.8)';
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(area.center.x, area.center.y, area.radius, 0, Math.PI * 2);
+          // worldToScreen 参数顺序: (x, y, z) 标准游戏坐标
+          const [centerX, centerY] = worldToScreen(
+            area.center.x, 
+            area.center.y, 
+            area.center.z, 
+            pxPerMeterX, 
+            pxPerMeterY
+          );
+          // 半径直接乘以pxPerMeterX（假设圆形在地面上，水平半径）
+          ctx.arc(centerX, centerY, area.radius * pxPerMeterX, 0, Math.PI * 2);
           ctx.stroke();
         } else if (area.type === 'rectangle') {
           ctx.strokeStyle = 'rgba(16,185,129,0.8)';
           ctx.lineWidth = 2;
-          ctx.strokeRect(area.x, area.y, area.width, area.height);
+          // worldToScreen 参数顺序: (x, y, z) 标准游戏坐标
+          const [rectX, rectY] = worldToScreen(
+            area.x, 
+            area.y ?? 0, 
+            area.z ?? 0, 
+            pxPerMeterX, 
+            pxPerMeterY
+          );
+          // width和depth转换为屏幕像素
+          const rectWidth = area.width * pxPerMeterX;
+          const rectDepth = area.depth * pxPerMeterY;
+          ctx.strokeRect(rectX, rectY, rectWidth, rectDepth);
         } else if (area.type === 'grid') {
-          ctx.fillStyle = 'rgba(234,179,8,0.35)';
-          area.gridIndices.forEach((idx) => {
-            const gx = idx % gridColCount;
-            const gy = Math.floor(idx / gridColCount);
-            ctx.fillRect(
-              gx * mapData.gridWidth,
-              gy * mapData.gridHeight,
-              mapData.gridWidth,
-              mapData.gridHeight
-            );
-          });
+          if (hasValidGridSize) {
+            ctx.fillStyle = 'rgba(234,179,8,0.35)';
+            area.gridIndices.forEach((idx) => {
+              const gx = idx % gridColCount;
+              const gy = Math.floor(idx / gridColCount);
+              ctx.fillRect(
+                gx * gridWidthPx,
+                gy * gridHeightPx,
+                gridWidthPx,
+                gridHeightPx
+              );
+            });
+          }
         }
       });
     }
 
-    // 路径渲染
+    // 路径渲染（使用worldToScreen投影）
     if (mapData.paths) {
       ctx.strokeStyle = 'rgba(59,130,246,0.9)';
       ctx.lineWidth = 2;
       mapData.paths.forEach((p) => {
         if (!p.points?.length) return;
         ctx.beginPath();
-        ctx.moveTo(p.points[0].x, p.points[0].y);
+        // worldToScreen 参数顺序: (x, y, z) 标准游戏坐标
+        const [firstX, firstY] = worldToScreen(p.points[0].x, p.points[0].y, p.points[0].z, pxPerMeterX, pxPerMeterY);
+        ctx.moveTo(firstX, firstY);
         for (let i = 1; i < p.points.length; i++) {
-          ctx.lineTo(p.points[i].x, p.points[i].y);
+          const [px, py] = worldToScreen(p.points[i].x, p.points[i].y, p.points[i].z, pxPerMeterX, pxPerMeterY);
+          ctx.lineTo(px, py);
         }
         if (p.closed) ctx.closePath();
         ctx.stroke();
       });
     }
 
-    // 关键点渲染
+    // 关键点渲染（使用worldToScreen投影）
     if (mapData.points) {
       mapData.points.forEach((pt) => {
+        // worldToScreen 参数顺序: (x, y, z) 标准游戏坐标
+        const [screenX, screenY] = worldToScreen(pt.x, pt.y, pt.z, pxPerMeterX, pxPerMeterY);
         ctx.fillStyle = pt.id === selectedPointId ? '#fbbf24' : '#22c55e';
         ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, 6, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#ffffff';
         ctx.font = '12px sans-serif';
-        ctx.fillText(pt.id ?? '', pt.x + 8, pt.y + 4);
+        ctx.fillText(pt.id ?? '', screenX + 8, screenY + 4);
       });
     }
 
@@ -420,30 +495,51 @@ const MapEditor = () => {
 
   const handleCanvasDown = (evt) => {
     if (!mapData) return;
+    // 区分左右键：左键 button=0，右键 button=2
+    const isLeftButton = evt.button === 0;
+    const isRightButton = evt.button === 2;
+    
+    if (!isLeftButton && !isRightButton) return; // 只处理左右键
+    
     isMouseDownRef.current = true;
-    const { x, y } = canvasToWorld(evt);
+    if (isLeftButton) {
+      isLeftMouseDownRef.current = true;
+    } else if (isRightButton) {
+      isRightMouseDownRef.current = true;
+    }
+    
+    const { x, y, z } = canvasToWorld(evt);
     if (tool === 'block') {
+      // 左键刷格子，右键在 contextmenu 中处理
+      if (!isLeftButton) return;
+      const cols = gridColCount;
+      const rows = gridRowCount;
+      if (!mapData.gridWidth || mapData.gridWidth <= 0 || !mapData.gridHeight || mapData.gridHeight <= 0) return;
+      if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols <= 0 || rows <= 0) return;
+      // 格子使用地面坐标 x 和 z
       const gx = Math.floor(x / mapData.gridWidth);
-      const gy = Math.floor(y / mapData.gridHeight);
-      const gridColCountLocal = Math.floor(mapData.mapWidth / mapData.gridWidth);
-      const gridRowCountLocal = Math.floor(mapData.mapHeight / mapData.gridHeight);
-      if (gx < 0 || gy < 0 || gx >= gridColCountLocal || gy >= gridRowCountLocal) return;
-      const index = gy * gridColCountLocal + gx;
+      const gz = Math.floor(z / mapData.gridHeight);
+      if (gx < 0 || gz < 0 || gx >= cols || gz >= rows) return;
+      const index = gz * cols + gx;
       handleToggleCell(index);
     } else if (tool === 'build') {
       const bw = mapData.buildGridWidth ?? mapData.gridWidth;
       const bh = mapData.buildGridHeight ?? mapData.gridHeight;
+      if (!bw || bw <= 0 || !bh || bh <= 0) return;
+      if (!mapData.mapWidth || !mapData.mapHeight) return;
       const ox = mapData.buildOffsetX ?? 0;
-      const oy = mapData.buildOffsetY ?? 0;
+      const oz = mapData.buildOffsetY ?? 0; // 这里对应 z 深度
+      // 使用地面坐标 x 和 z
       const lx = x - ox;
-      const ly = y - oy;
-      if (lx < 0 || ly < 0) return;
+      const lz = z - oz;
+      if (lx < 0 || lz < 0) return;
       const cols = buildColCount;
       const rows = buildRowCount;
+      if (cols <= 0 || rows <= 0) return;
       const gx = Math.floor(lx / bw);
-      const gy = Math.floor(ly / bh);
-      if (gx < 0 || gy < 0 || gx >= cols || gy >= rows) return;
-      const index = gy * cols + gx;
+      const gz = Math.floor(lz / bh);
+      if (gx < 0 || gz < 0 || gx >= cols || gz >= rows) return;
+      const index = gz * cols + gx;
       setMapData((prev) => {
         const next = structuredClone(prev);
         const arr = next.buildGridCells ?? (next.buildGridCells = []);
@@ -452,15 +548,18 @@ const MapEditor = () => {
         return next;
       });
     } else if (tool === 'point') {
+      // 在地面平面 (x-z) 上检测点击，半径使用米单位（0.3m）
+      const hitRadius = 0.3;
       const hit = (mapData.points ?? []).find((p) => {
-        const dx = p.x - x; const dy = p.y - y; return dx * dx + dy * dy <= 10 * 10;
+        const dx = p.x - x; const dz = p.z - z; return dx * dx + dz * dz <= hitRadius * hitRadius;
       });
       if (hit) {
         setSelectedPointId(hit.id ?? null);
         setDragPointId(hit.id ?? null);
       } else {
         const newId = nextId(mapData.points, 1);
-        const newPoint = { id: newId, x, y };
+        // 新建点：使用 canvasToWorld 返回的坐标（y=0 为地面高度）
+        const newPoint = { id: newId, x, y, z };
         setMapData((p) => ({ ...p, points: [...(p.points ?? []), newPoint] }));
         setSelectedPointId(newId);
       }
@@ -474,12 +573,15 @@ const MapEditor = () => {
           next.paths = [...(next.paths ?? []), path];
           setCurrentPathId(newId);
         }
-        path.points = [...(path.points ?? []), { x, y }];
+        path.points = [...(path.points ?? []), { x, y, z }];
         return next;
       });
     } else if (tool === 'image') {
-      // 检测点击的图片节点
-      const findNodeAt = (nodes, x, y) => {
+      // 检测点击的图片节点（节点坐标存像素，这里换算成米比较）
+      const pxPerMeterX = mapData.pixelsPerMeterX && mapData.pixelsPerMeterX > 0 ? mapData.pixelsPerMeterX : 32;
+      const pxPerMeterY = mapData.pixelsPerMeterY && mapData.pixelsPerMeterY > 0 ? mapData.pixelsPerMeterY : 16;
+      // image 节点使用 x 和 z（地面坐标）
+      const findNodeAt = (nodes, xMeters, zMeters) => {
         if (!nodes) return null;
         for (let i = nodes.length - 1; i >= 0; i--) {
           const node = nodes[i];
@@ -487,19 +589,24 @@ const MapEditor = () => {
           const w = node.width ?? img?.naturalWidth ?? 0;
           const h = node.height ?? img?.naturalHeight ?? 0;
           const scale = node.scale ?? 1;
-          const x1 = node.x - (w / 2) * scale;
-          const x2 = node.x + (w / 2) * scale;
-          const y1 = node.y - (h / 2) * scale;
-          const y2 = node.y + (h / 2) * scale;
-          if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
+          // ImageNode.x/y 是像素坐标，转成米坐标（地面 x-z 平面）
+          const nodeX = node.x / pxPerMeterX;
+          const nodeZ = node.y / pxPerMeterY;
+          const halfW = (w * scale) / 2 / pxPerMeterX;
+          const halfH = (h * scale) / 2 / pxPerMeterY;
+          const x1 = nodeX - halfW;
+          const x2 = nodeX + halfW;
+          const z1 = nodeZ - halfH;
+          const z2 = nodeZ + halfH;
+          if (xMeters >= x1 && xMeters <= x2 && zMeters >= z1 && zMeters <= z2) {
             return node;
           }
-          const found = findNodeAt(node.children, x, y);
+          const found = findNodeAt(node.children, xMeters, zMeters);
           if (found) return found;
         }
         return null;
       };
-      const hit = findNodeAt(mapData.imageTree, x, y);
+      const hit = findNodeAt(mapData.imageTree, x, z);
       if (hit) {
         setSelectedNodeId(hit.id);
         setDragNodeId(hit.id);
@@ -510,33 +617,86 @@ const MapEditor = () => {
   const handleCanvasMove = (evt) => {
     if (!mapData) return;
     if (!isMouseDownRef.current) return;
-    if (tool === 'point' && dragPointId != null) {
-      const { x, y } = canvasToWorld(evt);
+    // 处理左键拖动刷格子
+    if (isLeftMouseDownRef.current && tool === 'block') {
+      // 拖动时持续刷格子
+      const { x, y, z } = canvasToWorld(evt);
+      const cols = gridColCount;
+      const rows = gridRowCount;
+      if (!mapData.gridWidth || mapData.gridWidth <= 0 || !mapData.gridHeight || mapData.gridHeight <= 0) return;
+      if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols <= 0 || rows <= 0) return;
+      const gx = Math.floor(x / mapData.gridWidth);
+      const gz = Math.floor(z / mapData.gridHeight);
+      if (gx < 0 || gz < 0 || gx >= cols || gz >= rows) return;
+      const index = gz * cols + gx;
+      // 检查该格子是否已经在列表中，只在新格子时添加/删除
+      setMapData((prev) => {
+        const next = structuredClone(prev);
+        const arr = next.gridCells ?? (next.gridCells = []);
+        const pos = arr.indexOf(index);
+        if (pos >= 0) {
+          // 已选中，保持不变
+        } else {
+          // 未选中，添加
+          arr.push(index);
+        }
+        return next;
+      });
+    } else if (isRightMouseDownRef.current && tool === 'block') {
+      // 右键拖动批量取消格子
+      const { x, y, z } = canvasToWorld(evt);
+      const cols = gridColCount;
+      const rows = gridRowCount;
+      if (!mapData.gridWidth || mapData.gridWidth <= 0 || !mapData.gridHeight || mapData.gridHeight <= 0) return;
+      if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols <= 0 || rows <= 0) return;
+      const gx = Math.floor(x / mapData.gridWidth);
+      const gz = Math.floor(z / mapData.gridHeight);
+      if (gx < 0 || gz < 0 || gx >= cols || gz >= rows) return;
+      const index = gz * cols + gx;
+      // 批量取消格子
+      setMapData((prev) => {
+        const next = structuredClone(prev);
+        const arr = next.gridCells ?? (next.gridCells = []);
+        const pos = arr.indexOf(index);
+        if (pos >= 0) {
+          // 已选中，移除
+          arr.splice(pos, 1);
+        }
+        return next;
+      });
+    } else if (tool === 'point' && dragPointId != null) {
+      const { x, y, z } = canvasToWorld(evt);
       setMapData((p) => {
         const next = structuredClone(p);
         const target = next.points?.find((pt) => pt.id === dragPointId);
         if (target) {
-          target.x = x; target.y = y;
+          // 拖拽只更新地面坐标 x 和 z，保持高度 y 不变
+          target.x = x; 
+          target.z = z;
+          // target.y 保持不变（高度在侧边栏编辑）
         }
         return next;
       });
     } else if (tool === 'image' && dragNodeId != null) {
-      const { x, y } = canvasToWorld(evt);
-      const updateNodePos = (nodes, id, newX, newY) => {
+      const { x, y, z } = canvasToWorld(evt); // 世界坐标（米）
+      const pxPerMeterX = mapData.pixelsPerMeterX && mapData.pixelsPerMeterX > 0 ? mapData.pixelsPerMeterX : 32;
+      const pxPerMeterY = mapData.pixelsPerMeterY && mapData.pixelsPerMeterY > 0 ? mapData.pixelsPerMeterY : 16;
+      const updateNodePos = (nodes, id, newXMeters, newZMeters) => {
         if (!nodes) return false;
         for (const node of nodes) {
           if (node.id === id) {
-            node.x = newX;
-            node.y = newY;
+            // ImageNode 使用像素坐标
+            node.x = newXMeters * pxPerMeterX;
+            node.y = newZMeters * pxPerMeterY;
             return true;
           }
-          if (updateNodePos(node.children, id, newX, newY)) return true;
+          if (updateNodePos(node.children, id, newXMeters, newZMeters)) return true;
         }
         return false;
       };
       setMapData((p) => {
         const next = structuredClone(p);
-        updateNodePos(next.imageTree, dragNodeId, x, y);
+        updateNodePos(next.imageTree, dragNodeId, x, z);
         return next;
       });
     }
@@ -544,6 +704,8 @@ const MapEditor = () => {
 
   const handleCanvasUp = () => {
     isMouseDownRef.current = false;
+    isLeftMouseDownRef.current = false;
+    isRightMouseDownRef.current = false;
     setDragPointId(null);
     setDragNodeId(null);
   };
@@ -551,10 +713,31 @@ const MapEditor = () => {
   const handleCanvasContextMenu = (evt) => {
     if (!mapData) return;
     evt.preventDefault();
-    const { x, y } = canvasToWorld(evt);
+    
+    const { x, y, z } = canvasToWorld(evt);
 
-    if (tool === 'point') {
-      const hit = findNearestPoint(mapData.points, x, y, 12);
+    // 右键单击（不拖动）处理取消逻辑
+    if (tool === 'block') {
+      // 单个右键点击取消该格子
+      if (!mapData.gridWidth || mapData.gridWidth <= 0 || !mapData.gridHeight || mapData.gridHeight <= 0) return;
+      const cols = gridColCount;
+      const rows = gridRowCount;
+      if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols <= 0 || rows <= 0) return;
+      const gx = Math.floor(x / mapData.gridWidth);
+      const gz = Math.floor(z / mapData.gridHeight);
+      if (gx < 0 || gz < 0 || gx >= cols || gz >= rows) return;
+      const index = gz * cols + gx;
+      setMapData((prev) => {
+        const next = structuredClone(prev);
+        const arr = next.gridCells ?? (next.gridCells = []);
+        const pos = arr.indexOf(index);
+        if (pos >= 0) {
+          arr.splice(pos, 1);
+        }
+        return next;
+      });
+    } else if (tool === 'point') {
+      const hit = findNearestPoint(mapData.points, x, z);
       if (hit) {
         setMapData((p) => ({ ...p, points: (p.points ?? []).filter((pt) => pt.id !== hit.id) }));
         if (selectedPointId === hit.id) setSelectedPointId(null);
@@ -565,7 +748,7 @@ const MapEditor = () => {
         const next = structuredClone(p);
         const path = next.paths?.find((pp) => pp.id === currentPathId);
         if (path && path.points) {
-          const hit = findNearestPoint(path.points, x, y, 12);
+          const hit = findNearestPoint(path.points, x, z);
           if (hit) {
             path.points = path.points.filter((pt) => pt !== hit);
             updated = true;
@@ -575,8 +758,6 @@ const MapEditor = () => {
       });
       // 右键结束当前路径编辑
       setCurrentPathId(null);
-      isMouseDownRef.current = false;
-      setDragPointId(null);
       if (updated) return;
     }
   };
@@ -726,18 +907,22 @@ const MapEditor = () => {
     const newMap = {
       id: newId,
       name: `新地图-${newId}`,
-      mapWidth: 1000,
-      mapHeight: 1000,
-      gridWidth: 50,
-      gridHeight: 50,
+      mapWidth: 31.25, // 1000px / 32
+      mapHeight: 62.5, // 1000px / 16
+      gridWidth: 1.5625, // 50px / 32
+      gridHeight: 3.125, // 50px / 16
+      colCount: 20,
+      rowCount: 20,
+      pixelsPerMeterX: 32,
+      pixelsPerMeterY: 16,
       imageTree: [],
       points: [],
       paths: [],
       triggerAreas: [],
       gridCells: [],
       // 建筑区域默认与地图格一致，起始偏移为 0
-      buildGridWidth: 50,
-      buildGridHeight: 50,
+      buildGridWidth: 1.5625,
+      buildGridHeight: 3.125,
       buildOffsetX: 0,
       buildOffsetY: 0,
       buildGridCells: []

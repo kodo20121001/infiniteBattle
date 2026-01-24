@@ -10,12 +10,13 @@ export enum TriggerAreaType {
 }
 
 /**
- * 点定义
+ * 点定义（标准游戏坐标系）
  */
 export interface MapPoint {
     id?: number;              // 点ID（可选，但建议设置便于关联）
-    x: number;                 // X坐标
-    y: number;                 // Y坐标
+    x: number;                 // X坐标（水平，米）
+    y: number;                 // Y坐标（高度，米）
+    z: number;                 // Z坐标（深度，米）
 }
 
 /**
@@ -35,22 +36,25 @@ export interface CircleTriggerArea {
     type: TriggerAreaType.Circle;
     id: number;                // 区域ID
     name: string;              // 区域名称
-    center: MapPoint;          // 圆心
-    radius: number;            // 半径
+    center: MapPoint;          // 圆心（米，包含x,y,z）
+    radius: number;            // 半径（米）
+    height?: number;           // 触发区域高度（米，可选）
     data?: any;                // 额外数据
 }
 
 /**
- * 矩形触发区域
+ * 矩形触发区域（标准游戏坐标系）
  */
 export interface RectangleTriggerArea {
     type: TriggerAreaType.Rectangle;
     id: number;                // 区域ID
     name: string;              // 区域名称
-    x: number;                 // 左上角X坐标
-    y: number;                 // 左上角Y坐标
-    width: number;             // 宽度
-    height: number;            // 高度
+    x: number;                 // 左上角X坐标（水平，米）
+    y: number;                 // 左上角Y坐标（高度，米）
+    z: number;                 // 左上角Z坐标（深度，米）
+    width: number;             // 宽度（米）
+    depth: number;             // 深度（米）
+    height?: number;           // 触发区域高度（米，可选）
     data?: any;                // 额外数据
 }
 
@@ -101,13 +105,13 @@ export class MapConfig {
     id: number;                // 地图ID
     name: string;              // 地图名称
     
-    // 地图尺寸
-    mapWidth: number;          // 地图宽度
-    mapHeight: number;         // 地图高度
+    // 地图尺寸（米）
+    mapWidth: number;          // 地图宽度（米）
+    mapHeight: number;         // 地图高度（米）
     
-    // 格子尺寸
-    gridWidth: number;         // 单个格子宽度
-    gridHeight: number;        // 单个格子高度
+    // 格子尺寸（米）
+    gridWidth: number;         // 单个格子宽度（米）
+    gridHeight: number;        // 单个格子高度（米）
     
     // 图片树结构
     imageTree?: ImageNode[];   // 图片树根节点列表
@@ -124,11 +128,22 @@ export class MapConfig {
     // 阻挡格列表
     gridCells: GridCell[];     // 阻挡格索引列表
 
-    // 建筑区域格子配置（可选）
-    buildGridWidth?: number;    // 建筑格子宽度
-    buildGridHeight?: number;   // 建筑格子高度
-    buildOffsetX?: number;      // 建筑格子起始 X 偏移
-    buildOffsetY?: number;      // 建筑格子起始 Y 偏移
+    // 像素密度（米→像素，可选，不影响图片尺寸，仅用于坐标换算）
+    pixelsPerMeterX?: number;  // 横向密度（默认32）
+    pixelsPerMeterY?: number;  // 纵向密度（默认16/20）
+
+    // 视口与相机（可选）
+    viewportWidth?: number;    // 视口宽（像素）
+    viewportHeight?: number;   // 视口高（像素）
+    cameraX?: number;          // 相机初始X（世界坐标，像素系）
+    cameraY?: number;          // 相机初始Y（世界坐标，像素系）
+    cameraZ?: number;          // 相机初始Z（保留）
+
+    // 建筑区域格子配置（米为单位，可选）
+    buildGridWidth?: number;    // 建筑格子宽度（米）
+    buildGridHeight?: number;   // 建筑格子高度（米）
+    buildOffsetX?: number;      // 建筑格子起始 X 偏移（米）
+    buildOffsetY?: number;      // 建筑格子起始 Y 偏移（米）
     buildGridCells?: GridCell[];// 可建筑格索引列表（行优先）
 
     constructor(id: number, name: string, mapWidth: number, mapHeight: number, 
@@ -137,7 +152,10 @@ export class MapConfig {
                 triggerAreas?: TriggerArea[],
                 buildGridWidth?: number, buildGridHeight?: number,
                 buildOffsetX?: number, buildOffsetY?: number,
-                buildGridCells?: GridCell[]) {
+                buildGridCells?: GridCell[],
+                pixelsPerMeterX?: number, pixelsPerMeterY?: number,
+                viewportWidth?: number, viewportHeight?: number,
+                cameraX?: number, cameraY?: number, cameraZ?: number) {
         this.id = id;
         this.name = name;
         this.mapWidth = mapWidth;
@@ -156,6 +174,17 @@ export class MapConfig {
         this.buildOffsetX = buildOffsetX;
         this.buildOffsetY = buildOffsetY;
         this.buildGridCells = buildGridCells;
+
+        // 像素密度（可选）
+        this.pixelsPerMeterX = pixelsPerMeterX;
+        this.pixelsPerMeterY = pixelsPerMeterY;
+
+        // 视口与相机（可选）
+        this.viewportWidth = viewportWidth;
+        this.viewportHeight = viewportHeight;
+        this.cameraX = cameraX;
+        this.cameraY = cameraY;
+        this.cameraZ = cameraZ;
     }
 }
 

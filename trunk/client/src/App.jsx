@@ -6,11 +6,12 @@ import GameView from './features/game/GameView.jsx';
 
 // 动态导入编辑器入口
 const EditorHub = lazy(() => import('./features/editor/EditorHub.jsx'));
+const TestHub = lazy(() => import('./features/test/TestHub.jsx'));
 
 export default function App() {
   const [currentThemeName, setCurrentThemeName] = useState('diablo');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentMode, setCurrentMode] = useState('login'); // 'login', 'game', 'editor'
+  const [currentMode, setCurrentMode] = useState('login'); // 'login', 'game', 'editor', 'test'
   const activeTheme = currentThemeName === 'diablo' ? DiabloTheme : CyberTheme;
 
   // 读取URL参数或localStorage来决定启动模式
@@ -21,11 +22,15 @@ export default function App() {
     
     if (urlMode === 'editor') {
       setCurrentMode('editor');
+    } else if (urlMode === 'test') {
+      setCurrentMode('test');
     } else if (urlMode === 'game') {
       setCurrentMode('game');
       setIsLoggedIn(true);
     } else if (savedMode === 'editor') {
       setCurrentMode('editor');
+    } else if (savedMode === 'test') {
+      setCurrentMode('test');
     } else if (savedMode === 'game') {
       setCurrentMode('game');
       setIsLoggedIn(true);
@@ -65,6 +70,15 @@ export default function App() {
     return (
       <Suspense fallback={<LoadingFallback />}>
         <EditorHub onBack={() => switchMode('login')} />
+      </Suspense>
+    );
+  }
+
+  // 测试模式
+  if (currentMode === 'test') {
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <TestHub onBack={() => switchMode('login')} />
       </Suspense>
     );
   }

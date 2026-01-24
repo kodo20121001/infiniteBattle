@@ -1,6 +1,7 @@
 
 
 
+
 /**
  * 关卡配置主结构
  */
@@ -96,8 +97,6 @@ export interface LevelTriggerConfig {
  * 参考 war3 关卡编辑器，补充常用事件类型
  */
 export type LevelTriggerEventType =
-    | 'levelInit'            // 关卡初始化
-    | 'mapInit'              // 地图初始化
     | 'levelStart'           // 关卡开始
     | 'levelEnd'             // 关卡结束
     | 'unitEnterRegion'      // 单位进入区域

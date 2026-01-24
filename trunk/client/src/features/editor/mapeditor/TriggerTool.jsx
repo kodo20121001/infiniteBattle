@@ -26,9 +26,11 @@ const TriggerTool = ({ mapData, setMapData }) => {
                 const newId = Math.max(0, ...(mapData.triggerAreas ?? []).map(t => t.id)) + 1;
                 let newArea;
                 if (type === 'circle') {
-                  newArea = { type: 'circle', id: newId, name: `触发区-${newId}`, center: { x: 0, y: 0 }, radius: 100 };
+                  // 圆形：中心点(x水平, y高度, z深度米) + 半径(米) + 高度(米)
+                  newArea = { type: 'circle', id: newId, name: `触发区-${newId}`, center: { x: 5, y: 0, z: 5 }, radius: 3, height: 2 };
                 } else if (type === 'rectangle') {
-                  newArea = { type: 'rectangle', id: newId, name: `触发区-${newId}`, x: 0, y: 0, width: 100, height: 100 };
+                  // 矩形：左上角(x水平, y高度, z深度米) + 宽度(米) + 深度(米) + 高度(米)
+                  newArea = { type: 'rectangle', id: newId, name: `触发区-${newId}`, x: 5, y: 0, z: 5, width: 3, depth: 3, height: 2 };
                 } else {
                   newArea = { type: 'grid', id: newId, name: `触发区-${newId}`, gridIndices: [] };
                 }

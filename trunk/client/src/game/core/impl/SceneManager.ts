@@ -5,7 +5,7 @@
 
 import { Game } from './GameSystem';
 import { Actor, ActorType } from './Actor';
-import { FixedVector2 } from '../base/fixed/FixedVector2';
+import { FixedVector3 } from '../base/fixed/FixedVector3';
 import type { LevelConfig, LevelUnitConfig } from '../config/LevelConfig';
 import type { UnitConfig } from '../config/UnitConfig';
 import type { ModelConfig } from '../config/ModelConfig';
@@ -61,27 +61,26 @@ export class SceneManager {
         }
 
         // 获取单位位置（从地图配置中查找）
-        let x = 0, z = 0, y = 0;
+        let x = 0, y = 0, z = 0;
         if (this._mapConfig && this._mapConfig.points) {
             const point = this._mapConfig.points.find((p: any) => p.id === unitConfig.positionName);
             if (point) {
                 x = point.x;
-                z = point.y;  // 地图编辑器中的 y 对应游戏世界的 z
-                y = 0;        // 默认高度为0
+                y = point.y ?? 0;
+                z = point.z ?? 0;
             }
         }
 
         // 创建角色
         const actorId = `${unitConfig.campId}_${unitConfig.unitId}_${Date.now()}_${Math.random()}`;
-        const position = new FixedVector2(x, z);
+        const position = new FixedVector3(x, y, z);
         const actor = new Actor(
             actorId,
             ActorType.Unit,
             unitBaseConfig.modelId,
             unitConfig.unitId,  // 单位类型（对应 unit.json 的 id）
             unitConfig.campId,
-            position,
-            y
+            position
         );
 
         // 初始化角色（需要 ModelConfig，这里简化处理）

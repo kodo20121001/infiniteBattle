@@ -3,18 +3,6 @@
  * 每个事件类型都定义了对应的数据结构，便于类型安全和编辑器自动提示
  */
 
-// 关卡初始化事件
-export interface LevelConfigTriggerEventLevelInit {
-    /** 关卡ID */
-    levelId: number;
-}
-
-// 地图初始化事件
-export interface LevelConfigTriggerEventMapInit {
-    /** 地图ID */
-    mapId: number;
-}
-
 // 关卡开始事件
 export interface LevelConfigTriggerEventLevelStart {
     /** 关卡ID */
@@ -137,8 +125,6 @@ export interface LevelConfigTriggerEventCustomEvent {
  * 触发事件类型与数据结构映射
  */
 export type LevelConfigTriggerEventDataMap = {
-    levelInit: LevelConfigTriggerEventLevelInit;
-    mapInit: LevelConfigTriggerEventMapInit;
     levelStart: LevelConfigTriggerEventLevelStart;
     levelEnd: LevelConfigTriggerEventLevelEnd;
     unitEnterRegion: LevelConfigTriggerEventUnitEnterRegion;

@@ -2,10 +2,19 @@
   {
     "id": 1,
     "name": "新地图-1",
-    "mapWidth": 1000,
-    "mapHeight": 1000,
-    "gridWidth": 50,
-    "gridHeight": 50,
+    "mapWidth": 31.25,
+    "mapHeight": 62.5,
+    "viewportWidth": 960,
+    "viewportHeight": 720,
+    "cameraX": 480,
+    "cameraY": 360,
+    "cameraZ": 0,
+    "gridWidth": 0.5,
+    "gridHeight": 0.5,
+    "colCount": 62,
+    "rowCount": 125,
+    "pixelsPerMeterX": 32,
+    "pixelsPerMeterY": 32,
     "imageTree": [
       {
         "id": 1,
@@ -18,30 +27,54 @@
     "points": [
       {
         "id": 1,
-        "x": 200,
-        "y": 200
+        "x": 6.415851955307263,
+        "y": 0,
+        "z": 7.0530726256983245
       },
       {
         "id": 2,
-        "x": 400,
-        "y": 200
+        "x": 12.5,
+        "y": 0,
+        "z": 12.5
+      },
+      {
+        "id": 3,
+        "x": 2.7162944025834217,
+        "y": 0,
+        "z": 31.88912809472551
       }
     ],
     "paths": [],
     "triggerAreas": [],
-    "gridCells": []
+    "gridCells": [
+      0
+    ]
   },
   {
     "id": 2,
     "name": "新地图-2",
-    "mapWidth": 1000,
-    "mapHeight": 1000,
-    "gridWidth": 50,
-    "gridHeight": 50,
+    "mapWidth": 31.25,
+    "mapHeight": 62.5,
+    "viewportWidth": 960,
+    "viewportHeight": 720,
+    "cameraX": 480,
+    "cameraY": 360,
+    "cameraZ": 0,
+    "gridWidth": 1.5625,
+    "gridHeight": 3.125,
+    "colCount": 20,
+    "rowCount": 20,
+    "pixelsPerMeterX": 32,
+    "pixelsPerMeterY": 16,
     "imageTree": [],
     "points": [],
     "paths": [],
     "triggerAreas": [],
-    "gridCells": [125, 167, 230, 224]
+    "gridCells": [
+      125,
+      167,
+      230,
+      224
+    ]
   }
 ]

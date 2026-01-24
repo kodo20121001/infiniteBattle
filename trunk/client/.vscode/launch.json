@@ -21,8 +21,8 @@
         {
             "type": "chrome",
             "request": "launch",
-            "name": "⚔️ 技能行为编辑器",
-            "url": "http://localhost:5173?mode=editor&type=skill-behavior",
+            "name": "⚔️ 测试中心",
+            "url": "http://localhost:5173?mode=test",
             "webRoot": "${workspaceFolder}"
         },
     ]

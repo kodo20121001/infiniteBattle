@@ -93,6 +93,17 @@ export class ClientGameRunner {
         // 创建并加载地图
         this._map = new GameMap(mapConfig, spriteManager);
         await this._map.loadBackgrounds();
+
+        // 应用地图配置中的视口与相机初始位置
+        const viewportW = Number(mapConfig.viewportWidth || 0);
+        const viewportH = Number(mapConfig.viewportHeight || 0);
+        if (viewportW > 0 && viewportH > 0) {
+            this._world.setViewport(viewportW, viewportH);
+        }
+        if (mapConfig.cameraX !== undefined && mapConfig.cameraY !== undefined) {
+            const camZ = mapConfig.cameraZ ?? 0;
+            this._world.getCamera().setPosition(mapConfig.cameraX, mapConfig.cameraY, camZ);
+        }
         
         // 为场景中的所有 actor 创建 sprite
         const actors = this._game.getActors();
@@ -209,6 +220,7 @@ export class ClientGameRunner {
             return;
         }
         this._isRunning = true;
+        this._levelManager.startLevel();
         this._world.start();
     }
 
@@ -260,23 +272,28 @@ export class ClientGameRunner {
         const spriteManager = this._world.getSpriteManager();
         const actors = this._game.getActors();
 
+        // 从地图配置获取像素密度
+        const mapConfig = this._map?.getConfig();
+        const pixelsPerMeterX = mapConfig?.pixelsPerMeterX ?? 32;
+        const pixelsPerMeterY = mapConfig?.pixelsPerMeterY ?? 16;
+
         for (const actor of actors) {
             const spriteId = actor.getSpriteId();
             if (spriteId) {
-                const pos = actor.getPosition();
-                const height = actor.getHeight();
+                const pos = actor.getPosition(); // pos: FixedVector3 {x, y, z}
                 const sprite = spriteManager.get(spriteId);
                 if (sprite) {
-                    // 世界坐标转屏幕坐标
-                    const [screenX, screenY] = worldToScreen(pos.x, pos.y, height);
+                    // 世界坐标转屏幕坐标（应用地图像素密度）
+                    // worldToScreen(x, y, z) - 标准游戏坐标顺序
+                    const [screenX, screenY] = worldToScreen(pos.x, pos.y, pos.z, pixelsPerMeterX, pixelsPerMeterY);
                     sprite.setPosition(screenX, screenY);
                     sprite.rotation = actor.getRotation();
                     const scale = actor.getScale();
-                    sprite.setScale(scale, scale);
+                    //sprite.setScale(scale, scale);
                     sprite.visible = actor.isVisible();
                     
-                    // 使用 z 坐标（深度）控制渲染层级
-                    sprite.position.z = pos.y;
+                    // 使用 z 坐标（深度）- y（高度）控制渲染层级（越深越靠后，越高越靠前）
+                    sprite.position.z = pos.z - pos.y;
                 }
             }
         }

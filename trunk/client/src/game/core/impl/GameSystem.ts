@@ -21,7 +21,7 @@ export { GameSystem } from './GameSystemBase';
  */
 export class MovementSystem extends GameSystem {
     private _moveTargets: Map<string, { target: Actor; destination: [number, number]; speed: number }> =
-        new Map();
+        new Map(); // destination: [x, z]
 
     init(): void {
         // 初始化逻辑
@@ -40,8 +40,8 @@ export class MovementSystem extends GameSystem {
                 // 计算方向和距离
                 const pos = actor.getPosition();
                 const dx = moveTarget.destination[0] - pos.x;
-                const dy = moveTarget.destination[1] - pos.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
+                const dz = moveTarget.destination[1] - pos.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
 
                 if (distance < 0.1) {
                     // 到达目标
@@ -53,10 +53,10 @@ export class MovementSystem extends GameSystem {
                     const moveDistance = moveTarget.speed * (fixedDeltaTime / 1000);
                     const moveRatio = Math.min(1, moveDistance / distance);
 
-                    actor.move(dx * moveRatio, dy * moveRatio);
+                    actor.move(dx * moveRatio, 0, dz * moveRatio);
 
                     // 更新旋转方向
-                    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                    const angle = Math.atan2(dz, dx) * (180 / Math.PI);
                     actor.setRotation(angle);
                 }
             }
@@ -66,7 +66,7 @@ export class MovementSystem extends GameSystem {
     /**
      * 设置单位移动目标
      * @param actorId 角色ID
-     * @param destination 目标位置
+     * @param destination 目标位置 [x, z]
      * @param speed 移动速度（单位/秒）
      */
     setMoveTarget(actorId: string, destination: [number, number], speed: number): void {
@@ -156,8 +156,8 @@ export class MoveBySystem extends GameSystem {
         const dx = distance * Math.cos(radians);
         const dz = distance * Math.sin(radians);
         
-        // 应用位移（俯视角：x, z）
-        actor.move(dx, dz);
+        // 应用位移 (x: 水平, y: 高度, z: 深度)
+        actor.move(dx, 0, dz);
     }
 
     fixedUpdate(fixedDeltaTime: number): void {

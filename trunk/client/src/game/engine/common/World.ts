@@ -169,7 +169,7 @@ export class World {
 
     setViewport(width: number, height: number): void {
         this.camera.setViewport(width, height);
-        this.renderer.setViewport(width, height);
+        this.renderer.resize(width, height);
     }
 
     getCamera(): Camera2D {
