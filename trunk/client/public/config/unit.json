@@ -6,7 +6,14 @@
     "skillIds": [],
     "attackSkillId": 1,
     "hitY": 1.2,
-    "sightRange": 800
+    "sightRange": 800,
+    "obstacleCheckDistance": 3,
+    "avoidanceEnabled": true,
+    "avoidanceRangeFactor": 0.15,
+    "separationStrength": 0.2,
+    "slideEnabled": true,
+    "slideFactor": 0.4,
+    "safeMargin": 0.0
   },
   {
     "id": 102,
@@ -15,7 +22,14 @@
     "skillIds": [2001, 2002],
     "attackSkillId": 2001,
     "hitY": 1.0,
-    "sightRange": 1000
+    "sightRange": 1000,
+    "obstacleCheckDistance": 3,
+    "avoidanceEnabled": true,
+    "avoidanceRangeFactor": 0.15,
+    "separationStrength": 0.2,
+    "slideEnabled": true,
+    "slideFactor": 0.4,
+    "safeMargin": 0.0
   },
   {
     "id": 103,
@@ -23,7 +37,14 @@
     "modelId": 203,
     "skillIds": [3001, 3002, 3003, 3004],
     "hitY": 1.1,
-    "sightRange": 900
+    "sightRange": 900,
+    "obstacleCheckDistance": 3,
+    "avoidanceEnabled": true,
+    "avoidanceRangeFactor": 0.15,
+    "separationStrength": 0.2,
+    "slideEnabled": true,
+    "slideFactor": 0.4,
+    "safeMargin": 0.0
   },
   {
     "id": 104,
@@ -31,7 +52,14 @@
     "modelId": 204,
     "skillIds": [4001, 4002],
     "hitY": 1.5,
-    "sightRange": 700
+    "sightRange": 700,
+    "obstacleCheckDistance": 3,
+    "avoidanceEnabled": true,
+    "avoidanceRangeFactor": 0.15,
+    "separationStrength": 0.2,
+    "slideEnabled": true,
+    "slideFactor": 0.4,
+    "safeMargin": 0.0
   },
   {
     "id": 105,
@@ -39,6 +67,13 @@
     "modelId": 205,
     "skillIds": [5001, 5002, 5003],
     "hitY": 1.0,
-    "sightRange": 850
+    "sightRange": 850,
+    "obstacleCheckDistance": 3,
+    "avoidanceEnabled": true,
+    "avoidanceRangeFactor": 0.15,
+    "separationStrength": 0.2,
+    "slideEnabled": true,
+    "slideFactor": 0.4,
+    "safeMargin": 0.0
   }
 ]

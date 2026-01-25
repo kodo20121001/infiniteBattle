@@ -74,6 +74,8 @@ export interface LevelUnitConfig {
     level?: number;
     /** 关卡内自定义属性 */
     customProps?: Record<string, any>;
+    /** 可选的生成位置偏移（测试/群体生成用） */
+    offset?: { x?: number; z?: number };
 }
 
 /**
@@ -151,6 +153,7 @@ export type LevelActionType =
     | 'createUnit'      // 创建单位
     | 'removeUnit'      // 移除单位
     | 'moveUnit'        // 移动单位
+    | 'moveCamp'        // 移动阵营内所有单位
     | 'setVariable'     // 设置变量
     | 'playEffect'      // 播放特效
     | 'playSound'       // 播放音效

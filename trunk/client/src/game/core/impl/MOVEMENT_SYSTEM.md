@@ -50,6 +50,7 @@ enum MoveState {
 - [PathfindingSystem.ts](src/game/core/impl/PathfindingSystem.ts)：A* 寻路 + 路径平滑
 - [PathFollowingSystem.ts](src/game/core/impl/PathFollowingSystem.ts)：沿 A* 路径跟随 + 动态切回直线
 - [ObstacleDetection.ts](src/game/core/impl/ObstacleDetection.ts)：DDA 视线检查工具
+- [AvoidanceSystem.ts](src/game/core/impl/AvoidanceSystem.ts)：单位避让（分离力 + 接触滑动兜底）
 
 调用关系：`MovementSystem` 根据当前 `MoveState` 分发到直线/路径跟随模块；碰到障碍时调用 `PathfindingSystem` 获取路径。
 
@@ -103,7 +104,7 @@ moveTo() 命令
 ### 核心优化点
 
 1. **减少寻路计算**: 优先直线走，只在必要时调用A*
-2. **响应式障碍检测**: 每帧0.5m预检，立即反应而不是走到墙
+2. **响应式障碍检测**: 每帧 3m 预检（可配置），立即反应而不是走到墙
 3. **自动路径优化**: 路径平滑移除冗余点
 4. **平滑转向**: 逐帧旋转而非瞬间转向
 
@@ -295,7 +296,7 @@ Actor.move() + Actor.setRotation()
 | 到达判定 | ✅ | ✅ | 完全实现 |
 | 8方向移动 | ✅ | ✅ | 完全实现 |
 | 直线运动 | ✅ | ✅ | 完全实现 (v1.1) |
-| 单位避让 | ✅ | ❌ | 计划中 |
+| 单位避让 | ✅ | ✅ | War3风格（碰撞检测 + 等待） |
 | 编队移动 | ✅ | ❌ | 计划中 |
 | Flow Field | ✅ | ❌ | 计划中 |
 | 地形高度 | ✅ | ⚠️ | 基础支持 |
@@ -304,16 +305,19 @@ Actor.move() + Actor.setRotation()
 ## 🐛 已知限制与改进计划
 
 ### 当前限制
-1. **无单位碰撞避让**: 多个单位可能重叠（RVO待实现）
+1. **简单避让策略**: 采用War3风格的碰撞等待，未实现现代RVO算法
 2. **无编队支持**: 单位独立移动
 3. **静态地图**: 不支持动态障碍物（临时）
 4. **平面运动**: 未实现地形高度相关的运动
 
 ### 改进方向 (优先级排序)
 
-#### ⭐ 高优先级：单位避让系统 (RVO)
+#### ⭐ 高优先级：现代避让算法 (RVO/ORCA)
+
+**说明**：War3（2002年）并未使用RVO算法（RVO于2008年发表）。War3采用简单的碰撞检测+推挤+等待策略。当前实现已接近War3风格。如需更流畅的避让效果，可考虑实现现代RVO/ORCA算法。
+
 ```typescript
-interface AvoidanceSystem {
+interface ModernAvoidanceSystem {
     // 计算避让速度，基于周围单位
     computeAvoidanceVelocity(unit: Actor, neighbors: Actor[], targetVelocity: Vector2): Vector2;
     
@@ -325,10 +329,22 @@ interface AvoidanceSystem {
 }
 ```
 **优势**：
-- 多单位自然避让，无需提前规划
-- 计算量小，每单位O(n)（n为邻居数）
-- 实现War3的自然拥挤效果
-- 可复用现有的单位radius字段
+- 多单位平滑避让，避免卡顿
+- 计算量适中，每单位O(n)（n为邻居数）
+- 比War3的简单推挤更流畅
+- 适合现代RTS游戏
+
+**War3 vs 现代方案**：
+- War3：碰撞检测 → 推挤 → 等待（简单但会卡顿）
+- RVO/ORCA：预测碰撞 → 提前避让 → 流畅绕行
+- 当前实现：War3风格（碰撞等待），已满足基本需求
+
+**配置（如实现RVO）**
+
+- `avoidanceEnabled: boolean`：是否启用避让算法
+- `avoidanceRadiusMultiplier: number`：邻居搜索半径系数
+- `rvoTimeHorizon: number`：RVO预测时间窗口
+- `maxNeighbors: number`：最大考虑邻居数（性能优化）
 
 #### 编队移动
 ```typescript
@@ -362,11 +378,12 @@ interface Formation {
 
 ### v1.1.0 (当前版本 - 最新)
 **核心改进：直线运动优化和 Bug 修复**
-- ✅ War3 风格直线运动：先尝试直线走到目标，每帧检测前方0.5m障碍
+- ✅ War3 风格直线运动：先尝试直线走到目标，每帧检测前方 3m 障碍（可被 UnitConfig 覆盖）
 - ✅ 动态 A* 切换：遇到障碍立即切换 A* 寻路
 - ✅ 修复卡住 bug：完整处理 Blocked/Arrived 状态
 - ✅ 目标朝向修正：直线运动时朝向最终目标而非临时点
 - ✅ 状态转换优化：状态机完整处理所有分支
+- ✅ 基础单位避让：War3风格（碰撞检测 + 等待策略）
 
 ### v1.0.0 
 - ✅ A* 寻路算法

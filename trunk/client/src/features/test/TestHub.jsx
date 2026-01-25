@@ -1,6 +1,7 @@
 import React, { useState, lazy, Suspense } from 'react';
 
 const PathfindingTester = lazy(() => import('./PathfindingTester.jsx'));
+const GroupMovementTester = lazy(() => import('./GroupMovementTester.jsx'));
 
 const tests = [
   {
@@ -9,6 +10,13 @@ const tests = [
     description: '选择地图后启动，小兵会从 1 号点移动到 2 号点',
     icon: '🧭',
     color: 'from-emerald-600 to-cyan-600'
+  },
+  {
+    id: 'groupmove',
+    title: '群体移动测试',
+    description: '批量生成单位并从 1 移动到 2，观察避让与滑动效果',
+    icon: '👥',
+    color: 'from-violet-600 to-fuchsia-600'
   }
 ];
 
@@ -26,6 +34,13 @@ const TestHub = ({ onBack }) => {
     return (
       <Suspense fallback={<Loading />}> 
         <PathfindingTester onBack={onBack} onBackToHub={() => setCurrent(null)} />
+      </Suspense>
+    );
+  }
+  if (current === 'groupmove') {
+    return (
+      <Suspense fallback={<Loading />}> 
+        <GroupMovementTester onBack={onBack} onBackToHub={() => setCurrent(null)} />
       </Suspense>
     );
   }

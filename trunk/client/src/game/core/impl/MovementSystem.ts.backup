@@ -171,11 +171,6 @@ export class MovementSystem extends GameSystem {
             return false;
         }
 
-        // 如果没有地图，直接线性移动
-        if (!this._map) {
-            return this._moveDirectly(command);
-        }
-
         const pos = actor.getPosition();
         
         // War3风格：总是先尝试直线走，碰到障碍再自动切换A*
@@ -203,38 +198,6 @@ export class MovementSystem extends GameSystem {
             lastFrameDistance: Number.MAX_VALUE,
         };
         
-        this._moveData.set(command.actorId, moveData);
-        return true;
-    }
-
-    /**
-     * 直接移动（无寻路）
-     */
-    private _moveDirectly(command: MoveCommand): boolean {
-        const actor = this._game.getActor(command.actorId);
-        if (!actor) return false;
-
-        const obstacleCheckDistance = this._getObstacleCheckDistance(actor);
-        const pos = actor.getPosition();
-        const moveData: MoveData = {
-            actor,
-            state: MoveState.Moving,
-            path: [
-                { x: pos.x, y: pos.y, z: pos.z },
-                { x: command.targetX, y: command.targetY ?? 0, z: command.targetZ }
-            ],
-            currentPathIndex: 0,
-            targetX: command.targetX,
-            targetZ: command.targetZ,
-            targetY: command.targetY ?? 0,
-            speed: command.speed,
-            arrivalRadius: command.arrivalRadius ?? this._defaultArrivalRadius,
-            turnSpeed: command.turnSpeed ?? this._defaultTurnSpeed,
-            targetAngle: 0,
-            isPathSmoothed: false,
-            obstacleCheckDistance: obstacleCheckDistance,
-        };
-
         this._moveData.set(command.actorId, moveData);
         return true;
     }

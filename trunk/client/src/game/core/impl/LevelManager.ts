@@ -42,7 +42,7 @@ export class LevelManager {
   private _isRunning: boolean = false;
   private _listeners: Map<LevelEventType, Set<LevelEventListener>> = new Map();
   private _levelVariables: Map<string, any> = new Map();
-  private _scheduledTasks: Map<string, NodeJS.Timeout> = new Map();
+  private _scheduledTasks: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private _triggers: LevelTriggerConfig[] = [];
 
   constructor(game: Game, sceneManager: SceneManager) {
@@ -341,6 +341,9 @@ export class LevelManager {
       case 'moveUnit':
         this._handleMoveUnit(action.params, ctx);
         break;
+      case 'moveCamp':
+        this._handleMoveCamp(action.params, ctx);
+        break;
       default:
         console.warn(`[LevelManager] Unsupported action type: ${action.type}`);
         break;
@@ -377,6 +380,37 @@ export class LevelManager {
       targetZ: targetPos.y,
       speed,
     });
+  }
+
+  private _handleMoveCamp(params: any, ctx: { movement: any; actors: any[] }): void {
+    const { movement, actors } = ctx;
+    if (!movement) {
+      console.warn('[LevelManager] moveCamp: movement system missing');
+      return;
+    }
+
+    const targetPos = params?.targetPos;
+    if (!targetPos || targetPos.x === undefined || targetPos.y === undefined) {
+      console.warn('[LevelManager] moveCamp: invalid targetPos');
+      return;
+    }
+
+    const campId = params?.campId;
+    if (campId === undefined) {
+      console.warn('[LevelManager] moveCamp: campId missing');
+      return;
+    }
+
+    const campActors = actors.filter(a => a.campId === campId);
+    for (const a of campActors) {
+      const speed = params.speed ?? a.getSpeed?.() ?? 5;
+      movement.moveTo({
+        actorId: a.id,
+        targetX: targetPos.x,
+        targetZ: targetPos.y,
+        speed,
+      });
+    }
   }
 
   /**

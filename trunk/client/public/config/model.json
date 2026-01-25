@@ -3,6 +3,7 @@
     "id": 201,
     "name": "剑士模型",
     "type": "2d",
+    "radius": 0.3,
     "scale": 0.05,
     "defaultAction": "idle",
     "actions": [
@@ -19,6 +20,7 @@
     "id": 202,
     "name": "弓箭手模型",
     "type": "2d",
+    "radius": 0.3,
     "scale": 1.0,
     "defaultAction": "idle",
     "actions": [
@@ -56,6 +58,7 @@
     "id": 203,
     "name": "法师模型",
     "type": "2d",
+    "radius": 0.3,
     "scale": 1.0,
     "defaultAction": "idle",
     "actions": [
@@ -93,6 +96,7 @@
     "id": 204,
     "name": "骑士模型",
     "type": "2d",
+    "radius": 0.3,
     "scale": 1.2,
     "defaultAction": "idle",
     "actions": [
@@ -130,6 +134,7 @@
     "id": 205,
     "name": "刺客模型",
     "type": "2d",
+    "radius": 0.3,
     "scale": 0.9,
     "defaultAction": "idle",
     "actions": [

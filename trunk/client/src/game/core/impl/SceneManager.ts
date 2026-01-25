@@ -80,6 +80,13 @@ export class SceneManager {
             }
         }
 
+        // 可选的相对偏移（测试用，便于群体生成）
+        if ((levelUnitConfig as any).offset) {
+            const off = (levelUnitConfig as any).offset;
+            if (typeof off.x === 'number') x += off.x;
+            if (typeof off.z === 'number') z += off.z;
+        }
+
         // 创建角色
         const actorId = `${levelUnitConfig.campId}_${levelUnitConfig.unitId}_${Date.now()}_${Math.random()}`;
         const position = new FixedVector3(x, y, z);
