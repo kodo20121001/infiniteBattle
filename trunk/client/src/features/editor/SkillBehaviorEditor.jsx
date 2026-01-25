@@ -79,7 +79,7 @@ const SkillBehaviorEditor = () => {
   const [draft, setDraft] = useState(null);
   const [selectedSegmentIdx, setSelectedSegmentIdx] = useState(0);
   const [selectedEventIdx, setSelectedEventIdx] = useState(0);
-  const [timelineViewMs, setTimelineViewMs] = useState(0); // 仅用于编辑时的可视总时长
+  const [timelineViewSec, setTimelineViewSec] = useState(0); // 仅用于编辑时的可视总时长（秒）
   const [status, setStatus] = useState('loading');
   const [dirHandle, setDirHandle] = useState(null);
   const [savePathName, setSavePathName] = useState('');
@@ -168,14 +168,14 @@ const SkillBehaviorEditor = () => {
   };
 
   const viewTimelineLength = useMemo(() => {
-    const base = timelineViewMs || timelineLength || 1000; // 默认给个 1000ms 方便看
+    const base = timelineViewSec || timelineLength || 10; // 默认给个 10秒 方便看
     return Math.max(base, timelineLength);
-  }, [timelineLength, timelineViewMs]);
+  }, [timelineLength, timelineViewSec]);
 
   // 当切换分段或事件超出当前视图时长时，自动扩展视图时长，不覆盖用户已调大的值
   useEffect(() => {
-    setTimelineViewMs((prev) => {
-      const minNeed = timelineLength || 1000;
+    setTimelineViewSec((prev) => {
+      const minNeed = timelineLength || 10;
       return Math.max(prev || 0, minNeed);
     });
   }, [selectedSegmentIdx, timelineLength]);
@@ -462,11 +462,11 @@ const SkillBehaviorEditor = () => {
           </div>
           <div className="space-y-1">
             <div className="text-slate-300 text-xs">事件时间轴长度</div>
-            <div className="text-lg font-semibold">{timelineLength} ms</div>
+            <div className="text-lg font-semibold">{timelineLength.toFixed(2)} s</div>
           </div>
           <div className="space-y-1">
             <div className="text-slate-300 text-xs">视图时长(仅编辑)</div>
-            <div className="text-lg font-semibold">{viewTimelineLength} ms</div>
+            <div className="text-lg font-semibold">{viewTimelineLength.toFixed(2)} s</div>
           </div>
           {hasError && (
             <div className="text-xs text-red-300 bg-red-900/40 border border-red-700 rounded p-2">
@@ -529,14 +529,15 @@ const SkillBehaviorEditor = () => {
           <div className="flex items-center justify-between mb-2 text-xs text-slate-300 gap-3">
             <span>事件时间轴</span>
             <div className="flex items-center gap-2 text-[11px] text-slate-400">
-              <span>视图总时长(ms)</span>
+              <span>视图总时长(s)</span>
               <input
                 type="number"
                 className="w-28 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs"
-                value={timelineViewMs}
-                onChange={(e) => setTimelineViewMs(Math.max(0, Number(e.target.value) || 0))}
-                placeholder={String(viewTimelineLength)}
+                value={timelineViewSec}
+                onChange={(e) => setTimelineViewSec(Math.max(0, Number(e.target.value) || 0))}
+                placeholder={String(viewTimelineLength.toFixed(2))}
                 min={0}
+                step="0.1"
               />
             </div>
           </div>

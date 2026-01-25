@@ -3,6 +3,7 @@ import { Configs } from "../../common/Configs";
 export interface SkillConfig {
   id: number;                // 技能ID
   skillBehaviorId: number;   // 技能行为ID
+  castRange?: number;        // 施放距离（米）
   table: Record<string, number>; // 技能参数表，key为任意字符串，值为 number
 }
 

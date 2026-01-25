@@ -2,6 +2,7 @@ import React, { useState, lazy, Suspense } from 'react';
 
 const PathfindingTester = lazy(() => import('./PathfindingTester.jsx'));
 const GroupMovementTester = lazy(() => import('./GroupMovementTester.jsx'));
+const EncircleTester = lazy(() => import('./EncircleTester.jsx'));
 
 const tests = [
   {
@@ -17,6 +18,13 @@ const tests = [
     description: '批量生成单位并从 1 移动到 2，观察避让与滑动效果',
     icon: '👥',
     color: 'from-violet-600 to-fuchsia-600'
+  },
+  {
+    id: 'encircle',
+    title: '全体包围测试',
+    description: '点1生成攻击方，点2生成敌人，攻击方 AttackMove 点2',
+    icon: '🛡️',
+    color: 'from-amber-600 to-rose-600'
   }
 ];
 
@@ -41,6 +49,13 @@ const TestHub = ({ onBack }) => {
     return (
       <Suspense fallback={<Loading />}> 
         <GroupMovementTester onBack={onBack} onBackToHub={() => setCurrent(null)} />
+      </Suspense>
+    );
+  }
+  if (current === 'encircle') {
+    return (
+      <Suspense fallback={<Loading />}> 
+        <EncircleTester onBack={onBack} onBackToHub={() => setCurrent(null)} />
       </Suspense>
     );
   }

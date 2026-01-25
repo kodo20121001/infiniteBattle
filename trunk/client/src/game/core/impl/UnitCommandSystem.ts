@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 单位指令系统
  * 支持基础命令：Idle、Stop、MoveTo、AttackMove、HoldPosition、Guard
  * 简化版本：用于演示关卡，让单位可自动施放技能和保持站位
@@ -9,6 +9,7 @@ import type { Game } from './GameSystem';
 import type { Actor } from './Actor';
 import { SkillSystem } from './SkillSystem';
 import { MovementSystem } from './MovementSystem';
+import { getSkillConfig } from '../config/SkillConfig';
 
 export type UnitCommandType = 'Idle' | 'Stop' | 'MoveTo' | 'AttackMove' | 'HoldPosition' | 'Guard';
 
@@ -23,6 +24,7 @@ interface CommandState {
     command: UnitCommand;
     hasIssuedMove?: boolean;
     hasStoppedOnce?: boolean;
+    lastChaseTargetPos?: { x: number; z: number };
 }
 
 interface AutoSkill {
@@ -83,7 +85,54 @@ export class UnitCommandSystem extends GameSystem {
 
             // 移动类命令 - 使用新的 MovementSystem
             if (cmd.type === 'MoveTo' || cmd.type === 'AttackMove') {
-                if (!state.hasIssuedMove && movement && cmd.targetPos) {
+                // AttackMove：寻找视野内敌人并追击/施法
+                let shouldIssueMoveCommand = true;
+                
+                if (cmd.type === 'AttackMove' && movement && skillSystem) {
+                    const unitCfg = actor.getUnitConfig();
+                    const sightRange = unitCfg?.sightRange ?? 0;
+                    const attackSkillId = actor.getAttackSkillId();
+                    
+                    const skillConfig = attackSkillId > 0 ? getSkillConfig(attackSkillId) : undefined;
+                    const castRange = skillConfig?.castRange ?? 5;
+
+                    if (sightRange > 0) {
+                        const enemy = this._findNearestEnemy(actor, sightRange);
+                        
+                        if (enemy) {
+                            const pos = actor.getPosition();
+                            const targetPos = enemy.getPosition();
+                            const dx = targetPos.x - pos.x;
+                            const dz = targetPos.z - pos.z;
+                            const dist = Math.sqrt(dx * dx + dz * dz);
+
+                            if (dist > castRange) {
+                                const last = state.lastChaseTargetPos;
+                                const movedEnough = !last || Math.hypot(targetPos.x - last.x, targetPos.z - last.z) > 0.5;
+                                if (movedEnough) {
+                                    movement.moveTo({
+                                        actorId: actor.id,
+                                        targetX: targetPos.x,
+                                        targetZ: targetPos.z,
+                                        speed: actor.getSpeed(),
+                                    });
+                                    state.lastChaseTargetPos = { x: targetPos.x, z: targetPos.z };
+                                }
+                            } else {
+                                // 距离足够，停止移动并施放技能
+                                if (movement.stopMove) {
+                                    movement.stopMove(actor.id);
+                                }
+                                this._tryBaseAttack(skillSystem, actor, nowSeconds, enemy);
+                            }
+                            // 已处理敌人，不再发送目标点移动
+                            shouldIssueMoveCommand = false;
+                        }
+                    }
+                }
+
+                // 普通移动或没有敌人时，继续原目标
+                if (shouldIssueMoveCommand && !state.hasIssuedMove && movement && cmd.targetPos) {
                     const speed = actor.getSpeed();
                     movement.moveTo({
                         actorId: actor.id,
@@ -175,8 +224,8 @@ export class UnitCommandSystem extends GameSystem {
             const posA = actor.getPosition();
             const posB = other.getPosition();
             const dx = posB.x - posA.x;
-            const dy = posB.y - posA.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const dz = posB.z - posA.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
             if (dist <= radius && dist < bestDist) {
                 best = other;
                 bestDist = dist;
@@ -203,9 +252,9 @@ export class UnitCommandSystem extends GameSystem {
     /**
      * 尝试基础攻击（使用 attackSkillId）
      */
-    private _tryBaseAttack(skillSystem: SkillSystem, actor: Actor, nowSeconds: number): void {
+    private _tryBaseAttack(skillSystem: SkillSystem, actor: Actor, nowSeconds: number, targetOverride?: Actor): void {
         const attackSkillId = actor.getAttackSkillId();
-        if (attackSkillId <= 0) return; // 没有配置攻击技能
+        if (attackSkillId <= 0) return;
 
         // 初始化该单位的攻击状态
         if (!this._baseAttacks.has(actor.id)) {
@@ -213,20 +262,28 @@ export class UnitCommandSystem extends GameSystem {
         }
 
         const attackState = this._baseAttacks.get(actor.id)!;
+
+        // 读取施放距离
+        const skillConfig = getSkillConfig(attackSkillId);
+        const castRange = skillConfig?.castRange ?? 300;
         
         // 查找目标
-        const target = this._findNearestEnemy(actor, 300); // 默认攻击范围 300
+        const target = targetOverride ?? this._findNearestEnemy(actor, castRange);
         if (!target) return;
 
         // 攻击冷却（固定 1 秒）
         const attackCooldown = 1.0;
-        if (nowSeconds - attackState.lastAttackTime >= attackCooldown) {
-            // 从配置表查询攻击技能和行为配置
+        const elapsed = nowSeconds - attackState.lastAttackTime;
+        
+        // 首次攻击或冷却结束
+        const isFirstAttack = attackState.lastAttackTime < 0;
+        const canAttack = isFirstAttack || elapsed >= attackCooldown;
+        
+        if (canAttack) {
             skillSystem.castSkill({
                 caster: actor,
                 target,
                 skillId: attackSkillId
-                // 不传 skillData 和 behaviorConfig，让 castSkill 内部从配置表加载
             });
             attackState.lastAttackTime = nowSeconds;
         }

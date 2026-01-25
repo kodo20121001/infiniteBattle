@@ -2,6 +2,7 @@
   {
     "id": 1,
     "skillBehaviorId": 1,
+    "castRange": 0.7,
     "table": {}
   }
 ]

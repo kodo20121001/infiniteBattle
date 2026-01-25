@@ -21,7 +21,7 @@
     "name": "弓箭手模型",
     "type": "2d",
     "radius": 0.3,
-    "scale": 1.0,
+    "scale": 0.05,
     "defaultAction": "idle",
     "actions": [
       {

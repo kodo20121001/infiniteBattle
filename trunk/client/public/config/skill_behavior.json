@@ -7,21 +7,9 @@
         "name": "分段-1",
         "events": [
           {
-            "id": 1,
-            "type": "moveBy",
-            "time": 0,
-            "data": {
-              "distance": 10,
-              "distanceKey": "",
-              "angle": 0,
-              "angleKey": "",
-              "duration": 3
-            }
-          },
-          {
             "id": 2,
             "type": "effect",
-            "time": 200,
+            "time": 0.2,
             "data": {
               "id": 101
             }
@@ -29,7 +17,7 @@
           {
             "id": 3,
             "type": "shake",
-            "time": 260,
+            "time": 0.26,
             "data": {
               "power": 1
             }
@@ -37,7 +25,7 @@
           {
             "id": 4,
             "type": "bullet",
-            "time": 400,
+            "time": 0.4,
             "data": {
               "bulletId": 1
             }
@@ -45,7 +33,7 @@
           {
             "id": 5,
             "type": "sound",
-            "time": 420,
+            "time": 0.42,
             "data": {
               "url": "sfx/skill1.mp3"
             }
@@ -53,7 +41,7 @@
           {
             "id": 6,
             "type": "animation",
-            "time": 489,
+            "time": 0.489,
             "data": {
               "name": "atk"
             }
@@ -61,13 +49,13 @@
           {
             "id": 7,
             "type": "end",
-            "time": 645,
+            "time": 0.645,
             "data": {}
           },
           {
             "id": 8,
             "type": "damage",
-            "time": 692,
+            "time": 0.692,
             "data": {}
           }
         ]

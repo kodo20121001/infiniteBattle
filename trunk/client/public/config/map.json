@@ -161,14 +161,27 @@
     "cameraX": 480,
     "cameraY": 360,
     "cameraZ": 0,
-    "gridWidth": 1.5625,
-    "gridHeight": 3.125,
-    "colCount": 20,
-    "rowCount": 20,
+    "gridWidth": 0.5,
+    "gridHeight": 0.5,
+    "colCount": 62,
+    "rowCount": 125,
     "pixelsPerMeterX": 32,
     "pixelsPerMeterY": 16,
     "imageTree": [],
-    "points": [],
+    "points": [
+      {
+        "id": 1,
+        "x": 4.626396648044692,
+        "y": 0,
+        "z": 26.04748603351955
+      },
+      {
+        "id": 2,
+        "x": 14.891759776536313,
+        "y": 0,
+        "z": 29.95810055865922
+      }
+    ],
     "paths": [],
     "triggerAreas": [],
     "gridCells": [
