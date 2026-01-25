@@ -10,6 +10,8 @@ import type { LevelConfig, LevelUnitConfig } from '../config/LevelConfig';
 import type { UnitConfig } from '../config/UnitConfig';
 import type { ModelConfig } from '../config/ModelConfig';
 import { getUnitConfig } from '../config/UnitConfig';
+import { getModelConfig } from '../config/ModelConfig';
+import { UnitCommandSystem } from './UnitCommandSystem';
 import type { MapConfig } from './Map';
 
 /**
@@ -39,8 +41,8 @@ export class SceneManager {
 
         // 创建初始单位
         if (levelConfig.startUnits) {
-            for (const unitConfig of levelConfig.startUnits) {
-                this._createUnit(unitConfig, levelConfig);
+            for (const levelUnitConfig of levelConfig.startUnits) {
+                this._createUnit(levelUnitConfig, levelConfig);
             }
         }
 
@@ -53,17 +55,24 @@ export class SceneManager {
     /**
      * 创建单位
      */
-    private _createUnit(unitConfig: LevelUnitConfig, levelConfig: LevelConfig): void {
-        const unitBaseConfig = getUnitConfig(unitConfig.unitId);
-        if (!unitBaseConfig) {
-            console.warn(`Unit config not found: ${unitConfig.unitId}`);
+    private _createUnit(levelUnitConfig: LevelUnitConfig, levelConfig: LevelConfig): void {
+        const unitConfig = getUnitConfig(levelUnitConfig.unitId);
+        if (!unitConfig) {
+            console.warn(`Unit config not found: ${levelUnitConfig.unitId}`);
+            return;
+        }
+
+        // 获取模型配置
+        const modelConfig = getModelConfig(unitConfig.modelId);
+        if (!modelConfig) {
+            console.warn(`Model config not found: ${unitConfig.modelId}`);
             return;
         }
 
         // 获取单位位置（从地图配置中查找）
         let x = 0, y = 0, z = 0;
         if (this._mapConfig && this._mapConfig.points) {
-            const point = this._mapConfig.points.find((p: any) => p.id === unitConfig.positionName);
+            const point = this._mapConfig.points.find((p: any) => p.id === levelUnitConfig.positionName);
             if (point) {
                 x = point.x;
                 y = point.y ?? 0;
@@ -72,27 +81,19 @@ export class SceneManager {
         }
 
         // 创建角色
-        const actorId = `${unitConfig.campId}_${unitConfig.unitId}_${Date.now()}_${Math.random()}`;
+        const actorId = `${levelUnitConfig.campId}_${levelUnitConfig.unitId}_${Date.now()}_${Math.random()}`;
         const position = new FixedVector3(x, y, z);
         const actor = new Actor(
             actorId,
             ActorType.Unit,
-            unitBaseConfig.modelId,
-            unitConfig.unitId,  // 单位类型（对应 unit.json 的 id）
-            unitConfig.campId,
+            unitConfig.modelId,
+            levelUnitConfig.unitId,  // 单位类型（对应 unit.json 的 id）
+            levelUnitConfig.campId,
             position
         );
 
-        // 初始化角色（需要 ModelConfig，这里简化处理）
-        const modelConfig: ModelConfig = {
-            id: unitBaseConfig.modelId,
-            name: unitBaseConfig.name,
-            type: 'sprite' as any,
-            actions: [],
-            speed: 5,
-            hp: 100,
-        };
-        actor.init(unitBaseConfig, modelConfig);
+        // 初始化角色
+        actor.init(unitConfig, modelConfig);
 
         // 添加到游戏
         this._game.addActor(actor);
@@ -114,7 +115,7 @@ export class SceneManager {
     private _applyUnitCommands(levelConfig: LevelConfig): void {
         if (!levelConfig.startUnits) return;
 
-        const commandSystem = this._game.getSystem('unitCommand');
+        const commandSystem = this._game.getSystem<UnitCommandSystem>('unitCommand');
         if (!commandSystem) return;
 
         const actors = this._game.getActors();

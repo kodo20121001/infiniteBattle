@@ -8,6 +8,7 @@ import type { Game } from './GameSystem';
 import type { SceneManager } from './SceneManager';
 import type { LevelConfig, LevelTriggerConfig, LevelActionConfig, LevelTriggerEventType } from '../config/LevelConfig';
 import type { MapConfig } from './Map';
+import { MovementSystem } from './MovementSystem';
 
 /**
  * 关卡事件类型
@@ -370,7 +371,12 @@ export class LevelManager {
     }
 
     const speed = params.speed ?? targetActor.getSpeed?.() ?? 5;
-    movement.setMoveTarget(targetActor.id, [targetPos.x, targetPos.y], speed);
+    movement.moveTo({
+      actorId: targetActor.id,
+      targetX: targetPos.x,
+      targetZ: targetPos.y,
+      speed,
+    });
   }
 
   /**

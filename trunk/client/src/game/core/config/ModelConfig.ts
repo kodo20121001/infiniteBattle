@@ -34,6 +34,7 @@ export interface ModelConfig {
     speed?: number;            // 移动速度
     attackPower?: number;      // 攻击力
     defense?: number;          // 防御力
+    radius?: number;           // 碰撞半径（米），用于单位避让和碰撞检测
 }
 
 /**

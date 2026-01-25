@@ -11,6 +11,7 @@ export interface UnitConfig {
     attackSkillId: number;     // 基础攻击技能ID
     hitY: number;              // 受击点高度
     sightRange: number;        // 视野范围
+    obstacleCheckDistance?: number; // 障碍检测距离（米），默认0.5
 }
 
 /**

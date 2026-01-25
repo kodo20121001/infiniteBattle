@@ -135,6 +135,9 @@ const PathfindingTester = ({ onBack, onBackToHub }) => {
       runner.init();
       await runner.loadLevel(TEST_LEVEL_ID, selectedMap.id);
 
+      // 显示调试格子
+      runner.setDebugShowBlockedCells(true);
+
       runnerRef.current = runner;
 
       // 窗口缩放时保持 canvas/视口同步，防止再次被拉伸

@@ -37,6 +37,7 @@ export class Actor {
     protected _position: FixedVector3;      // 3D 位置 (x, y, z)
     protected _rotation: number = 0;        // 旋转角度
     protected _scale: number = 1;
+    protected _radius: number = 0.5;        // 碰撞半径（米），默认0.5米
     protected _visible: boolean = true;
     protected _state: ActorState = ActorState.Idle;
 
@@ -50,6 +51,10 @@ export class Actor {
     protected _speed: number = 5; // 单位：点/秒
     protected _skillIds: number[] = []; // 技能ID列表
     protected _attackSkillId: number = 0; // 基础攻击技能ID
+    
+    // 配置引用
+    protected _unitConfig: UnitConfig | null = null;
+    protected _modelConfig: ModelConfig | null = null;
 
     // 渲染相关（如果在客户端）
     protected _spriteId: string | null = null;
@@ -74,9 +79,13 @@ export class Actor {
      * 初始化角色
      */
     init(unitConfig: UnitConfig, modelConfig: ModelConfig): void {
+        this._unitConfig = unitConfig;
+        this._modelConfig = modelConfig;
         this._maxHp = modelConfig.hp || 100;
         this._hp = this._maxHp;
         this._speed = modelConfig.speed || 5;
+        this._scale = modelConfig.scale || 1;
+        this._radius = modelConfig.radius || 0.5;
         this._skillIds = unitConfig.skillIds || [];
         this._attackSkillId = unitConfig.attackSkillId || 0;
     }
@@ -146,6 +155,20 @@ export class Actor {
     }
 
     /**
+     * 获取单位配置
+     */
+    getUnitConfig(): UnitConfig | null {
+        return this._unitConfig;
+    }
+
+    /**
+     * 获取模型配置
+     */
+    getModelConfig(): ModelConfig | null {
+        return this._modelConfig;
+    }
+
+    /**
      * 设置旋转角度（度数）
      */
     setRotation(rotation: number): void {
@@ -171,6 +194,20 @@ export class Actor {
      */
     getScale(): number {
         return this._scale;
+    }
+
+    /**
+     * 获取碰撞半径（米）
+     */
+    getRadius(): number {
+        return this._radius;
+    }
+
+    /**
+     * 设置碰撞半径（米）
+     */
+    setRadius(radius: number): void {
+        this._radius = Math.max(0.1, radius);
     }
 
     /**

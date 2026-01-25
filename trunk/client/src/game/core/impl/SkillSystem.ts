@@ -258,10 +258,17 @@ export class SkillSystem extends GameSystem {
                 const dx = distance * Math.cos(radians);
                 const dz = distance * Math.sin(radians);
                 const targetPos = caster.getPosition();
-                const destination: [number, number] = [targetPos.x + dx, targetPos.y + dz];
+                const targetX = targetPos.x + dx;
+                const targetZ = targetPos.z + dz;
                 // speed 单位为 单位/秒
                 const speed = distance / duration;
-                movementSystem.setMoveTarget(caster.id, destination, speed);
+                movementSystem.moveTo({
+                    actorId: caster.id,
+                    targetX,
+                    targetZ,
+                    speed,
+                    arrivalRadius: 0.1,
+                });
             } else if (moveBySystem) {
                 // 瞬间位移
                 moveBySystem.applyMoveBy(caster, distance, angle);

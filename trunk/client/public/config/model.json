@@ -3,7 +3,7 @@
     "id": 201,
     "name": "剑士模型",
     "type": "2d",
-    "scale": 1.0,
+    "scale": 0.05,
     "defaultAction": "idle",
     "actions": [
       {

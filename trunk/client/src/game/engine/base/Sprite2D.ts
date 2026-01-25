@@ -135,7 +135,7 @@ export class Sprite2D {
     }
 
     set rotation(value: number) {
-        this._rotation = value;
+        this._rotation = value * (Math.PI / 180);
     }
 
     /**

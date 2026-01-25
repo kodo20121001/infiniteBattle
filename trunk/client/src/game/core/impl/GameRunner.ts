@@ -7,6 +7,7 @@ import { Game } from './GameSystem';
 import { SceneManager } from './SceneManager';
 import { LevelManager } from './LevelManager';
 import { GameMap, type MapConfig } from './Map';
+import { MovementSystem } from './MovementSystem';
 import type { World } from '../../engine/common/World';
 import type { LevelConfig } from '../config/LevelConfig';
 import { Sprite2D } from '../../engine/base/Sprite2D';
@@ -15,7 +16,7 @@ import { AnimationClip } from '../../engine/base/AnimationClip';
 import { getModelConfig, getModelActions } from '../config/ModelConfig';
 import { getUnitConfig } from '../config/UnitConfig';
 import { Assets } from '../../engine/common/Assets';
-import { worldToScreen } from '../base/WorldProjection';
+import { worldToMapPixel } from '../base/WorldProjection';
 
 /**
  * 客户端游戏运行器
@@ -29,6 +30,8 @@ export class ClientGameRunner {
     private _map: GameMap | null = null;
     private _frameTime: number = 1000 / 30; // 30 FPS 帧同步
     private _isRunning: boolean = false;
+    private _debugShowBlockedCells: boolean = false; // 调试：显示阻挡格子
+    private _debugBlockedCellSprites: Map<number, Sprite2D> = new Map(); // 阻挡格子的精灵
 
     constructor(world: World) {
         this._world = world;
@@ -220,6 +223,16 @@ export class ClientGameRunner {
             return;
         }
         this._isRunning = true;
+        
+        // 设置 Map 到 MovementSystem
+        if (this._map) {
+            const movementSystem = this._game.getSystem<MovementSystem>('movement');
+            if (movementSystem) {
+                movementSystem.setMap(this._map);
+                console.log('[GameRunner] MovementSystem initialized with map');
+            }
+        }
+        
         this._levelManager.startLevel();
         this._world.start();
     }
@@ -283,19 +296,80 @@ export class ClientGameRunner {
                 const pos = actor.getPosition(); // pos: FixedVector3 {x, y, z}
                 const sprite = spriteManager.get(spriteId);
                 if (sprite) {
-                    // 世界坐标转屏幕坐标（应用地图像素密度）
-                    // worldToScreen(x, y, z) - 标准游戏坐标顺序
-                    const [screenX, screenY] = worldToScreen(pos.x, pos.y, pos.z, pixelsPerMeterX, pixelsPerMeterY);
+                    // 世界坐标转地图平面像素坐标（未含相机/视口变换）
+                    const [screenX, screenY] = worldToMapPixel(pos.x, pos.y, pos.z, pixelsPerMeterX, pixelsPerMeterY);
                     sprite.setPosition(screenX, screenY);
                     sprite.rotation = actor.getRotation();
                     const scale = actor.getScale();
-                    //sprite.setScale(scale, scale);
+                    sprite.setScale(scale, scale);
                     sprite.visible = actor.isVisible();
                     
                     // 使用 z 坐标（深度）- y（高度）控制渲染层级（越深越靠后，越高越靠前）
                     sprite.position.z = pos.z - pos.y;
                 }
             }
+        }
+
+        // 调试：渲染阻挡格子
+        if (this._debugShowBlockedCells && this._map && mapConfig) {
+            this._renderDebugBlockedCells(mapConfig);
+        }
+    }
+
+    /**
+     * 调试渲染阻挡格子
+     */
+    private _renderDebugBlockedCells(mapConfig: MapConfig): void {
+        const gridWidth = mapConfig.gridWidth ?? 0;
+        const gridHeight = mapConfig.gridHeight ?? 0;
+        const colCount = mapConfig.colCount ?? 0;
+        const pixelsPerMeterX = mapConfig.pixelsPerMeterX ?? 32;
+        const pixelsPerMeterY = mapConfig.pixelsPerMeterY ?? 16;
+
+        if (gridWidth <= 0 || gridHeight <= 0 || colCount <= 0) {
+            return;
+        }
+
+        const gridWidthPx = gridWidth * pixelsPerMeterX;
+        const gridHeightPx = gridHeight * pixelsPerMeterY;
+        const spriteManager = this._world.getSpriteManager();
+        const gridCells = mapConfig.gridCells ?? [];
+
+        // 如果格子数量变化，重新创建精灵
+        if (this._debugBlockedCellSprites.size !== gridCells.length) {
+            // 清理旧的
+            this._debugBlockedCellSprites.forEach((sprite, idx) => {
+                spriteManager.remove(`debug_blocked_${idx}`);
+                sprite.destroy();
+            });
+            this._debugBlockedCellSprites.clear();
+
+            // 创建新的
+            gridCells.forEach((idx, i) => {
+                // 创建一个红色半透明方块
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.ceil(gridWidthPx);
+                canvas.height = Math.ceil(gridHeightPx);
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+
+                const sprite = new Sprite2D(canvas);
+                sprite.setAnchor(0, 0); // 左上角对齐
+                sprite.position.z = -90; // 在背景层之上，单位之下
+                
+                const col = idx % colCount;
+                const row = Math.floor(idx / colCount);
+                const x = col * gridWidthPx;
+                const y = row * gridHeightPx;
+                sprite.setPosition(x, y);
+
+                const spriteId = `debug_blocked_${idx}`;
+                spriteManager.add(spriteId, sprite);
+                this._debugBlockedCellSprites.set(idx, sprite);
+            });
         }
     }
 
@@ -310,10 +384,50 @@ export class ClientGameRunner {
      * 销毁游戏运行器
      */
     destroy(): void {
+        // 清理调试精灵
+        const spriteManager = this._world.getSpriteManager();
+        this._debugBlockedCellSprites.forEach((sprite, idx) => {
+            spriteManager.remove(`debug_blocked_${idx}`);
+            sprite.destroy();
+        });
+        this._debugBlockedCellSprites.clear();
+        
         this.stop();
         this._sceneManager.destroy();
         this._game.destroy();
         this._world.destroy();
+    }
+
+    /**
+     * 切换调试显示阻挡格子
+     */
+    toggleDebugBlockedCells(): void {
+        this._debugShowBlockedCells = !this._debugShowBlockedCells;
+        console.log(`[GameRunner] Debug blocked cells: ${this._debugShowBlockedCells}`);
+    }
+
+    /**
+     * 获取调试显示阻挡格子状态
+     */
+    getDebugShowBlockedCells(): boolean {
+        return this._debugShowBlockedCells;
+    }
+
+    /**
+     * 设置调试显示阻挡格子
+     */
+    setDebugShowBlockedCells(show: boolean): void {
+        this._debugShowBlockedCells = show;
+        
+        // 如果关闭，清理精灵
+        if (!show) {
+            const spriteManager = this._world.getSpriteManager();
+            this._debugBlockedCellSprites.forEach((sprite, idx) => {
+                spriteManager.remove(`debug_blocked_${idx}`);
+                sprite.destroy();
+            });
+            this._debugBlockedCellSprites.clear();
+        }
     }
 }
 

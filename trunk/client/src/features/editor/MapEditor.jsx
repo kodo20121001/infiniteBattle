@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { worldToScreen, screenToWorld } from '../../game/core/base/WorldProjection';
+import { worldToMapPixel, mapPixelToWorld } from '../../game/core/base/WorldProjection';
 import BlockTool from './mapeditor/BlockTool';
 import BuildTool from './mapeditor/BuildTool';
 import ImageTool from './mapeditor/ImageTool';
@@ -37,6 +37,7 @@ const MapEditor = () => {
   const [dirHandle, setDirHandle] = useState(null); // 保存目录句柄
   const [savePathName, setSavePathName] = useState(''); // 保存路径显示名称
   const [toast, setToast] = useState(''); // 临时提示
+  const [showBlockedCells, setShowBlockedCells] = useState(true); // 显示阻挡格子
   const canvasRef = useRef(null);
   const renderMetaRef = useRef({ scale: 1, offsetX: 0, offsetY: 0 });
   const imageCacheRef = useRef(new Map());
@@ -188,7 +189,7 @@ const MapEditor = () => {
     const xPx = (evt.clientX - rect.left - offsetX) / scale;
     const yPx = (evt.clientY - rect.top - offsetY) / scale;
     // 使用 WorldProjection 转换为世界坐标（米）
-    const [worldX, worldZ, worldY] = screenToWorld(xPx, yPx, pxPerMeterX, pxPerMeterY);
+    const [worldX, worldZ, worldY] = mapPixelToWorld(xPx, yPx, pxPerMeterX, pxPerMeterY);
     // 返回标准游戏坐标：x(水平), y(高度), z(深度)
     return { x: worldX, y: worldY, z: worldZ };
   };
@@ -335,17 +336,19 @@ const MapEditor = () => {
       }
 
       // 障碍格（米->像素）
-      ctx.fillStyle = 'rgba(239,68,68,0.45)';
-      mapData.gridCells?.forEach((idx) => {
-        const gx = idx % gridColCount;
-        const gy = Math.floor(idx / gridColCount);
-        ctx.fillRect(
-          gx * gridWidthPx,
-          gy * gridHeightPx,
-          gridWidthPx,
-          gridHeightPx
-        );
-      });
+      if (showBlockedCells) {
+        ctx.fillStyle = 'rgba(239,68,68,0.45)';
+        mapData.gridCells?.forEach((idx) => {
+          const gx = idx % gridColCount;
+          const gy = Math.floor(idx / gridColCount);
+          ctx.fillRect(
+            gx * gridWidthPx,
+            gy * gridHeightPx,
+            gridWidthPx,
+            gridHeightPx
+          );
+        });
+      }
     }
 
     // 建筑网格线与可建筑格（米->像素）
@@ -388,15 +391,15 @@ const MapEditor = () => {
       }
     }
 
-    // 触发区域渲染（使用worldToScreen投影）
+    // 触发区域渲染（使用 worldToMapPixel 投影）
     if (mapData.triggerAreas) {
       mapData.triggerAreas.forEach((area) => {
         if (area.type === 'circle') {
           ctx.strokeStyle = 'rgba(59,130,246,0.8)';
           ctx.lineWidth = 2;
           ctx.beginPath();
-          // worldToScreen 参数顺序: (x, y, z) 标准游戏坐标
-          const [centerX, centerY] = worldToScreen(
+          // worldToMapPixel 参数顺序: (x, y, z) 标准游戏坐标
+          const [centerX, centerY] = worldToMapPixel(
             area.center.x, 
             area.center.y, 
             area.center.z, 
@@ -409,8 +412,8 @@ const MapEditor = () => {
         } else if (area.type === 'rectangle') {
           ctx.strokeStyle = 'rgba(16,185,129,0.8)';
           ctx.lineWidth = 2;
-          // worldToScreen 参数顺序: (x, y, z) 标准游戏坐标
-          const [rectX, rectY] = worldToScreen(
+          // worldToMapPixel 参数顺序: (x, y, z) 标准游戏坐标
+          const [rectX, rectY] = worldToMapPixel(
             area.x, 
             area.y ?? 0, 
             area.z ?? 0, 
@@ -439,18 +442,18 @@ const MapEditor = () => {
       });
     }
 
-    // 路径渲染（使用worldToScreen投影）
+    // 路径渲染（使用 worldToMapPixel 投影）
     if (mapData.paths) {
       ctx.strokeStyle = 'rgba(59,130,246,0.9)';
       ctx.lineWidth = 2;
       mapData.paths.forEach((p) => {
         if (!p.points?.length) return;
         ctx.beginPath();
-        // worldToScreen 参数顺序: (x, y, z) 标准游戏坐标
-        const [firstX, firstY] = worldToScreen(p.points[0].x, p.points[0].y, p.points[0].z, pxPerMeterX, pxPerMeterY);
+        // worldToMapPixel 参数顺序: (x, y, z) 标准游戏坐标
+        const [firstX, firstY] = worldToMapPixel(p.points[0].x, p.points[0].y, p.points[0].z, pxPerMeterX, pxPerMeterY);
         ctx.moveTo(firstX, firstY);
         for (let i = 1; i < p.points.length; i++) {
-          const [px, py] = worldToScreen(p.points[i].x, p.points[i].y, p.points[i].z, pxPerMeterX, pxPerMeterY);
+          const [px, py] = worldToMapPixel(p.points[i].x, p.points[i].y, p.points[i].z, pxPerMeterX, pxPerMeterY);
           ctx.lineTo(px, py);
         }
         if (p.closed) ctx.closePath();
@@ -458,11 +461,11 @@ const MapEditor = () => {
       });
     }
 
-    // 关键点渲染（使用worldToScreen投影）
+    // 关键点渲染（使用 worldToMapPixel 投影）
     if (mapData.points) {
       mapData.points.forEach((pt) => {
-        // worldToScreen 参数顺序: (x, y, z) 标准游戏坐标
-        const [screenX, screenY] = worldToScreen(pt.x, pt.y, pt.z, pxPerMeterX, pxPerMeterY);
+        // worldToMapPixel 参数顺序: (x, y, z) 标准游戏坐标
+        const [screenX, screenY] = worldToMapPixel(pt.x, pt.y, pt.z, pxPerMeterX, pxPerMeterY);
         ctx.fillStyle = pt.id === selectedPointId ? '#fbbf24' : '#22c55e';
         ctx.beginPath();
         ctx.arc(screenX, screenY, 6, 0, Math.PI * 2);
@@ -474,7 +477,7 @@ const MapEditor = () => {
     }
 
     ctx.restore();
-  }, [mapData, gridColCount, buildColCount, imageVersion]);
+  }, [mapData, gridColCount, buildColCount, imageVersion, showBlockedCells]);
 
   const handleToggleCell = (index) => {
     if (!mapData || index < 0) return;
@@ -1056,7 +1059,7 @@ const MapEditor = () => {
             <PathTool mapData={mapData} setMapData={setMapData} currentPathId={currentPathId} setCurrentPathId={setCurrentPathId} />
           )}
           {tool === 'block' && (
-            <BlockTool gridColCount={gridColCount} gridRowCount={gridRowCount} />
+            <BlockTool gridColCount={gridColCount} gridRowCount={gridRowCount} showBlockedCells={showBlockedCells} setShowBlockedCells={setShowBlockedCells} />
           )}
           {tool === 'build' && (
             <BuildTool mapData={mapData} setMapData={setMapData} buildCols={buildColCount} buildRows={buildRowCount} />

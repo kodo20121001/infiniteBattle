@@ -8,6 +8,7 @@ import { GameSystem } from './GameSystem';
 import type { Game } from './GameSystem';
 import type { Actor } from './Actor';
 import { SkillSystem } from './SkillSystem';
+import { MovementSystem } from './MovementSystem';
 
 export type UnitCommandType = 'Idle' | 'Stop' | 'MoveTo' | 'AttackMove' | 'HoldPosition' | 'Guard';
 
@@ -52,7 +53,7 @@ export class UnitCommandSystem extends GameSystem {
 
     fixedUpdate(fixedDeltaTime: number): void {
         const actors = this._game.getActors();
-        const movement = this._game.getSystem('movement');
+        const movement = this._game.getSystem<MovementSystem>('movement');
         const skillSystem = this._game.getSystem<SkillSystem>('skill');
 
         const nowSeconds = this._game.getGameState().getElapsedTime() / 1000;
@@ -80,11 +81,16 @@ export class UnitCommandSystem extends GameSystem {
                 }
             }
 
-            // 移动类命令
+            // 移动类命令 - 使用新的 MovementSystem
             if (cmd.type === 'MoveTo' || cmd.type === 'AttackMove') {
                 if (!state.hasIssuedMove && movement && cmd.targetPos) {
                     const speed = actor.getSpeed();
-                    movement.setMoveTarget(actor.id, [cmd.targetPos.x, cmd.targetPos.y], speed);
+                    movement.moveTo({
+                        actorId: actor.id,
+                        targetX: cmd.targetPos.x,
+                        targetZ: cmd.targetPos.y,
+                        speed,
+                    });
                     state.hasIssuedMove = true;
                 }
             }
@@ -95,10 +101,15 @@ export class UnitCommandSystem extends GameSystem {
                 if (guardPos) {
                     const pos = actor.getPosition();
                     const dx = guardPos.x - pos.x;
-                    const dy = guardPos.y - pos.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const dz = guardPos.y - pos.z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
                     if (dist > 1) {
-                        movement.setMoveTarget(actor.id, [guardPos.x, guardPos.y], actor.getSpeed());
+                        movement.moveTo({
+                            actorId: actor.id,
+                            targetX: guardPos.x,
+                            targetZ: guardPos.y,
+                            speed: actor.getSpeed(),
+                        });
                     }
                 }
             }
@@ -134,7 +145,7 @@ export class UnitCommandSystem extends GameSystem {
     issueCommand(actorId: string, command: UnitCommand): void {
         this._commands.set(actorId, { command, hasIssuedMove: false });
         if (command.type === 'Stop' || command.type === 'Idle') {
-            const movement = this._game.getSystem('movement');
+            const movement = this._game.getSystem<MovementSystem>('movement');
             movement?.stopMove(actorId);
         }
     }

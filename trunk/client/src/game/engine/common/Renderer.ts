@@ -35,6 +35,9 @@ export class Renderer {
         this.spriteManager = spriteManager;
 
         // 初始化 WebGL
+        // 确保 CSS 尺寸与像素尺寸一致，避免浏览器拉伸
+        this.canvas.style.width = `${canvas.width}px`;
+        this.canvas.style.height = `${canvas.height}px`;
         this.gl.viewport(0, 0, canvas.width, canvas.height);
         this.gl.clearColor(0, 0, 0, 1);
         this.gl.enable(this.gl.BLEND);
@@ -192,6 +195,9 @@ export class Renderer {
     resize(width: number, height: number): void {
         this.canvas.width = width;
         this.canvas.height = height;
+        // 同步 CSS 尺寸，防止非等比缩放导致图像变形
+        this.canvas.style.width = `${width}px`;
+        this.canvas.style.height = `${height}px`;
         this.gl.viewport(0, 0, width, height);
         this.camera.setViewport(width, height);
     }

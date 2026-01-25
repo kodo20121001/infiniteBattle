@@ -10,6 +10,7 @@ import { GameSystem } from './GameSystemBase';
 import { SkillSystem } from './SkillSystem';
 import { UnitCommandSystem } from './UnitCommandSystem';
 import { LevelManager } from './LevelManager';
+import { MovementSystem } from './MovementSystem';
 
 /**
  * 游戏系统基类
@@ -17,80 +18,9 @@ import { LevelManager } from './LevelManager';
 export { GameSystem } from './GameSystemBase';
 
 /**
- * 移动系统
+ * 导出移动系统（从独立文件）
  */
-export class MovementSystem extends GameSystem {
-    private _moveTargets: Map<string, { target: Actor; destination: [number, number]; speed: number }> =
-        new Map(); // destination: [x, z]
-
-    init(): void {
-        // 初始化逻辑
-    }
-
-    update(deltaTime: number): void {
-        // 更新逻辑由 fixedUpdate 处理
-    }
-
-    fixedUpdate(fixedDeltaTime: number): void {
-        // fixedDeltaTime 单位为毫秒
-        const actors = this.game.getActors();
-        for (const actor of actors) {
-            const moveTarget = this._moveTargets.get(actor.id);
-            if (moveTarget) {
-                // 计算方向和距离
-                const pos = actor.getPosition();
-                const dx = moveTarget.destination[0] - pos.x;
-                const dz = moveTarget.destination[1] - pos.z;
-                const distance = Math.sqrt(dx * dx + dz * dz);
-
-                if (distance < 0.1) {
-                    // 到达目标
-                    this._moveTargets.delete(actor.id);
-                } else {
-                    // 计算移动距离
-                    // moveTarget.speed 单位为 单位/秒
-                    // fixedDeltaTime 单位为毫秒，转换为秒
-                    const moveDistance = moveTarget.speed * (fixedDeltaTime / 1000);
-                    const moveRatio = Math.min(1, moveDistance / distance);
-
-                    actor.move(dx * moveRatio, 0, dz * moveRatio);
-
-                    // 更新旋转方向
-                    const angle = Math.atan2(dz, dx) * (180 / Math.PI);
-                    actor.setRotation(angle);
-                }
-            }
-        }
-    }
-
-    /**
-     * 设置单位移动目标
-     * @param actorId 角色ID
-     * @param destination 目标位置 [x, z]
-     * @param speed 移动速度（单位/秒）
-     */
-    setMoveTarget(actorId: string, destination: [number, number], speed: number): void {
-        const actor = this.game.getActor(actorId);
-        if (actor) {
-            this._moveTargets.set(actorId, {
-                target: actor,
-                destination,
-                speed,
-            });
-        }
-    }
-
-    /**
-     * 停止单位移动
-     */
-    stopMove(actorId: string): void {
-        this._moveTargets.delete(actorId);
-    }
-
-    destroy(): void {
-        this._moveTargets.clear();
-    }
-}
+export { MovementSystem } from './MovementSystem';
 
 /**
  * 伤害系统
