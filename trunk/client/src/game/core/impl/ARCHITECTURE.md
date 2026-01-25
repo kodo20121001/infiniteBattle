@@ -24,6 +24,28 @@
  * │  │     └─ ... (自定义系统)
  * │  └─ SceneManager - 场景管理
  * │     └─ LevelConfig + MapConfig → 场景初始化
+/**
+ * ╔════════════════════════════════════════════════════════════════════════╗
+ * ║                   移动系统模块化（War3 风格）                           ║
+ * ╚════════════════════════════════════════════════════════════════════════╝
+ * 
+ * 为提升可维护性与扩展性，移动系统拆分为以下模块：
+ * 
+ * - MovementSystem.ts → 状态机协调器、命令入口（moveTo / stopMove）
+ * - StraightMovementSystem.ts → 直线移动、每帧前方障碍检查
+ * - PathfindingSystem.ts → A* 寻路与路径平滑（String Pulling）
+ * - PathFollowingSystem.ts → 沿路径移动、每帧尝试切回直线
+ * - ObstacleDetection.ts → DDA 视线检查（两点之间是否通行）
+ * 
+ * 运行策略：
+ * 1) 总是先进入直线移动（MovingStraight），每帧在 obstacleCheckDistance 范围内检查障碍
+ * 2) 检测到障碍则切换到 A*（Moving），并跟随平滑后的路径
+ * 3) 在路径跟随中，每帧尝试直接到最终目标；若前方无障碍则切回直线
+ * 
+ * 配置项：
+ * - 默认前方障碍检测距离：3m（_defaultObstacleCheckDistance）
+ * - 单位级覆盖：UnitConfig.obstacleCheckDistance（不同单位不同“视野距离”）
+ */
  * 
  */
 

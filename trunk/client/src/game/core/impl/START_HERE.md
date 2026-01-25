@@ -30,6 +30,17 @@
  * │
  * └─ 其他
  *    └─ actor/                （预留目录）
+/**
+ * 变更提示（移动系统模块化）
+ * --------------------------------
+ * 移动系统已拆分为以下文件以降低复杂度：
+ * - MovementSystem.ts（协调器）
+ * - StraightMovementSystem.ts（直线移动 + 前方障碍检查）
+ * - PathfindingSystem.ts（A* 寻路 + 路径平滑）
+ * - PathFollowingSystem.ts（A* 路径跟随）
+ * - ObstacleDetection.ts（DDA 视线检查）
+ * 默认前方障碍检测距离从 0.5m 更新为 3m，可通过 UnitConfig.obstacleCheckDistance 覆盖。
+ */
  */
 
 /**

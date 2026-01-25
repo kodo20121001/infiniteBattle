@@ -41,6 +41,18 @@ enum MoveState {
 }
 ```
 
+## 🧩 模块拆分（更易维护）
+
+为降低复杂度并提升可维护性，移动系统已拆分为独立模块：
+
+- [MovementSystem.ts](src/game/core/impl/MovementSystem.ts)：主协调器（状态机与命令入口）
+- [StraightMovementSystem.ts](src/game/core/impl/StraightMovementSystem.ts)：直线移动 + 前方障碍检查
+- [PathfindingSystem.ts](src/game/core/impl/PathfindingSystem.ts)：A* 寻路 + 路径平滑
+- [PathFollowingSystem.ts](src/game/core/impl/PathFollowingSystem.ts)：沿 A* 路径跟随 + 动态切回直线
+- [ObstacleDetection.ts](src/game/core/impl/ObstacleDetection.ts)：DDA 视线检查工具
+
+调用关系：`MovementSystem` 根据当前 `MoveState` 分发到直线/路径跟随模块；碰到障碍时调用 `PathfindingSystem` 获取路径。
+
 ## 🎮 War3 风格直线运动优化
 
 ### 移动策略（完全War3化）
@@ -57,7 +69,7 @@ MovementSystem 实现了完整的 War3 风格移动系统：
 
 **第二阶段：每帧动态障碍检测**
 ```
-1. 每帧检查前方 0.5m 是否有新的障碍
+1. 每帧检查前方 obstacleCheckDistance 是否有新的障碍（默认 3m，可配置）
 2. 如果有障碍 → 立即切换到 Moving 状态
 3. 自动调用 A* 寻路绕路
 ```
@@ -195,8 +207,23 @@ interface MoveCommand {
 ```typescript
 private _defaultArrivalRadius = 0.1;  // 默认到达半径（米）
 private _defaultTurnSpeed = 360;      // 默认转向速度（度/秒）
+private _defaultObstacleCheckDistance = 3; // 前方障碍检测距离（米，可被 UnitConfig 覆盖）
 private _pathSmoothRadius = 1.0;      // 路径平滑检测半径
 private _collisionRadius = 0.5;       // 碰撞半径（用于RVO）
+
+### 单位级配置（UnitConfig）
+
+支持为不同单位设置不同的障碍检测距离：
+
+```ts
+// UnitConfig.ts
+export interface UnitConfig {
+    // ... 其他配置
+    obstacleCheckDistance?: number; // 可选，单位的前方障碍检测距离（米）
+}
+```
+
+在运行时，`MovementSystem` 会优先读取 `actor.getUnitConfig().obstacleCheckDistance`，若未设置则使用系统默认值（当前为 3m）。
 ```
 
 ## 🏗️ 架构设计

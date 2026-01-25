@@ -45,6 +45,17 @@
  *    - DamageSystem - 伤害系统
  *    - EventSystem - 事件系统
  *    - 可扩展添加其他系统
+/**
+ * 移动系统说明（模块化）
+ * --------------------------------
+ * 为提升可维护性，MovementSystem 拆分为：
+ * - MovementSystem.ts：状态机协调器
+ * - StraightMovementSystem.ts：直线移动 + 前方障碍检查
+ * - PathfindingSystem.ts：A* 寻路 + 路径平滑
+ * - PathFollowingSystem.ts：路径跟随 + 动态切回直线
+ * - ObstacleDetection.ts：视线检测（DDA）
+ * 默认前方障碍检测距离为 3m，支持 UnitConfig.obstacleCheckDistance 单位级覆盖。
+ */
  *
  * 4. Game - 主游戏管理类
  *    - 管理所有角色和系统
