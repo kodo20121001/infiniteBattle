@@ -184,10 +184,10 @@ const GroupMovementTester = ({ onBack, onBackToHub }) => {
           <div className="text-sm text-slate-300">单位数量</div>
           <input
             type="number"
-            min={4}
-            max={64}
+            min={1}
+            max={1000}
             value={count}
-            onChange={(e) => setCount(Math.max(4, Math.min(64, Number(e.target.value))))}
+            onChange={(e) => setCount(Math.max(1, Math.min(1000, Number(e.target.value))))}
             className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
           />
           <div className="text-xs text-slate-400">建议 16~36 以观察避让与滑动效果</div>
