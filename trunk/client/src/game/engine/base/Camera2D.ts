@@ -109,7 +109,7 @@ export class Camera2D {
     update(deltaTime = 1): void {
         if (this._smoothing > 0) {
             // 平滑插值
-            const lerpFactor = Math.min(1, this._smoothing * deltaTime * 60 / 1000);
+            const lerpFactor = Math.min(1, this._smoothing * deltaTime * 60);
             this._position.x += (this._targetPosition.x - this._position.x) * lerpFactor;
             this._position.y += (this._targetPosition.y - this._position.y) * lerpFactor;
         } else {

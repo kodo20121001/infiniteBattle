@@ -101,13 +101,13 @@ export class GameState {
     }
 
     /**
-     * 获取已运行时间（毫秒）
+     * 获取已运行时间（秒）
      */
     getElapsedTime(): number {
         if (this._gameState === GameStateEnum.Finished) {
-            return this._pauseTime - this._startTime - this._totalPausedTime;
+            return (this._pauseTime - this._startTime - this._totalPausedTime) / 1000;
         }
-        return Date.now() - this._startTime - this._totalPausedTime;
+        return (Date.now() - this._startTime - this._totalPausedTime) / 1000;
     }
 
     /**

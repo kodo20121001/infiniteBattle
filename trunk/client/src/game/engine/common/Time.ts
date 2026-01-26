@@ -79,7 +79,7 @@ export class Time {
             return;
         }
 
-        const realDelta = (currentTime - this._lastFrameTime) / 1000;
+        const realDelta = currentTime - this._lastFrameTime;
         this._deltaTime = realDelta * this._timeScale;
         this._time += this._deltaTime;
         this._frameCount++;

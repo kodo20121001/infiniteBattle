@@ -58,7 +58,7 @@ export class UnitCommandSystem extends GameSystem {
         const movement = this._game.getSystem<MovementSystem>('movement');
         const skillSystem = this._game.getSystem<SkillSystem>('skill');
 
-        const nowSeconds = this._game.getGameState().getElapsedTime() / 1000;
+        const nowSeconds = this._game.getGameState().getElapsedTime();
 
         for (const actor of actors) {
             const state = this._commands.get(actor.id);

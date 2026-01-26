@@ -12,6 +12,9 @@ export { Actor, ActorType, ActorState } from './Actor';
 // 游戏单位实现
 export { Unit, Building } from './Unit';
 
+// 子弹实现
+export { Bullet, type BulletRuntimeContext, type BulletEventType } from './Bullet';
+
 // 游戏系统
 export {
     GameSystem,

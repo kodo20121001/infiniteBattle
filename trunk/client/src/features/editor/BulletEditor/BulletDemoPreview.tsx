@@ -1,19 +1,26 @@
 /**
- * 技能演示预览
- * 显示正在编辑的技能效果
+ * 子弹演示预览
+ * 演示子弹配置效果
  */
 
 import React, { useEffect, useRef, useState } from 'react';
 import { ClientGameRunner } from '@/game/core/impl';
 import { World } from '@/game/engine/common/World';
 import { Configs } from '@/game/common/Configs';
-import { ConfigManager } from '@/common/ConfigManager';
+import { DemoConfigManager } from '@/common/DemoConfigManager';
+import type { BulletConfig } from '@/game/core/config/BulletConfig';
 
-export const SkillDemoPreview = ({ skillConfig, isOpen, onClose }) => {
-  const canvasRef = useRef(null);
-  const gameRunnerRef = useRef(null);
-  const levelManagerRef = useRef(null);
-  const [status, setStatus] = useState('idle'); // 'idle' | 'running' | 'error'
+interface Props {
+  bulletConfig: BulletConfig | null;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const BulletDemoPreview: React.FC<Props> = ({ bulletConfig, isOpen, onClose }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gameRunnerRef = useRef<any>(null);
+  const levelManagerRef = useRef<any>(null);
+  const [status, setStatus] = useState<'idle' | 'running' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [elapsedTime, setElapsedTime] = useState(0);
 
@@ -37,24 +44,24 @@ export const SkillDemoPreview = ({ skillConfig, isOpen, onClose }) => {
         if (!canvasRef.current) throw new Error('Canvas not found');
 
         // 初始化配置管理器并加载表
-        const configManager = new ConfigManager();
+        const configManager = new DemoConfigManager();
         Configs.init(configManager);
-        console.log('Configs initialized');
+        console.log('[BulletDemo] Configs initialized with DemoConfigManager');
 
         // 创建世界
         const world = new World(canvasRef.current, 800, 600, 60);
         const gameRunner = new ClientGameRunner(world);
         gameRunner.init();
 
-        console.log('Loading demo level: 9999');
+        console.log('[BulletDemo] Loading demo level: 9901');
         
-        // 加载演示关卡（levelId: 9999，自动用关卡配置中的 mapId）
-        await gameRunner.loadLevel(9999);
+        // 加载子弹演示关卡（levelId: 9901, mapId: 2）
+        await gameRunner.loadLevel(9901, 2);
         
         // 获取关卡配置用于显示
         const levelConfigs = Configs.Get('level') || {};
         const mapConfigs = Configs.Get('map') || {};
-        const levelConfig = levelConfigs[9999];
+        const levelConfig = levelConfigs[9901];
         const mapConfig = mapConfigs[1];
         
         gameRunnerRef.current = gameRunner;
@@ -64,10 +71,17 @@ export const SkillDemoPreview = ({ skillConfig, isOpen, onClose }) => {
           isRunning: () => true 
         };
         setStatus('running');
-        setMessage('🎮 演示关卡已启动');
-        console.log('Level started');
-      } catch (err) {
-        console.error('演示初始化失败:', err);
+        setMessage('🎮 子弹演示关卡已启动\n演示包含：\n- 直线子弹 (速度 10)\n- 抛物线子弹 (arc=5)\n- 导弹追踪 (homing)\n- 加速子弹 (acceleration=2)');
+        console.log('[BulletDemo] Level started');
+
+        // 更新计时器
+        const timer = setInterval(() => {
+          setElapsedTime(prev => prev + 0.1);
+        }, 100);
+
+        return () => clearInterval(timer);
+      } catch (err: any) {
+        console.error('[BulletDemo] 演示初始化失败:', err);
         setStatus('error');
         setMessage(`✗ 初始化失败: ${err.message}`);
       }
@@ -81,7 +95,7 @@ export const SkillDemoPreview = ({ skillConfig, isOpen, onClose }) => {
         gameRunnerRef.current = null;
       }
     };
-  }, [isOpen, skillConfig]);
+  }, [isOpen, bulletConfig]);
 
   if (!isOpen) return null;
 
@@ -92,13 +106,13 @@ export const SkillDemoPreview = ({ skillConfig, isOpen, onClose }) => {
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
           <div>
             <h2 className="text-xl font-bold text-white">
-              技能演示 - 关卡演示环境
+              子弹演示 - {bulletConfig?.name || '未命名'}
             </h2>
             <div className="text-xs text-slate-400 mt-1">
               {levelManagerRef.current ? (
                 <>
                   关卡: {levelManagerRef.current.getCurrentLevelConfig()?.name} (ID: {levelManagerRef.current.getCurrentLevelConfig()?.id})
-                  | 地图: 1 | 技能: #{skillConfig?.id}
+                  | 子弹: #{bulletConfig?.id}
                 </>
               ) : (
                 '初始化中...'
@@ -153,31 +167,31 @@ export const SkillDemoPreview = ({ skillConfig, isOpen, onClose }) => {
                 </div>
 
                 <div>
-                  <div className="text-xs text-slate-400 mb-1">关卡信息</div>
+                  <div className="text-xs text-slate-400 mb-1">子弹配置</div>
                   <div className="text-xs space-y-1 text-slate-300">
-                    {levelManagerRef.current ? (
+                    {bulletConfig ? (
                       <>
-                        <div>✓ 关卡: {levelManagerRef.current.getCurrentLevelConfig()?.name}</div>
-                        <div>✓ 地图: {levelManagerRef.current.getCurrentMapConfig()?.name}</div>
-                        <div>✓ 状态: {levelManagerRef.current.isRunning() ? '运行中' : '已停止'}</div>
+                        <div>✓ ID: {bulletConfig.id}</div>
+                        <div>✓ 模型: {bulletConfig.modelId}</div>
+                        <div>✓ 分段: {bulletConfig.segments?.length || 0}</div>
                       </>
                     ) : (
-                      <div>初始化中...</div>
+                      <div>无配置</div>
                     )}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-slate-400 mb-1">参战角色</div>
+                  <div className="text-xs text-slate-400 mb-1">演示角色</div>
                   <div className="text-xs space-y-1 text-slate-300">
-                    <div>✓ 攻击者: 玩家 (阵营 1)</div>
+                    <div>✓ 发射者: 英雄 (阵营 1)</div>
                     <div>✓ 目标: 敌人 (阵营 2)</div>
                   </div>
                 </div>
               </div>
 
               {/* 消息输出 */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 min-h-[100px]">
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 min-h-[100px] max-h-[200px] overflow-y-auto">
                 <div className="text-xs text-slate-400 mb-2">演示输出</div>
                 <div className="text-xs text-slate-200 whitespace-pre-wrap font-mono">
                   {message || '等待演示启动...'}
@@ -190,15 +204,14 @@ export const SkillDemoPreview = ({ skillConfig, isOpen, onClose }) => {
               <button
                 onClick={() => {
                   if (gameRunnerRef.current) {
-                    // 简化暂停/恢复逻辑，通过状态追踪
                     if (status === 'running') {
                       gameRunnerRef.current.pause();
                       setStatus('idle');
-                      setMessage('游戏已暂停');
+                      setMessage(prev => prev + '\n⏸ 游戏已暂停');
                     } else {
                       gameRunnerRef.current.resume();
                       setStatus('running');
-                      setMessage('游戏已恢复');
+                      setMessage(prev => prev + '\n▶ 游戏已恢复');
                     }
                   }
                 }}
@@ -220,4 +233,4 @@ export const SkillDemoPreview = ({ skillConfig, isOpen, onClose }) => {
   );
 };
 
-export default SkillDemoPreview;
+export default BulletDemoPreview;

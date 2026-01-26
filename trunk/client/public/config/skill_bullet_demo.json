@@ -1,0 +1,31 @@
+[
+  {
+    "id": 9001,
+    "name": "子弹发射技能",
+    "description": "演示子弹发射",
+    "modelId": 1,
+    "segments": [
+      {
+        "id": 1,
+        "name": "施法准备",
+        "triggers": [
+          {
+            "eventType": "skillStart",
+            "params": {},
+            "conditions": [],
+            "actions": [
+              {
+                "type": "createBullet",
+                "params": {
+                  "bulletId": 1,
+                  "fromCaster": true,
+                  "toTarget": true
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

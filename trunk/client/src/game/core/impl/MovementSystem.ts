@@ -217,8 +217,7 @@ export class MovementSystem extends GameSystem {
     }
 
     fixedUpdate(fixedDeltaTime: number): void {
-        const deltaSeconds = fixedDeltaTime / 1000;
-        
+        // fixedDeltaTime 已为秒
         for (const [actorId, data] of this._moveData) {
             if (!data.actor.isActive() || data.actor.isDead()) {
                 this._moveData.delete(actorId);
@@ -227,17 +226,17 @@ export class MovementSystem extends GameSystem {
 
             switch (data.state) {
                 case MoveState.MovingStraight:
-                    this._updateStraightMove(data, deltaSeconds);
+                    this._updateStraightMove(data, fixedDeltaTime);
                     break;
                 case MoveState.Moving:
-                    this._updateMoving(data, deltaSeconds);
+                    this._updateMoving(data, fixedDeltaTime);
                     break;
                 case MoveState.Turning:
-                    this._updateTurning(data, deltaSeconds);
+                    this._updateTurning(data, fixedDeltaTime);
                     break;
                 case MoveState.Blocked:
                     // 被阻挡后，继续尝试直线移动或等待
-                    this._updateBlocked(data, deltaSeconds);
+                    this._updateBlocked(data, fixedDeltaTime);
                     break;
                 case MoveState.Arrived:
                     this._moveData.delete(actorId);

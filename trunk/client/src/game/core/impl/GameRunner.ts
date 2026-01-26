@@ -17,12 +17,70 @@ import { getModelConfig, getModelActions } from '../config/ModelConfig';
 import { getUnitConfig } from '../config/UnitConfig';
 import { Assets } from '../../engine/common/Assets';
 import { worldToMapPixel } from '../base/WorldProjection';
+import type { Actor } from './Actor';
 
 /**
  * 客户端游戏运行器
  * 负责处理渲染和帧同步
  */
 export class ClientGameRunner {
+        // 正在加载 sprite 的 actor id 集合，防止重复加载
+        private _pendingSpriteLoads: Set<string> = new Set();
+
+        /**
+         * 异步为 actor 加载 sprite（懒加载，非阻塞逻辑帧）
+         */
+        private _loadActorSprite(actor: Actor) {
+            if (!actor || actor.getSpriteId() || this._pendingSpriteLoads.has(actor.id)) return;
+            this._pendingSpriteLoads.add(actor.id);
+            const spriteManager = this._world.getSpriteManager();
+            const assets = new Assets();
+            const spriteId = `sprite_${actor.id}`;
+            (async () => {
+                try {
+                    const unitConfig = getUnitConfig(actor.unitType);
+                    if (!unitConfig) throw new Error(`Unit config not found for unit type: ${actor.unitType}`);
+                    const modelId = unitConfig.modelId;
+                    const modelConfig = getModelConfig(modelId);
+                    if (!modelConfig) throw new Error(`Model config not found for model id: ${modelId}`);
+                    const actions = getModelActions(modelId);
+                    if (actions.length === 0) throw new Error(`No actions found for model id: ${modelId}`);
+                    const clips = [];
+                    const baseFolder = `/unit/${unitConfig.id}`;
+                    for (const action of actions) {
+                        try {
+                            const images = await assets.getImageSequence(`${baseFolder}/${action.name}`);
+                            const clip = AnimationClip.fromImages(
+                                action.name,
+                                images,
+                                action.loop ?? true,
+                                action.duration ?? 1.0,
+                                action.frameCount
+                            );
+                            clips.push(clip);
+                        } catch (err) {
+                            console.warn(`Failed to load action '${action.name}' for unit type ${unitConfig.id}:`, err);
+                        }
+                    }
+                    if (clips.length === 0) throw new Error('No animation clips loaded successfully');
+                    // actor 可能已被移除
+                    if (!this._game.getActor(actor.id)) return;
+                    const sprite = new AnimatedSprite2D(clips);
+                    sprite.setPosition(0, 0);
+                    spriteManager.add(spriteId, sprite);
+                    actor.setSpriteId(spriteId);
+                } catch (err) {
+                    // actor 可能已被移除
+                    if (!this._game.getActor(actor.id)) return;
+                    console.warn(`Failed to load animated sprite for actor ${actor.id}:`, err);
+                    const sprite = this._createPlaceholderSprite(actor.campId);
+                    spriteManager.add(spriteId, sprite);
+                    actor.setSpriteId(spriteId);
+                } finally {
+                    this._pendingSpriteLoads.delete(actor.id);
+                }
+            })();
+        }
     private _game: Game;
     private _world: World;
     private _sceneManager: SceneManager;
@@ -46,7 +104,7 @@ export class ClientGameRunner {
      * 初始化游戏运行器
      */
     init(): void {
-        // 设置 World 的回调函数
+        // 设置 World 的回调函数（全部转为秒）
         this._world.onFixedUpdate((fixedDeltaTime) => {
             this._onFixedUpdate(fixedDeltaTime);
         });
@@ -291,22 +349,24 @@ export class ClientGameRunner {
         const pixelsPerMeterY = mapConfig?.pixelsPerMeterY ?? 16;
 
         for (const actor of actors) {
+            // 懒加载 sprite
+            if (!actor.getSpriteId()) {
+                this._loadActorSprite(actor);
+                continue;
+            }
             const spriteId = actor.getSpriteId();
-            if (spriteId) {
-                const pos = actor.getPosition(); // pos: FixedVector3 {x, y, z}
-                const sprite = spriteManager.get(spriteId);
-                if (sprite) {
-                    // 世界坐标转地图平面像素坐标（未含相机/视口变换）
-                    const [screenX, screenY] = worldToMapPixel(pos.x, pos.y, pos.z, pixelsPerMeterX, pixelsPerMeterY);
-                    sprite.setPosition(screenX, screenY);
-                    sprite.rotation = actor.getRotation();
-                    const scale = actor.getScale();
-                    sprite.setScale(scale, scale);
-                    sprite.visible = actor.isVisible();
-                    
-                    // 使用 z 坐标（深度）- y（高度）控制渲染层级（越深越靠后，越高越靠前）
-                    sprite.position.z = pos.z - pos.y;
-                }
+            const pos = actor.getPosition();
+            const sprite = spriteManager.get(spriteId);
+            if (sprite) {
+                // 世界坐标转地图平面像素坐标（未含相机/视口变换）
+                const [screenX, screenY] = worldToMapPixel(pos.x, pos.y, pos.z, pixelsPerMeterX, pixelsPerMeterY);
+                sprite.setPosition(screenX, screenY);
+                sprite.rotation = actor.getRotation();
+                const scale = actor.getScale();
+                sprite.setScale(scale, scale);
+                sprite.visible = actor.isVisible();
+                // 使用 z 坐标（深度）- y（高度）控制渲染层级（越深越靠后，越高越靠前）
+                sprite.position.z = pos.z - pos.y;
             }
         }
 
@@ -482,57 +542,5 @@ export class ServerGameRunner {
     /**
      * 帧更新
      */
-    private _onFrameUpdate(): void {
-        this._game.fixedUpdate(this._frameTime);
-
-        // 发送游戏状态快照给客户端
-        const snapshot = this._game.getGameState().getSnapshot();
-        this._onStateSnapshot(snapshot);
-    }
-
-    /**
-     * 获取状态快照（用于发送给客户端）
-     */
-    private _onStateSnapshot(snapshot: any): void {
-        // 这里可以序列化状态并通过网络发送给客户端
-        // 例如通过 WebSocket 或其他网络协议
-        console.log(`[Server] Frame ${snapshot.frameIndex}:`, snapshot);
-    }
-
-    /**
-     * 暂停游戏
-     */
-    pause(): void {
-        this._game.pause();
-    }
-
-    /**
-     * 恢复游戏
-     */
-    resume(): void {
-        this._game.resume();
-    }
-
-    /**
-     * 停止游戏
-     */
-    stop(): void {
-        this._isRunning = false;
-        if (this._frameTimer) {
-            clearInterval(this._frameTimer);
-            this._frameTimer = null;
-        }
-        this._game.finish();
-    }
-
-
-
-    /**
-     * 销毁服务器游戏运行器
-     */
-    destroy(): void {
-        this.stop();
-        this._sceneManager.destroy();
-        this._game.destroy();
-    }
+    // ...existing code...
 }

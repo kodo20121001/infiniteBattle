@@ -7,6 +7,8 @@ import type { Actor } from './Actor';
 import type { Game } from './GameSystem';
 import { GameSystem } from './GameSystemBase';
 import { EventUtils } from './GameUtils';
+import { Bullet } from './Bullet';
+import { Configs } from '../../common/Configs';
 import type { SkillBehaviorConfig, SkillBehaviorEvent } from '../config/SkillBehaviorConfig';
 import { getSkillBehaviorConfig } from '../config/SkillBehaviorConfig';
 import { getSkillConfig, type SkillConfig } from '../config/SkillConfig';
@@ -160,9 +162,12 @@ export class SkillSystem extends GameSystem {
                 this._applyMoveByEvent(caster, data, skillData);
                 break;
 
+            case 'bullet':
+                this._applyBulletEvent(caster, target, data, skillData);
+                break;
+
             case 'effect':
             case 'shake':
-            case 'bullet':
             case 'sound':
             case 'animation':
                 // 其他事件类型可在这里实现
@@ -215,6 +220,77 @@ export class SkillSystem extends GameSystem {
             damageSystem.causeDamage(caster.id, target.id, Math.floor(damage));
             EventUtils.broadcastDamageEvent(this.game, caster.id, target.id, Math.floor(damage));
         }
+    }
+
+    /**
+     * 应用子弹事件
+     */
+    private _applyBulletEvent(
+        caster: Actor,
+        target: Actor | undefined,
+        data: any,
+        skillData: SkillConfig
+    ): void {
+        const bulletId = data.bulletId;
+        if (!bulletId) {
+            console.warn('[SkillSystem] Bullet event missing bulletId');
+            return;
+        }
+
+        // 获取子弹配置
+        const bulletConfigs = Configs.Get('bullet');
+        if (!bulletConfigs || !bulletConfigs[bulletId]) {
+            console.warn(`[SkillSystem] Bullet config not found: ${bulletId}`);
+            return;
+        }
+        const bulletConfig = bulletConfigs[bulletId];
+
+        // 确定发射位置
+        // 修复：避免 position 引用共享，需 clone
+        const startPos = data.fromCaster ? caster.getPosition().clone() : { x: 0, y: 0, z: 0 };
+
+        // 确定目标位置或目标单位
+        let targetUnitId: string | number | undefined;
+        let targetPosition: { x: number; y: number; z?: number } | undefined;
+
+        if (data.toTarget && target) {
+            // 使用实例ID便于跟踪移动目标
+            targetUnitId = target.id;
+            targetPosition = target.getPosition();
+        } else if (data.targetUnitId) {
+            targetUnitId = data.targetUnitId;
+        } else if (data.targetPosition) {
+            targetPosition = data.targetPosition;
+        }
+
+        // 若缺少目标，则默认沿施法者朝向前方 1 米，避免无目标导致子弹不发射
+        if (!targetUnitId && !targetPosition) {
+            const pos = caster.getPosition();
+            targetPosition = { x: pos.x + 1, y: pos.y, z: pos.z };
+        }
+
+        // 创建子弹（不改全局配置，目标通过 runtime ctx 传递）
+        const bulletId_str = `bullet_${caster.id}_${Date.now()}_${Math.random()}`;
+        const bullet = new Bullet(bulletId_str, bulletConfig, caster.campId, startPos);
+
+        // 启动子弹，传递运行时上下文
+        bullet.start({
+            getPositionByUnitId: (unitId: string | number) => {
+                // 从游戏中查找单位位置（通过实例ID）
+                const actor = this.game.getActor(String(unitId));
+                return actor ? actor.getPosition() : null;
+            },
+            defaultTargetUnitId: targetUnitId,
+            defaultTargetPosition: targetPosition,
+            onBulletEnd: (data: any) => {
+                console.log('[SkillSystem] Bullet ended:', data);
+                // 移除子弹
+                (this.game as any).removeActor?.(bullet.id);
+            }
+        });
+
+        // 将子弹添加到游戏系统
+        (this.game as any).addActor?.(bullet);
     }
 
     /**

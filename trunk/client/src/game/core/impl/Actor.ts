@@ -12,6 +12,7 @@ export enum ActorType {
     Building = 'building',      // 建筑
     Environment = 'environment', // 环保物件
     Effect = 'effect',          // 特效
+    Bullet = 'bullet',          // 子弹/弹道
 }
 
 export enum ActorState {
@@ -73,6 +74,9 @@ export class Actor {
         this.unitType = unitType;
         this.campId = campId;
         this._position = position;
+        if (this.actorType === ActorType.Unit) {
+            console.log(`[Actor] create unit: id=${this.id}, unitType=${this.unitType}, campId=${this.campId}, pos=(${position.x},${position.y},${position.z})`);
+        }
     }
 
     /**
@@ -112,6 +116,9 @@ export class Actor {
      * 设置位置 (x: 水平, y: 高度, z: 深度)
      */
     setPosition(x: number, y: number = 0, z: number = 0): void {
+        if (this.actorType === ActorType.Unit) {
+            console.log(`[Actor] setPosition: id=${this.id}, unitType=${this.unitType}, campId=${this.campId}, (${x}, ${y}, ${z})`);
+        }
         this._position.x = x;
         this._position.y = y;
         this._position.z = z;

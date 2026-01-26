@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "name": "子弹",
+    "description": "",
+    "modelId": 1,
+    "segments": [
+      {
+        "id": 1,
+        "name": "分段-1",
+        "triggers": [
+          {
+            "eventType": "bulletStart",
+            "params": {},
+            "conditions": [],
+            "actions": [
+              {
+                "type": "bulletFlyToTarget",
+                "params": {
+                  "speed": 0.1
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

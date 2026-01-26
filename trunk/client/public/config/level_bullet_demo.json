@@ -1,0 +1,56 @@
+[
+  {
+    "id": 9901,
+    "name": "子弹演示关卡",
+    "mapId": 1,
+    "description": "子弹系统演示：直线/抛物线/导弹追踪",
+    "triggers": [
+      {
+        "id": 1,
+        "name": "初始化演示角色",
+        "eventType": "levelStart",
+        "params": {},
+        "conditions": [],
+        "actions": [
+          {
+            "type": "createUnit",
+            "params": {
+              "unitId": 101,
+              "x": 5,
+              "y": 5,
+              "campId": 1
+            }
+          },
+          {
+            "type": "createUnit",
+            "params": {
+              "unitId": 102,
+              "x": 25,
+              "y": 5,
+              "campId": 2
+            }
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "定时发射子弹",
+        "eventType": "intervalTimer",
+        "params": {
+          "intervalSec": 2
+        },
+        "conditions": [],
+        "actions": [
+          {
+            "type": "castSkill",
+            "params": {
+              "casterId": 101,
+              "skillId": 9001,
+              "targetId": 102
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

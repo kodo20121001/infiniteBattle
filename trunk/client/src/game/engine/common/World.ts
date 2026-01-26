@@ -16,14 +16,14 @@ export class World {
     private _isPaused = false;
     private _animationFrameId: number | null = null;
     private _lastFrameTime = 0;
-    private _deltaTime = 0;
+    private _deltaTime = 0; // 秒
     private _fps = 60;
-    private _frameInterval = 1000 / 60;
+    private _frameInterval = 1 / 60; // 秒
     private _frameCount = 0;
     private _fpsUpdateTime = 0;
     private _currentFps = 0;
-    private _fixedTimeStep = 1000 / 60;
-    private _accumulator = 0;
+    private _fixedTimeStep = 1 / 60; // 秒
+    private _accumulator = 0; // 秒
 
     // 生命周期回调
     private _updateCallback: ((deltaTime: number) => void) | null = null;
@@ -44,11 +44,11 @@ export class World {
 
     setTargetFps(fps: number): void {
         this._fps = fps;
-        this._frameInterval = 1000 / fps;
+        this._frameInterval = 1 / fps;
     }
 
     setFixedTimeStep(fps: number): void {
-        this._fixedTimeStep = 1000 / fps;
+        this._fixedTimeStep = 1 / fps;
     }
 
     onUpdate(callback: (deltaTime: number) => void): void {
@@ -70,7 +70,7 @@ export class World {
         }
         this._isRunning = true;
         this._isPaused = false;
-        this._lastFrameTime = performance.now();
+        this._lastFrameTime = performance.now() / 1000;
         this._fpsUpdateTime = this._lastFrameTime;
         this._frameCount = 0;
         this._accumulator = 0;
@@ -87,7 +87,7 @@ export class World {
             return;
         }
         this._isPaused = false;
-        this._lastFrameTime = performance.now();
+        this._lastFrameTime = performance.now() / 1000;
     }
 
     stop(): void {
@@ -101,14 +101,14 @@ export class World {
 
     private _loop(currentTime: number): void {
         if (!this._isRunning) return;
-        this._animationFrameId = requestAnimationFrame((time) => this._loop(time));
+        this._animationFrameId = requestAnimationFrame((time) => this._loop(time / 1000));
         if (this._isPaused) {
             this._lastFrameTime = currentTime;
             return;
         }
         this._deltaTime = currentTime - this._lastFrameTime;
         this._lastFrameTime = currentTime;
-        if (this._deltaTime > 100) this._deltaTime = 100;
+        if (this._deltaTime > 0.1) this._deltaTime = 0.1; // 最大步长0.1秒
         // 固定更新
         if (this._fixedUpdateCallback) {
             this._accumulator += this._deltaTime;
@@ -132,8 +132,8 @@ export class World {
 
     private _updateFps(currentTime: number): void {
         this._frameCount++;
-        if (currentTime - this._fpsUpdateTime >= 1000) {
-            this._currentFps = Math.round((this._frameCount * 1000) / (currentTime - this._fpsUpdateTime));
+        if (currentTime - this._fpsUpdateTime >= 1) {
+            this._currentFps = Math.round(this._frameCount / (currentTime - this._fpsUpdateTime));
             this._frameCount = 0;
             this._fpsUpdateTime = currentTime;
         }
@@ -146,7 +146,7 @@ export class World {
         return this._deltaTime;
     }
     get deltaTimeSeconds(): number {
-        return this._deltaTime / 1000;
+        return this._deltaTime;
     }
     get isRunning(): boolean {
         return this._isRunning;

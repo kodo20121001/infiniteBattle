@@ -25,6 +25,8 @@ export class Configs {
         Configs.configs['skill'] = configManager.Get('skill');
         Configs.configs['skill_behavior'] = configManager.Get('skill_behavior');
         Configs.configs['building_model'] = configManager.Get('building_model');
+        // 子弹配置
+        Configs.configs['bullet'] = configManager.Get('bullet');
     }
 
     /**

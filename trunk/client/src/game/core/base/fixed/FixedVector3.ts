@@ -2,6 +2,7 @@
 import FixedMaths, {} from "./FixedMaths"
 
 export class FixedVector3 {
+
   x: number;
   y: number;
   z: number;
@@ -10,6 +11,10 @@ export class FixedVector3 {
     this.x = x;
     this.y = y;
     this.z = z;
+  }
+
+  clone(): FixedVector3 {
+    return new FixedVector3(this.x, this.y, this.z);
   }
 
   normalize() {

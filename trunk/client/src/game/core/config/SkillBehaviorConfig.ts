@@ -45,7 +45,16 @@ export interface SkillBehaviorMoveByEventData {
  * 技能行为特效事件数据
  */
 export interface SkillBehaviorEffectEventData {
-	[key: string]: any;
+	/** 子弹配置ID */
+	bulletId: number;
+	/** 是否从施法者位置发射 */
+	fromCaster?: boolean;
+	/** 是否飞向目标 */
+	toTarget?: boolean;
+	/** 指定目标单位ID（可选） */
+	targetUnitId?: number;
+	/** 指定目标位置（可选） */
+	targetPosition?: { x: number; y: number; z?: number };
 }
 
 /**
@@ -59,7 +68,16 @@ export interface SkillBehaviorShakeEventData {
  * 技能行为子弹事件数据
  */
 export interface SkillBehaviorBulletEventData {
-	[key: string]: any;
+	/** 子弹配置ID */
+	bulletId: number;
+	/** 是否从施法者位置发射 */
+	fromCaster?: boolean;
+	/** 是否飞向目标 */
+	toTarget?: boolean;
+	/** 指定目标单位ID（可选） */
+	targetUnitId?: number;
+	/** 指定目标位置（可选） */
+	targetPosition?: { x: number; y: number; z?: number };
 }
 
 /**
