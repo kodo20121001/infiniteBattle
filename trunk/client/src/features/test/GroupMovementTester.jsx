@@ -3,6 +3,7 @@ import { World } from '@/game/engine/common/World';
 import { ClientGameRunner } from '@/game/core/impl';
 import { ConfigManager } from '@/common/ConfigManager';
 import { Configs } from '@/game/common/Configs';
+import { PathfindingMode } from '@/game/core/impl/MovementSystem';
 
 const TEST_LEVEL_ID = 99002;
 const TEST_UNIT_ID = 101; // 使用与寻路测试相同的单位
@@ -16,6 +17,8 @@ const GroupMovementTester = ({ onBack, onBackToHub }) => {
   const [status, setStatus] = useState('idle');
   const [message, setMessage] = useState('请选择地图并启动群体移动测试');
   const [count, setCount] = useState(24); // 生成单位数量
+  const [steeringBehaviorEnabled, setSteeringBehaviorEnabled] = useState(false); // Steering Behavior 开关（默认关闭）
+  const [pathfindingMode, setPathfindingMode] = useState(PathfindingMode.FlowField); // 寻路模式
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +140,28 @@ const GroupMovementTester = ({ onBack, onBackToHub }) => {
       runner.setDebugShowBlockedCells(true);
       runnerRef.current = runner;
 
+      // 设置寻路模式和 Steering Behavior 开关
+      try {
+        const game = runner.getGame();
+        if (game) {
+          const movementSystem = game.getSystem('movement');
+          if (movementSystem) {
+            // 设置寻路模式
+            if (typeof movementSystem.setPathfindingMode === 'function') {
+              movementSystem.setPathfindingMode(pathfindingMode);
+              console.log(`[GroupMovementTester] Pathfinding mode set to: ${pathfindingMode}`);
+            }
+            // 设置 Steering Behavior 开关
+            if (typeof movementSystem.setSteeringBehaviorEnabled === 'function') {
+              movementSystem.setSteeringBehaviorEnabled(steeringBehaviorEnabled);
+              console.log(`[GroupMovementTester] Steering Behavior ${steeringBehaviorEnabled ? 'enabled' : 'disabled'}`);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[GroupMovementTester] Failed to set movement system options:', err);
+      }
+
       const handleResize = () => {
         const nextRect = canvas?.getBoundingClientRect();
         const nextWidth = Math.max(1, Math.floor(nextRect?.width || 0));
@@ -193,6 +218,80 @@ const GroupMovementTester = ({ onBack, onBackToHub }) => {
           <div className="text-xs text-slate-400">建议 16~36 以观察避让与滑动效果</div>
         </div>
 
+        <div className="space-y-2">
+          <div className="text-sm text-slate-300">寻路方式</div>
+          <select
+            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+            value={pathfindingMode}
+            onChange={(e) => {
+              const mode = e.target.value;
+              setPathfindingMode(mode);
+              // 如果测试正在运行，立即应用设置
+              if (runnerRef.current && status === 'running') {
+                try {
+                  const game = runnerRef.current.getGame();
+                  if (game) {
+                    const movementSystem = game.getSystem('movement');
+                    if (movementSystem && typeof movementSystem.setPathfindingMode === 'function') {
+                      movementSystem.setPathfindingMode(mode);
+                      console.log(`[GroupMovementTester] Pathfinding mode changed to: ${mode} (runtime)`);
+                    }
+                  }
+                } catch (err) {
+                  console.warn('[GroupMovementTester] Failed to update pathfinding mode:', err);
+                }
+              }
+            }}
+          >
+            <option value={PathfindingMode.AStar}>A* 寻路</option>
+            <option value={PathfindingMode.FlowField}>Flow Field 流场</option>
+          </select>
+          <div className="text-xs text-slate-400">
+            {pathfindingMode === PathfindingMode.AStar 
+              ? '适合少量单位（<50），路径精确但性能较低'
+              : '适合大量单位（50+），性能优秀，相同目标共享流场'}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-sm text-slate-300">Steering Behavior</div>
+          <div className="flex items-center gap-3">
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={steeringBehaviorEnabled}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  setSteeringBehaviorEnabled(enabled);
+                  // 如果测试正在运行，立即应用设置
+                  if (runnerRef.current && status === 'running') {
+                    try {
+                      const game = runnerRef.current.getGame();
+                      if (game) {
+                        const movementSystem = game.getSystem('movement');
+                        if (movementSystem && typeof movementSystem.setSteeringBehaviorEnabled === 'function') {
+                          movementSystem.setSteeringBehaviorEnabled(enabled);
+                          console.log(`[GroupMovementTester] Steering Behavior ${enabled ? 'enabled' : 'disabled'} (runtime)`);
+                        }
+                      }
+                    } catch (err) {
+                      console.warn('[GroupMovementTester] Failed to update Steering Behavior:', err);
+                    }
+                  }
+                }}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              <span className="ml-3 text-sm text-slate-300">
+                {steeringBehaviorEnabled ? '已启用' : '已禁用'}
+              </span>
+            </label>
+          </div>
+          <div className="text-xs text-slate-400">
+            启用后使用 Steering Behavior 实现更平滑的移动和转向
+          </div>
+        </div>
+
         <div className="space-y-3">
           <button
             onClick={startTest}
@@ -215,7 +314,7 @@ const GroupMovementTester = ({ onBack, onBackToHub }) => {
       <div className="flex-1 relative bg-black">
         <canvas ref={canvasRef} className="w-full h-full" width={960} height={720} />
         <div className="absolute top-4 left-4 bg-black/60 px-4 py-2 rounded text-sm">
-          群体移动：Camp#1 的单位从 1 → 2
+          群体移动：Camp#1 的单位从 1 → 2 | 寻路: {pathfindingMode === PathfindingMode.AStar ? 'A*' : 'Flow Field'}
         </div>
       </div>
     </div>

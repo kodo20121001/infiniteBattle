@@ -441,6 +441,13 @@ export class ClientGameRunner {
     }
 
     /**
+     * 获取 Game 实例
+     */
+    getGame(): Game {
+        return this._game;
+    }
+
+    /**
      * 销毁游戏运行器
      */
     destroy(): void {

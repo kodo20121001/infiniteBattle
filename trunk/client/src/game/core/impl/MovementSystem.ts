@@ -15,22 +15,22 @@
  */
 
 import { GameSystem } from './GameSystemBase';
-import { PathfindingSystem } from './PathfindingSystem';
+import { PathfindingSystem, type FlowField, type PathNode } from './PathfindingSystem';
 import { StraightMovementSystem } from './StraightMovementSystem';
 import { PathFollowingSystem } from './PathFollowingSystem';
 import { ObstacleDetection } from './ObstacleDetection';
 import { AvoidanceSystem } from './AvoidanceSystem';
+import { SteeringBehavior, type AgentState, type SteeringOutput } from './SteeringBehavior';
 import type { Game } from './GameSystem';
 import type { Actor } from './Actor';
 import type { GameMap } from './Map';
 
 /**
- * 路径点
+ * 寻路模式
  */
-interface PathNode {
-    x: number;
-    y: number; // 高度
-    z: number; // 深度
+export enum PathfindingMode {
+    AStar = 'astar',        // A* 寻路
+    FlowField = 'flowfield' // Flow Field 流场寻路
 }
 
 /**
@@ -87,6 +87,11 @@ interface MoveData {
     blockedCount?: number;         // 连续被阻挡次数（移动距离很小）
     pauseFrames?: number;          // 暂停剩余帧数（被阻挡后休息）
     slideDistance?: number;        // 累计滑动距离（用于检测方向偏离）
+    
+    // Steering Behavior 数据
+    velocity?: { x: number; z: number }; // 当前速度向量（用于 Steering Behavior）
+    maxForce?: number;                // 最大转向力
+    maxAngularSpeed?: number;         // 最大角速度（度/秒）
 
 }
 
@@ -103,9 +108,50 @@ export class MovementSystem extends GameSystem {
     private _defaultTurnSpeed = 360;      // 默认转向速度（度/秒）
     private _defaultObstacleCheckDistance = 3; // 默认障碍检测距离（米）
     
+    // 寻路模式开关
+    private _pathfindingMode: PathfindingMode = PathfindingMode.AStar; // 默认使用 A* 寻路
+    
+    // Steering Behavior 开关和参数
+    private _enableSteeringBehavior: boolean = false; // 默认关闭 Steering Behavior
+    private _defaultMaxForce = 10.0;          // 默认最大转向力
+    private _defaultMaxAngularSpeed = 180;     // 默认最大角速度（度/秒）
+    private _defaultSlowRadius = 3.0;          // 默认减速半径（米）
+    
     constructor(game: Game) {
         super(game);
         this._game = game;
+    }
+
+    /**
+     * 设置寻路模式
+     * @param mode 寻路模式：'astar' 或 'flowfield'
+     */
+    setPathfindingMode(mode: PathfindingMode): void {
+        this._pathfindingMode = mode;
+        console.log(`[MovementSystem] Pathfinding mode set to: ${mode}`);
+    }
+
+    /**
+     * 获取当前寻路模式
+     */
+    getPathfindingMode(): PathfindingMode {
+        return this._pathfindingMode;
+    }
+
+    /**
+     * 设置是否启用 Steering Behavior
+     * @param enabled 是否启用
+     */
+    setSteeringBehaviorEnabled(enabled: boolean): void {
+        this._enableSteeringBehavior = enabled;
+        console.log(`[MovementSystem] Steering Behavior ${enabled ? 'enabled' : 'disabled'}`);
+    }
+
+    /**
+     * 获取是否启用 Steering Behavior
+     */
+    isSteeringBehaviorEnabled(): boolean {
+        return this._enableSteeringBehavior;
     }
 
     /**
@@ -278,6 +324,10 @@ export class MovementSystem extends GameSystem {
             stuckTime: 0,
             lastFrameDistance: Number.MAX_VALUE,
             lastPos: { x: pos.x, z: pos.z }, // 初始化进度追踪
+            // Steering Behavior 初始化
+            velocity: { x: 0, z: 0 },
+            maxForce: this._defaultMaxForce,
+            maxAngularSpeed: this._defaultMaxAngularSpeed,
         };
         
         this._moveData.set(command.actorId, moveData);
@@ -316,38 +366,108 @@ export class MovementSystem extends GameSystem {
             this._map
         );
         
-        // 有障碍 -> 切换到 A* 寻路
+        // 有障碍 -> 根据寻路模式切换到对应的寻路方式
         if (!canContinue) {
-            console.log(`[_updateStraightMove] >>> OBSTACLE! Unit ${data.actor.id} switching to A*`);
-            this._switchToPathfinding(data);
+            if (this._pathfindingMode === PathfindingMode.AStar) {
+                console.log(`[_updateStraightMove] >>> OBSTACLE! Unit ${data.actor.id} switching to A*`);
+                this._switchToPathfinding(data);
+            } else {
+                console.log(`[_updateStraightMove] >>> OBSTACLE! Unit ${data.actor.id} switching to FlowField`);
+                this._switchToFlowField(data);
+            }
             return;
         }
         
-        // 没有障碍 -> 继续直线移动
-        const dirX = dx / distance;
-        const dirZ = dz / distance;
-        const moveDistance = data.speed * deltaSeconds;
+        // 使用 Steering Behavior 或传统移动逻辑
+        let moveDir: { x: number; z: number };
+        let moveDistance: number;
+        
+        if (this._enableSteeringBehavior) {
+            // 使用 Steering Behavior - Arrive
+            const agentState: AgentState = {
+                position: { x: pos.x, z: pos.z },
+                velocity: data.velocity ?? { x: 0, z: 0 },
+                rotation: data.actor.getRotation(),
+                maxSpeed: data.speed,
+                maxForce: data.maxForce ?? this._defaultMaxForce,
+                maxAngularSpeed: data.maxAngularSpeed ?? this._defaultMaxAngularSpeed,
+                radius: data.actor.getRadius(),
+            };
+            
+            const target = { x: data.targetX, z: data.targetZ };
+            const steering = SteeringBehavior.arrive(
+                agentState,
+                target,
+                this._defaultSlowRadius,
+                data.arrivalRadius
+            );
+            
+            // 应用转向力到速度
+            if (data.velocity) {
+                data.velocity.x += steering.linear.x * deltaSeconds;
+                data.velocity.z += steering.linear.z * deltaSeconds;
+                
+                // 限制速度大小
+                const velLen = Math.sqrt(data.velocity.x * data.velocity.x + data.velocity.z * data.velocity.z);
+                if (velLen > data.speed) {
+                    data.velocity.x = (data.velocity.x / velLen) * data.speed;
+                    data.velocity.z = (data.velocity.z / velLen) * data.speed;
+                }
+            } else {
+                data.velocity = { x: steering.linear.x * deltaSeconds, z: steering.linear.z * deltaSeconds };
+            }
+            
+            // 应用角转向力
+            if (Math.abs(steering.angular) > 0.1) {
+                const currentAngle = data.actor.getRotation();
+                const newAngle = currentAngle + steering.angular * deltaSeconds;
+                data.actor.setRotation(newAngle);
+            }
+            
+            // 计算移动距离和方向
+            moveDistance = Math.sqrt(data.velocity.x * data.velocity.x + data.velocity.z * data.velocity.z) * deltaSeconds;
+            moveDir = data.velocity.x !== 0 || data.velocity.z !== 0
+                ? SteeringBehavior.normalize(data.velocity)
+                : { x: dx / distance, z: dz / distance };
+        } else {
+            // 使用传统移动逻辑
+            moveDir = { x: dx / distance, z: dz / distance };
+            moveDistance = data.speed * deltaSeconds;
+        }
         
         // 滑动（接触其他单位时自动绕过）
-        const slide = AvoidanceSystem.trySlideOnContact(data.actor, { x: dirX, z: dirZ }, moveDistance, this._game);
+        const slide = AvoidanceSystem.trySlideOnContact(data.actor, moveDir, moveDistance, this._game);
         
         // 执行移动
         const delta = this._safeMove(data.actor, slide.dir, slide.dist, data.lastTangentDir, false);
         data.actor.move(delta.x, 0, delta.z);
         
-        // 更新朝向
-        const targetAngle = Math.atan2(slide.dir.z, slide.dir.x) * (180 / Math.PI);
-        this._updateRotation(data.actor, targetAngle, data.turnSpeed, deltaSeconds);
+        // 更新朝向（仅在传统模式下更新，Steering Behavior 模式下已在上面更新）
+        if (!this._enableSteeringBehavior) {
+            const targetAngle = Math.atan2(slide.dir.z, slide.dir.x) * (180 / Math.PI);
+            this._updateRotation(data.actor, targetAngle, data.turnSpeed, deltaSeconds);
+        }
+    }
+
+    /**
+     * 切换为寻路（根据模式选择 A* 或 Flow Field）
+     */
+    private _switchToPathfinding(data: MoveData): void {
+        if (this._pathfindingMode === PathfindingMode.AStar) {
+            this._switchToAStar(data);
+        } else {
+            this._switchToFlowField(data);
+        }
     }
 
     /**
      * 切换为 A* 寻路
      */
-    private _switchToPathfinding(data: MoveData): void {
+    private _switchToAStar(data: MoveData): void {
         const path = PathfindingSystem.findPath(data.actor, data.targetX, data.targetZ, this._map);
         
         if (!path || path.length === 0) {
-            console.log(`[_switchToPathfinding] >>> BLOCKED! Unit ${data.actor.id} no path found`);
+            console.log(`[_switchToAStar] >>> BLOCKED! Unit ${data.actor.id} no path found`);
             data.state = MoveState.Blocked;
             return;
         }
@@ -372,19 +492,99 @@ export class MovementSystem extends GameSystem {
         data.path = smoothedPath;
         data.currentPathIndex = 0;
         data.isPathSmoothed = true;
+        
+        // 初始化 Steering Behavior 参数
+        if (!data.velocity) {
+            data.velocity = { x: 0, z: 0 };
+        }
+        if (!data.maxForce) {
+            data.maxForce = this._defaultMaxForce;
+        }
+        if (!data.maxAngularSpeed) {
+            data.maxAngularSpeed = this._defaultMaxAngularSpeed;
+        }
+    }
+
+    /**
+     * 切换为 Flow Field 流场寻路
+     */
+    private _switchToFlowField(data: MoveData): void {
+        if (!this._map) {
+            console.warn(`[_switchToFlowField] Map not set`);
+            data.state = MoveState.Blocked;
+            return;
+        }
+
+        const flowField = PathfindingSystem.generateFlowField(
+            data.targetX,
+            data.targetZ,
+            this._map,
+            true // 使用缓存
+        );
+
+        if (!flowField) {
+            console.log(`[_switchToFlowField] >>> BLOCKED! Unit ${data.actor.id} cannot generate FlowField`);
+            data.state = MoveState.Blocked;
+            return;
+        }
+
+        // 检查单位是否在流场可达范围内
+        const pos = data.actor.getPosition();
+        if (!PathfindingSystem.isReachableInFlowField(pos.x, pos.z, flowField)) {
+            console.log(`[_switchToFlowField] >>> UNREACHABLE! Unit ${data.actor.id} not reachable in FlowField`);
+            data.state = MoveState.Blocked;
+            return;
+        }
+
+        data.state = MoveState.Moving;
+        (data as any).flowField = flowField; // 临时使用 any，后续可以扩展 MoveData 接口
+        data.path = []; // Flow Field 模式下不需要 path
+        data.currentPathIndex = 0;
+        
+        // 初始化 Steering Behavior 参数
+        if (!data.velocity) {
+            data.velocity = { x: 0, z: 0 };
+        }
+        if (!data.maxForce) {
+            data.maxForce = this._defaultMaxForce;
+        }
+        if (!data.maxAngularSpeed) {
+            data.maxAngularSpeed = this._defaultMaxAngularSpeed;
+        }
     }
 
     /**
      * 更新路径跟随
      */
     /**
-     * 更新路径跟随 - 简化版本
-     * 逻辑：
-     * 1. 跟随 A* 路径的各个节点
+     * 更新移动（支持 A* 和 Flow Field 两种模式）
+     * 
+     * A* 模式逻辑：
+     * 1. 跟随路径节点
      * 2. 每帧尝试直线到最终目标
-     * 3. 到达每个路径点后前进到下一个
+     * 
+     * Flow Field 模式逻辑：
+     * 1. 查询当前位置的流场方向
+     * 2. 沿流场方向移动
      */
     private _updateMoving(data: MoveData, deltaSeconds: number): void {
+        const pos = data.actor.getPosition();
+        const flowField = (data as any).flowField as FlowField | undefined;
+
+        // Flow Field 模式
+        if (flowField) {
+            this._updateFlowFieldMove(data, flowField, deltaSeconds);
+            return;
+        }
+
+        // A* 模式
+        this._updateAStarMove(data, deltaSeconds);
+    }
+
+    /**
+     * A* 路径跟随
+     */
+    private _updateAStarMove(data: MoveData, deltaSeconds: number): void {
         const pos = data.actor.getPosition();
         
         // 路径已完成
@@ -418,7 +618,7 @@ export class MovementSystem extends GameSystem {
         );
         
         if (canContinue) {
-            console.log(`[_updateMoving] Unit ${data.actor.id} >>> Switching back to straight line`);
+            console.log(`[_updateAStarMove] Unit ${data.actor.id} >>> Switching back to straight line`);
             data.state = MoveState.MovingStraight;
             data.straightLineTarget = { x: data.targetX, z: data.targetZ };
             return;
@@ -436,18 +636,178 @@ export class MovementSystem extends GameSystem {
             return;
         }
 
-        // 移动到路径点
-        const dirX = dxToNode / distanceToNode;
-        const dirZ = dzToNode / distanceToNode;
-        const moveDistance = data.speed * deltaSeconds;
+        // 使用 Steering Behavior 或传统移动逻辑
+        let moveDir: { x: number; z: number };
+        let moveDistance: number;
         
-        const slide = AvoidanceSystem.trySlideOnContact(data.actor, { x: dirX, z: dirZ }, moveDistance, this._game);
+        if (this._enableSteeringBehavior) {
+            // 使用 Steering Behavior - Seek
+            const agentState: AgentState = {
+                position: { x: pos.x, z: pos.z },
+                velocity: data.velocity ?? { x: 0, z: 0 },
+                rotation: data.actor.getRotation(),
+                maxSpeed: data.speed,
+                maxForce: data.maxForce ?? this._defaultMaxForce,
+                maxAngularSpeed: data.maxAngularSpeed ?? this._defaultMaxAngularSpeed,
+                radius: data.actor.getRadius(),
+            };
+            
+            const steering = SteeringBehavior.seek(agentState, { x: targetNode.x, z: targetNode.z });
+            
+            // 应用转向力到速度
+            if (data.velocity) {
+                data.velocity.x += steering.linear.x * deltaSeconds;
+                data.velocity.z += steering.linear.z * deltaSeconds;
+                
+                const velLen = Math.sqrt(data.velocity.x * data.velocity.x + data.velocity.z * data.velocity.z);
+                if (velLen > data.speed) {
+                    data.velocity.x = (data.velocity.x / velLen) * data.speed;
+                    data.velocity.z = (data.velocity.z / velLen) * data.speed;
+                }
+            } else {
+                data.velocity = { x: steering.linear.x * deltaSeconds, z: steering.linear.z * deltaSeconds };
+            }
+            
+            // 应用角转向力
+            if (Math.abs(steering.angular) > 0.1) {
+                const currentAngle = data.actor.getRotation();
+                const newAngle = currentAngle + steering.angular * deltaSeconds;
+                data.actor.setRotation(newAngle);
+            }
+            
+            moveDistance = Math.sqrt(data.velocity.x * data.velocity.x + data.velocity.z * data.velocity.z) * deltaSeconds;
+            const dirX = dxToNode / distanceToNode;
+            const dirZ = dzToNode / distanceToNode;
+            moveDir = data.velocity.x !== 0 || data.velocity.z !== 0
+                ? SteeringBehavior.normalize(data.velocity)
+                : { x: dirX, z: dirZ };
+        } else {
+            // 传统移动逻辑
+            const dirX = dxToNode / distanceToNode;
+            const dirZ = dzToNode / distanceToNode;
+            moveDistance = data.speed * deltaSeconds;
+            moveDir = { x: dirX, z: dirZ };
+        }
+        
+        const slide = AvoidanceSystem.trySlideOnContact(data.actor, moveDir, moveDistance, this._game);
         const delta = this._safeMove(data.actor, slide.dir, slide.dist, data.lastTangentDir, false);
         
         data.actor.move(delta.x, 0, delta.z);
 
-        const targetAngle = Math.atan2(slide.dir.z, slide.dir.x) * (180 / Math.PI);
-        this._updateRotation(data.actor, targetAngle, data.turnSpeed, deltaSeconds);
+        // 更新朝向（仅在传统模式下更新，Steering Behavior 模式下已在上面更新）
+        if (!this._enableSteeringBehavior) {
+            const targetAngle = Math.atan2(slide.dir.z, slide.dir.x) * (180 / Math.PI);
+            this._updateRotation(data.actor, targetAngle, data.turnSpeed, deltaSeconds);
+        }
+    }
+
+    /**
+     * Flow Field 流场移动
+     */
+    private _updateFlowFieldMove(data: MoveData, flowField: FlowField, deltaSeconds: number): void {
+        const pos = data.actor.getPosition();
+        const dx = data.targetX - pos.x;
+        const dz = data.targetZ - pos.z;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+
+        // 到达目标
+        if (distance < data.arrivalRadius) {
+            data.state = MoveState.Arrived;
+            this._moveData.delete(data.actor.id);
+            return;
+        }
+
+        // 接近目标时切换到直线移动（更精确的最后几步）
+        const switchToStraightDistance = data.obstacleCheckDistance * 1.5;
+        if (distance < switchToStraightDistance) {
+            // 检查是否可以直线到达
+            const checkDistance = data.obstacleCheckDistance;
+            const checkRatio = Math.min(1, checkDistance / distance);
+            const checkX = pos.x + dx * checkRatio;
+            const checkZ = pos.z + dz * checkRatio;
+            
+            const canContinue = ObstacleDetection.hasLineOfSight(
+                { x: pos.x, y: pos.y, z: pos.z },
+                { x: checkX, y: pos.y, z: checkZ },
+                this._map
+            );
+            
+            if (canContinue) {
+                console.log(`[_updateFlowFieldMove] Unit ${data.actor.id} >>> Near target, switching to straight line`);
+                data.state = MoveState.MovingStraight;
+                return;
+            }
+        }
+
+        // 从流场获取移动方向
+        const flowDir = PathfindingSystem.getFlowDirectionInterpolated(pos.x, pos.z, flowField);
+        if (!flowDir) {
+            console.warn(`[_updateFlowFieldMove] Unit ${data.actor.id} cannot get flow direction, regenerating...`);
+            this._switchToFlowField(data);
+            return;
+        }
+
+        // 使用 Steering Behavior 或传统移动逻辑
+        let moveDir: { x: number; z: number };
+        let moveDistance: number;
+        
+        if (this._enableSteeringBehavior) {
+            // 使用 Steering Behavior - Follow Flow Field
+            const agentState: AgentState = {
+                position: { x: pos.x, z: pos.z },
+                velocity: data.velocity ?? { x: 0, z: 0 },
+                rotation: data.actor.getRotation(),
+                maxSpeed: data.speed,
+                maxForce: data.maxForce ?? this._defaultMaxForce,
+                maxAngularSpeed: data.maxAngularSpeed ?? this._defaultMaxAngularSpeed,
+                radius: data.actor.getRadius(),
+            };
+            
+            const steering = SteeringBehavior.followFlowField(agentState, flowDir);
+            
+            // 应用转向力到速度
+            if (data.velocity) {
+                data.velocity.x += steering.linear.x * deltaSeconds;
+                data.velocity.z += steering.linear.z * deltaSeconds;
+                
+                const velLen = Math.sqrt(data.velocity.x * data.velocity.x + data.velocity.z * data.velocity.z);
+                if (velLen > data.speed) {
+                    data.velocity.x = (data.velocity.x / velLen) * data.speed;
+                    data.velocity.z = (data.velocity.z / velLen) * data.speed;
+                }
+            } else {
+                data.velocity = { x: steering.linear.x * deltaSeconds, z: steering.linear.z * deltaSeconds };
+            }
+            
+            // 应用角转向力
+            if (Math.abs(steering.angular) > 0.1) {
+                const currentAngle = data.actor.getRotation();
+                const newAngle = currentAngle + steering.angular * deltaSeconds;
+                data.actor.setRotation(newAngle);
+            }
+            
+            moveDistance = Math.sqrt(data.velocity.x * data.velocity.x + data.velocity.z * data.velocity.z) * deltaSeconds;
+            moveDir = data.velocity.x !== 0 || data.velocity.z !== 0
+                ? SteeringBehavior.normalize(data.velocity)
+                : flowDir;
+        } else {
+            // 传统移动逻辑
+            moveDistance = data.speed * deltaSeconds;
+            moveDir = flowDir;
+        }
+        
+        // 滑动（接触其他单位时自动绕过）
+        const slide = AvoidanceSystem.trySlideOnContact(data.actor, moveDir, moveDistance, this._game);
+        
+        // 执行移动
+        const delta = this._safeMove(data.actor, slide.dir, slide.dist, data.lastTangentDir, false);
+        data.actor.move(delta.x, 0, delta.z);
+        
+        // 更新朝向（仅在传统模式下更新，Steering Behavior 模式下已在上面更新）
+        if (!this._enableSteeringBehavior) {
+            const targetAngle = Math.atan2(slide.dir.z, slide.dir.x) * (180 / Math.PI);
+            this._updateRotation(data.actor, targetAngle, data.turnSpeed, deltaSeconds);
+        }
     }
 
     /**
