@@ -11,7 +11,8 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPushButton, QFileDialog,
     QProgressBar, QMessageBox, QGroupBox, QFormLayout, QTextEdit,
-    QSlider, QTabWidget, QRadioButton, QButtonGroup, QDialog, QScrollArea, QGridLayout
+    QSlider, QTabWidget, QRadioButton, QButtonGroup, QDialog, QScrollArea, QGridLayout,
+    QListWidget, QListWidgetItem
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QRect, QPoint
 from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen, QColor, QIcon
@@ -348,6 +349,9 @@ class VideoToSpriteSheetGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.config = self.load_config()
+        self.video_paths = []
+        self.selected_videos = set()  # Track which videos are selected for extraction
+        self.extracted_videos = set()  # Track which videos have been extracted
         self.init_ui()
         self.setAcceptDrops(True)
     
@@ -382,19 +386,19 @@ class VideoToSpriteSheetGUI(QMainWindow):
         video_group = QGroupBox("Video File")
         video_layout = QVBoxLayout()
         
-        self.video_display = QLineEdit()
-        self.video_display.setPlaceholderText("Select or drag video file here...")
-        self.video_display.setReadOnly(True)
-        self.video_display.setMinimumHeight(40)
-        video_layout.addWidget(self.video_display)
+        # Video list with checkboxes
+        self.video_list = QListWidget()
+        self.video_list.setMinimumHeight(100)
+        self.video_list.itemChanged.connect(self.on_video_selection_changed)
+        video_layout.addWidget(self.video_list)
         
         button_layout = QHBoxLayout()
         browse_btn = QPushButton("Browse")
         browse_btn.clicked.connect(self.browse_video)
         button_layout.addWidget(browse_btn)
         
-        clear_btn = QPushButton("Clear")
-        clear_btn.clicked.connect(lambda: self.video_display.clear())
+        clear_btn = QPushButton("Clear All")
+        clear_btn.clicked.connect(self.clear_videos)
         button_layout.addWidget(clear_btn)
         
         video_layout.addLayout(button_layout)
@@ -420,12 +424,12 @@ class VideoToSpriteSheetGUI(QMainWindow):
         self.atlas_size_spinbox.setSingleStep(256)
         param_layout.addRow("Atlas Size (px):", self.atlas_size_spinbox)
         
-        # FPS interval
+        # Extracted frame count
         self.fps_spinbox = QSpinBox()
-        self.fps_spinbox.setRange(1, 120)
-        self.fps_spinbox.setValue(self.config.get('default_fps_interval', 30))
-        self.fps_spinbox.setSingleStep(5)
-        param_layout.addRow("FPS Interval:", self.fps_spinbox)
+        self.fps_spinbox.setRange(1, 5000)
+        self.fps_spinbox.setValue(self.config.get('default_extract_count', self.config.get('default_fps_interval', 30)))
+        self.fps_spinbox.setSingleStep(10)
+        param_layout.addRow("Extract Count:", self.fps_spinbox)
         
         # Output directory
         output_layout = QHBoxLayout()
@@ -520,26 +524,35 @@ class VideoToSpriteSheetGUI(QMainWindow):
         self.animation_label.setText("Animation preview will appear after conversion")
         animation_layout.addWidget(self.animation_label)
         
-        # Playback controls
-        control_layout = QHBoxLayout()
-        self.play_btn = QPushButton("Play")
-        self.play_btn.setEnabled(False)
-        self.play_btn.clicked.connect(self.toggle_animation)
-        control_layout.addWidget(self.play_btn)
-        
-        self.speed_label = QLabel("Speed:")
-        control_layout.addWidget(self.speed_label)
+        # Speed control
+        speed_layout = QHBoxLayout()
+        speed_label = QLabel("Speed:")
+        speed_layout.addWidget(speed_label)
         self.speed_slider = QSlider(Qt.Horizontal)
         self.speed_slider.setRange(1, 10)
         self.speed_slider.setValue(5)
         self.speed_slider.setEnabled(False)
-        control_layout.addWidget(self.speed_slider)
+        speed_layout.addWidget(self.speed_slider)
         
-        animation_layout.addLayout(control_layout)
+        animation_layout.addLayout(speed_layout)
         animation_group.setLayout(animation_layout)
         right_panel.addWidget(animation_group)
         
-        right_panel.addStretch()
+        # Actions buttons group
+        actions_group = QGroupBox("Actions")
+        actions_layout = QVBoxLayout()
+        actions_scroll = QScrollArea()
+        actions_scroll.setWidgetResizable(True)
+        actions_scroll.setMinimumHeight(200)
+        
+        self.actions_widget = QWidget()
+        self.actions_list_layout = QVBoxLayout(self.actions_widget)
+        self.actions_list_layout.setAlignment(Qt.AlignTop)
+        actions_scroll.setWidget(self.actions_widget)
+        
+        actions_layout.addWidget(actions_scroll)
+        actions_group.setLayout(actions_layout)
+        right_panel.addWidget(actions_group)
         
         # Combine panels
         main_layout.addLayout(left_panel, 6)
@@ -551,10 +564,12 @@ class VideoToSpriteSheetGUI(QMainWindow):
         self.current_animation_frame = 0
         self.animation_frames = []
         self.is_playing = False
+        self.current_action = None
         
         # Frame data
         self.extracted_frames = []  # List of frame info dicts
         self.frame_buttons = []  # List of thumbnail buttons
+        self.action_buttons = []  # List of action buttons
     
     def update_animation_background(self):
         """Update animation background color"""
@@ -562,6 +577,118 @@ class VideoToSpriteSheetGUI(QMainWindow):
             self.animation_label.setStyleSheet("QLabel { background-color: black; border: 2px solid #ccc; border-radius: 5px; }")
         else:
             self.animation_label.setStyleSheet("QLabel { background-color: white; border: 2px solid #ccc; border-radius: 5px; }")
+    
+    def build_action_buttons(self):
+        """Build action buttons from extracted frames"""
+        # Clear existing buttons
+        for btn in self.action_buttons:
+            btn.deleteLater()
+        self.action_buttons.clear()
+        
+        if not self.extracted_frames:
+            return
+        
+        # Collect unique actions
+        actions = sorted({f.get('action') for f in self.extracted_frames if f.get('action')})
+        
+        for action in actions:
+            btn = QPushButton(action)
+            btn.setMinimumHeight(40)
+            btn.clicked.connect(lambda checked, a=action: self.play_action(a))
+            self.actions_list_layout.addWidget(btn)
+            self.action_buttons.append(btn)
+    
+    def play_action(self, action_name):
+        """Play animation for a specific action"""
+        output_dir = self.output_edit.text()
+        json_path = os.path.join(output_dir, 'spritesheet.json')
+        
+        if not os.path.exists(json_path):
+            QMessageBox.warning(self, "Error", "Please generate sprite sheet first")
+            return
+        
+        # Stop current playback
+        if self.is_playing:
+            self.animation_timer.stop()
+            self.is_playing = False
+        
+        self.current_action = action_name
+        self.current_animation_frame = 0
+        self.add_log(f"\nPlaying action: {action_name}")
+        
+        try:
+            frames_dir = os.path.join(output_dir, 'frames')
+            
+            # Load JSON metadata
+            with open(json_path, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+            
+            # Load frames for this action
+            self.animation_frames = []
+            action_prefix = f"{action_name}_"
+            
+            for frame_file in sorted(metadata['frames'].keys()):
+                if not frame_file.startswith(action_prefix):
+                    continue
+                
+                frame_path = os.path.join(frames_dir, frame_file)
+                if not os.path.exists(frame_path):
+                    self.add_log(f"Frame file not found: {frame_file}")
+                    continue
+                
+                frame_info = metadata['frames'][frame_file]
+                source_size = frame_info['sourceSize']
+                sprite_source_size = frame_info['spriteSourceSize']
+                
+                # Create canvas with original size
+                canvas = Image.new('RGBA', (source_size['w'], source_size['h']), (0, 0, 0, 0))
+                
+                # Load trimmed image
+                trimmed_img = Image.open(frame_path)
+                if trimmed_img.mode != 'RGBA':
+                    trimmed_img = trimmed_img.convert('RGBA')
+                
+                # Paste trimmed image at correct position
+                paste_pos = (sprite_source_size['x'], sprite_source_size['y'])
+                canvas.paste(trimmed_img, paste_pos, trimmed_img)
+                
+                # Convert to QPixmap for display
+                data = canvas.tobytes('raw', 'RGBA')
+                qimg = QImage(data, canvas.width, canvas.height, QImage.Format_RGBA8888)
+                pixmap = QPixmap.fromImage(qimg)
+                
+                # Scale to display area
+                pixmap = pixmap.scaledToHeight(400, Qt.SmoothTransformation)
+                self.animation_frames.append(pixmap)
+            
+            self.add_log(f"Loaded {len(self.animation_frames)} frames for {action_name}")
+            
+            if self.animation_frames:
+                self.animation_label.setPixmap(self.animation_frames[0])
+                self.speed_slider.setEnabled(True)
+                
+                # Auto-play
+                self.toggle_animation()
+            else:
+                self.add_log(f"No frames found for action: {action_name}")
+                
+        except Exception as e:
+            self.add_log(f"Error loading action: {e}")
+    
+    def toggle_animation(self):
+        """Toggle play/pause"""
+        if self.is_playing:
+            self.animation_timer.stop()
+            self.is_playing = False
+        else:
+            # Calculate playback speed (FPS)
+            speed = self.speed_slider.value()
+            fps = speed * 2  # 1-10 corresponds to 2-20 FPS
+            interval = 1000 // fps  # milliseconds
+            
+            self.animation_timer.start(interval)
+            self.is_playing = True
+            self.add_log(f"Playback speed: {fps} FPS")
     
     def load_animation_frames(self, output_dir):
         """Load generated sequence frames with trim information from JSON"""
@@ -585,19 +712,16 @@ class VideoToSpriteSheetGUI(QMainWindow):
                 self.add_log(f"Failed to load JSON: {e}")
                 return False
             
-            # Load all frames with trim information
-            frame_files = sorted([f for f in os.listdir(frames_dir) if f.endswith('.png')])
-            if not frame_files:
-                self.add_log("No frame images found")
+            # Load all frames with trim information based on metadata
+            if not metadata.get('frames'):
+                self.add_log("No frame metadata found")
                 return False
             
             self.animation_frames = []
-            for frame_file in frame_files:
+            for frame_file in sorted(metadata['frames'].keys()):
                 frame_path = os.path.join(frames_dir, frame_file)
-                
-                # Get frame info from JSON
-                if frame_file not in metadata['frames']:
-                    self.add_log(f"Frame {frame_file} not found in metadata, skipping")
+                if not os.path.exists(frame_path):
+                    self.add_log(f"Frame file not found: {frame_file}")
                     continue
                 
                 frame_info = metadata['frames'][frame_file]
@@ -630,7 +754,6 @@ class VideoToSpriteSheetGUI(QMainWindow):
             # Display first frame
             if self.animation_frames:
                 self.animation_label.setPixmap(self.animation_frames[0])
-                self.play_btn.setEnabled(True)
                 self.speed_slider.setEnabled(True)
             
             return True
@@ -645,7 +768,6 @@ class VideoToSpriteSheetGUI(QMainWindow):
         """Toggle play/pause"""
         if self.is_playing:
             self.animation_timer.stop()
-            self.play_btn.setText("Play")
             self.is_playing = False
         else:
             # Calculate playback speed (FPS)
@@ -654,7 +776,6 @@ class VideoToSpriteSheetGUI(QMainWindow):
             interval = 1000 // fps  # milliseconds
             
             self.animation_timer.start(interval)
-            self.play_btn.setText("Pause")
             self.is_playing = True
             self.add_log(f"Playback speed: {fps} FPS")
     
@@ -669,14 +790,14 @@ class VideoToSpriteSheetGUI(QMainWindow):
     
     def browse_video(self):
         """Browse video file"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Select Video File", "",
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self, "Select Video Files", "",
             "Video Files (*.mp4 *.avi *.mov *.mkv *.flv);;All Files (*.*)"
         )
         
-        if file_path:
-            self.video_display.setText(file_path)
-            self.add_log(f"Selected: {file_path}")
+        if file_paths:
+            self.set_video_paths(file_paths)
+            self.add_log(f"Selected {len(file_paths)} file(s)")
     
     def browse_output(self):
         """Browse output directory"""
@@ -693,10 +814,64 @@ class VideoToSpriteSheetGUI(QMainWindow):
         """Handle drop"""
         urls = event.mimeData().urls()
         if urls:
-            file_path = urls[0].toLocalFile()
-            if os.path.isfile(file_path):
-                self.video_display.setText(file_path)
-                self.add_log(f"Dropped: {file_path}")
+            file_paths = [u.toLocalFile() for u in urls]
+            file_paths = [p for p in file_paths if os.path.isfile(p)]
+            if file_paths:
+                self.set_video_paths(file_paths)
+                self.add_log(f"Dropped {len(file_paths)} file(s). Default first new video selected.")
+
+    def set_video_paths(self, paths):
+        """Append video paths and update list, default select first new video"""
+        new_paths = list(dict.fromkeys(paths))
+        first_new_idx = len(self.video_paths)
+        
+        print(f"[DEBUG] set_video_paths called with: {[Path(p).name for p in new_paths]}")
+        print(f"[DEBUG] Before: selected_videos = {self.selected_videos}")
+        
+        self.video_paths.extend(new_paths)
+        self.video_paths = list(dict.fromkeys(self.video_paths))  # Remove duplicates
+        
+        # Update list widget - preserve existing selections and add new items
+        self.video_list.blockSignals(True)  # Block signals to prevent changing selections
+        
+        # Rebuild with current selections
+        self.video_list.clear()
+        for i, path in enumerate(self.video_paths):
+            item = QListWidgetItem(Path(path).name)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            # Keep old selections, select new items
+            if i >= first_new_idx:
+                # New item - default select
+                item.setCheckState(Qt.Checked)
+                self.selected_videos.add(path)
+                print(f"[DEBUG] Default select new: {Path(path).name}")
+            elif path in self.selected_videos:
+                # Old item that was selected - keep it selected
+                item.setCheckState(Qt.Checked)
+                print(f"[DEBUG] Keep selected: {Path(path).name}")
+            else:
+                # Old item that was not selected - keep it unselected
+                item.setCheckState(Qt.Unchecked)
+                print(f"[DEBUG] Keep unselected: {Path(path).name}")
+            item.setData(Qt.UserRole, path)
+            self.video_list.addItem(item)
+        
+        self.video_list.blockSignals(False)  # Restore signals
+        print(f"[DEBUG] After: selected_videos = {self.selected_videos}")
+    
+    def on_video_selection_changed(self, item):
+        """Handle video selection change"""
+        path = item.data(Qt.UserRole)
+        if item.checkState() == Qt.Checked:
+            self.selected_videos.add(path)
+            print(f"[DEBUG] Added {Path(path).name} to selected_videos -> {self.selected_videos}")
+        else:
+            self.selected_videos.discard(path)
+            print(f"[DEBUG] Removed {Path(path).name} from selected_videos -> {self.selected_videos}")
+
+    def get_video_paths(self):
+        """Get only selected video paths for extraction"""
+        return list(self.selected_videos)
     
     def add_log(self, message):
         """Add log message"""
@@ -704,63 +879,102 @@ class VideoToSpriteSheetGUI(QMainWindow):
         cursor = self.status_text.textCursor()
         cursor.movePosition(cursor.End)
         self.status_text.setTextCursor(cursor)
+
+    def clear_videos(self):
+        """Clear all videos and selections, but keep extracted frames"""
+        print(f"[DEBUG] clear_videos called - extracted_frames before: {len(self.extracted_frames)} frames")
+        self.video_paths = []
+        self.selected_videos.clear()
+        self.video_list.clear()
+        print(f"[DEBUG] clear_videos done - extracted_frames after: {len(self.extracted_frames)} frames")
     
     def start_extraction(self):
         """Start frame extraction (Phase 1)"""
-        video_path = self.video_display.text()
+        video_paths = self.get_video_paths()
         
-        if not video_path:
-            QMessageBox.warning(self, "Error", "Please select a video file")
+        print(f"[DEBUG] selected_videos: {self.selected_videos}")
+        print(f"[DEBUG] video_paths returned: {video_paths}")
+        print(f"[DEBUG] total video_paths list: {self.video_paths}")
+        
+        if not video_paths:
+            QMessageBox.warning(self, "Error", "Please select at least one video to extract")
             return
         
-        if not os.path.exists(video_path):
-            QMessageBox.warning(self, "Error", f"Video file does not exist: {video_path}")
+        missing = [p for p in video_paths if not os.path.exists(p)]
+        if missing:
+            QMessageBox.warning(self, "Error", f"Video file does not exist: {missing[0]}")
             return
-        
-        # Get video resolution
-        video_resolution = VideoToSpriteSheet.get_video_resolution(video_path)
-        if not video_resolution:
-            QMessageBox.warning(self, "Error", f"Cannot read video: {video_path}")
-            return
-        
-        original_width, original_height = video_resolution
-        video_size = min(original_width, original_height)
         
         output_dir = self.output_edit.text()
         compress_ratio = self.compress_ratio_spinbox.value()
-        fps_interval = self.fps_spinbox.value()
-        
-        # Calculate frame_size
-        frame_size = int(video_size * compress_ratio)
+        target_count = self.fps_spinbox.value()
         
         # Clear log
         self.status_text.clear()
-        self.add_log(f"Starting frame extraction...")
-        self.add_log(f"Video: {video_path}")
-        self.add_log(f"Video resolution: {original_width}x{original_height}")
-        self.add_log(f"Frame size: {frame_size} (compress_ratio={compress_ratio})")
+        self.add_log("Starting frame extraction...")
+        self.add_log(f"Videos: {len(video_paths)} file(s)")
         
         # Disable button
         self.start_btn.setEnabled(False)
         
         # Extract frames only
         try:
-            converter = VideoToSpriteSheet(
-                video_path=video_path,
-                output_dir=output_dir,
-                frame_size=frame_size,
-                atlas_size=1024,  # Temporary, will use actual value in phase 2
-                fps_interval=fps_interval
-            )
+            for video_path in video_paths:
+                # Get video resolution
+                video_resolution = VideoToSpriteSheet.get_video_resolution(video_path)
+                if not video_resolution:
+                    raise ValueError(f"Cannot read video: {video_path}")
+
+                total_frames = VideoToSpriteSheet.get_video_frame_count(video_path)
+                if not total_frames:
+                    raise ValueError(f"Cannot read video frame count: {video_path}")
+                
+                original_width, original_height = video_resolution
+                video_size = min(original_width, original_height)
+                frame_size = int(video_size * compress_ratio)
+                action_name = Path(video_path).stem
+                
+                # Remove old frames for this action from memory
+                self.extracted_frames = [f for f in self.extracted_frames if f.get('action') != action_name]
+                
+                self.add_log(f"\nVideo: {video_path}")
+                self.add_log(f"Action: {action_name}")
+                self.add_log(f"Video resolution: {original_width}x{original_height}")
+                fps_interval = max(1, int(total_frames / max(1, target_count)))
+                self.add_log(f"Frame size: {frame_size} (compress_ratio={compress_ratio})")
+                self.add_log(f"Extract Count: {target_count} (total frames: {total_frames}, interval: {fps_interval})")
+                
+                converter = VideoToSpriteSheet(
+                    video_path=video_path,
+                    output_dir=output_dir,
+                    frame_size=frame_size,
+                    atlas_size=1024,  # Temporary, will use actual value in phase 2
+                    fps_interval=fps_interval,
+                    action_name=action_name,
+                    max_frames=target_count
+                )
+                
+                self.add_log("Extracting frames...")
+                frames = converter.extract_frames()
+                self.add_log(f"Extracted {len(frames)} frames for {action_name}")
+                self.extracted_frames.extend(frames)
+                # Mark this video as extracted
+                self.extracted_videos.add(video_path)
             
-            self.add_log("Extracting frames...")
-            self.extracted_frames = converter.extract_frames()
+            self.add_log(f"\nTotal accumulated frames: {len(self.extracted_frames)}")
+            self.add_log(f"Total extracted videos: {len(self.extracted_videos)}")
             
-            self.add_log(f"Extracted {len(self.extracted_frames)} frames")
+            # Show extracted actions
+            actions = sorted({f.get('action') for f in self.extracted_frames if f.get('action')})
+            self.add_log(f"Extracted actions: {', '.join(actions) if actions else 'None'}")
+            
             self.add_log("Frame extraction completed!")
             
             # Display thumbnails
             self.display_frame_thumbnails()
+            
+            # Build action buttons
+            self.build_action_buttons()
             
             # Enable generate button
             self.generate_btn.setEnabled(True)
@@ -802,7 +1016,8 @@ class VideoToSpriteSheetGUI(QMainWindow):
             btn.setIcon(QIcon(pixmap))
             btn.setIconSize(pixmap.size())
             btn.setFixedSize(90, 90)
-            btn.setToolTip(f"Frame {idx}")
+            frame_name = frame_info.get('name', f"Frame {idx}")
+            btn.setToolTip(frame_name)
             btn.clicked.connect(lambda checked, i=idx: self.edit_frame(i))
             
             # Add to grid
@@ -874,6 +1089,14 @@ class VideoToSpriteSheetGUI(QMainWindow):
             QMessageBox.warning(self, "Error", "No frames extracted yet!")
             return
         
+        # Debug: check extracted frames before generation
+        actions_before = sorted({f.get('action') for f in self.extracted_frames if f.get('action')})
+        print(f"[DEBUG] Before generate - extracted_frames count: {len(self.extracted_frames)}")
+        print(f"[DEBUG] Before generate - actions: {actions_before}")
+        for action in actions_before:
+            action_count = len([f for f in self.extracted_frames if f.get('action') == action])
+            print(f"[DEBUG]   {action}: {action_count} frames")
+        
         output_dir = self.output_edit.text()
         atlas_size = self.atlas_size_spinbox.value()
         
@@ -881,9 +1104,41 @@ class VideoToSpriteSheetGUI(QMainWindow):
         self.generate_btn.setEnabled(False)
         
         try:
+            # Clear old JSON and PNG files before generation
+            json_files = [
+                os.path.join(output_dir, 'spritesheet.json'),
+                os.path.join(output_dir, 'spritesheet_001.json'),
+                os.path.join(output_dir, 'spritesheet_002.json'),
+                os.path.join(output_dir, 'spritesheet_003.json'),
+            ]
+            png_files = [
+                os.path.join(output_dir, 'spritesheet_000.png'),
+                os.path.join(output_dir, 'spritesheet_001.png'),
+                os.path.join(output_dir, 'spritesheet_002.png'),
+                os.path.join(output_dir, 'spritesheet_003.png'),
+            ]
+            
+            for json_file in json_files:
+                if os.path.exists(json_file):
+                    try:
+                        os.remove(json_file)
+                        self.add_log(f"Cleared old metadata: {os.path.basename(json_file)}")
+                    except Exception as e:
+                        self.add_log(f"Warning: Could not delete {json_file}: {e}")
+            
+            for png_file in png_files:
+                if os.path.exists(png_file):
+                    try:
+                        os.remove(png_file)
+                        self.add_log(f"Cleared old sprite sheet: {os.path.basename(png_file)}")
+                    except Exception as e:
+                        self.add_log(f"Warning: Could not delete {png_file}: {e}")
+            
+            video_paths = self.get_video_paths()
+            reference_video = video_paths[0] if video_paths else ""
             # Create converter (reuse config)
             converter = VideoToSpriteSheet(
-                video_path=self.video_display.text(),
+                video_path=reference_video,
                 output_dir=output_dir,
                 frame_size=self.extracted_frames[0]['original_size'],
                 atlas_size=atlas_size,
@@ -891,6 +1146,11 @@ class VideoToSpriteSheetGUI(QMainWindow):
             )
             
             # Create sprite sheets with updated frame info
+            # Check how many actions will be packaged
+            actions = sorted({f.get('action') for f in self.extracted_frames if f.get('action')})
+            self.add_log(f"\nActions to be packaged: {', '.join(actions) if actions else 'None'}")
+            self.add_log(f"Total frames to package: {len(self.extracted_frames)}")
+            
             sheets_info = converter.create_sprite_sheets(self.extracted_frames)
             
             # Generate metadata
@@ -902,6 +1162,9 @@ class VideoToSpriteSheetGUI(QMainWindow):
             self.add_log("\nLoading animation preview...")
             if self.load_animation_frames(output_dir):
                 self.add_log("Animation preview loaded")
+            
+            # Build action buttons for playback
+            self.build_action_buttons()
             
             self.generate_btn.setEnabled(True)
             

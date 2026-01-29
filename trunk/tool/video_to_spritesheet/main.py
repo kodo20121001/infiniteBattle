@@ -18,7 +18,9 @@ class VideoToSpriteSheet:
                  output_dir: str = "output",
                  frame_size: int = 256,
                  atlas_size: int = 1024,
-                 fps_interval: int = 30):
+                 fps_interval: int = 30,
+                 action_name: str = None,
+                 max_frames: int = None):
         """
         初始化转换器
         
@@ -34,6 +36,8 @@ class VideoToSpriteSheet:
         self.frame_size = frame_size
         self.atlas_size = atlas_size
         self.fps_interval = fps_interval
+        self.action_name = action_name or Path(video_path).stem
+        self.max_frames = max_frames
         
         # 计算一张Sprite Sheet中能容纳的帧数
         self.frames_per_row = atlas_size // frame_size
@@ -51,7 +55,14 @@ class VideoToSpriteSheet:
         print(f"  一行帧数: {self.frames_per_row}")
         print(f"  每张Sheet帧数: {self.frames_per_sheet}")
         print(f"  帧间隔: {fps_interval}帧")
+        print(f"  动作名: {self.action_name}")
+        if self.max_frames:
+            print(f"  最大帧数: {self.max_frames}")
         print()
+
+    def get_frame_name(self, index: int) -> str:
+        """生成帧文件名（动作名_序号）"""
+        return f"{self.action_name}_{index:05d}.png"
 
     @staticmethod
     def get_video_resolution(video_path: str) -> tuple:
@@ -69,6 +80,38 @@ class VideoToSpriteSheet:
             vidcap.release()
             
             return (width, height)
+        except:
+            return None
+
+    @staticmethod
+    def get_video_fps(video_path: str) -> float:
+        """
+        获取视频FPS
+        返回: fps 或 None如果无法打开视频
+        """
+        try:
+            vidcap = cv2.VideoCapture(video_path)
+            if not vidcap.isOpened():
+                return None
+            fps = float(vidcap.get(cv2.CAP_PROP_FPS))
+            vidcap.release()
+            return fps if fps > 0 else None
+        except:
+            return None
+
+    @staticmethod
+    def get_video_frame_count(video_path: str) -> int:
+        """
+        获取视频总帧数
+        返回: total_frames 或 None如果无法打开视频
+        """
+        try:
+            vidcap = cv2.VideoCapture(video_path)
+            if not vidcap.isOpened():
+                return None
+            total_frames = int(vidcap.get(cv2.CAP_PROP_FRAME_COUNT))
+            vidcap.release()
+            return total_frames if total_frames > 0 else None
         except:
             return None
 
@@ -121,6 +164,17 @@ class VideoToSpriteSheet:
         """提取视频帧、去除背景并自动裁剪"""
         print("[第1步] 提取视频帧、去除背景并自动裁剪...")
         
+        # 清除同名动作的旧frames
+        action_prefix = f"{self.action_name}_"
+        for filename in os.listdir(self.frames_dir):
+            if filename.startswith(action_prefix) and filename.endswith('.png'):
+                filepath = os.path.join(self.frames_dir, filename)
+                try:
+                    os.remove(filepath)
+                    print(f"  删除旧frame: {filename}")
+                except Exception as e:
+                    print(f"  无法删除 {filename}: {e}")
+        
         vidcap = cv2.VideoCapture(self.video_path)
         if not vidcap.isOpened():
             raise ValueError(f"无法打开视频: {self.video_path}")
@@ -155,17 +209,23 @@ class VideoToSpriteSheet:
                 trimmed_image, trim_info = self.trim_image(pil_image_no_bg)
                 
                 # 保存裁剪后的帧
-                frame_path = os.path.join(self.frames_dir, f"frame_{extracted:05d}.png")
+                frame_name = self.get_frame_name(extracted)
+                frame_path = os.path.join(self.frames_dir, frame_name)
                 trimmed_image.save(frame_path)
                 
                 frame_list.append({
                     'index': extracted,
+                    'name': frame_name,
+                    'action': self.action_name,
                     'path': frame_path,
                     'timestamp': count / fps,  # 时间戳（秒）
                     'original_size': self.frame_size,
                     'trim_info': trim_info
                 })
                 extracted += 1
+
+                if self.max_frames and extracted >= self.max_frames:
+                    break
             
             success, image = vidcap.read()
             count += 1
@@ -181,6 +241,15 @@ class VideoToSpriteSheet:
     def create_sprite_sheets(self, frame_list: list) -> dict:
         """创建Sprite Sheet（自动排列裁剪后的图片）"""
         print("[第2步] 生成Sprite Sheet（自动排列）...")
+        print(f"[DEBUG] create_sprite_sheets received {len(frame_list)} frames")
+        actions_count = {}
+        for f in frame_list:
+            action = f.get('action')
+            if action:
+                actions_count[action] = actions_count.get(action, 0) + 1
+        print(f"[DEBUG] Frames by action: {actions_count}")
+        for idx, frame in enumerate(frame_list[:5]):  # Print first 5 frames
+            print(f"[DEBUG]   Frame {idx}: {frame.get('name')} (action={frame.get('action')})")
         
         sheets_info = []
         current_sheet = Image.new('RGBA', (self.atlas_size, self.atlas_size), color=(0, 0, 0, 0))
@@ -230,6 +299,8 @@ class VideoToSpriteSheet:
             # 记录帧信息（TexturePacker格式）
             sheet_frames.append({
                 'original_index': frame_info['index'],
+                'name': frame_info.get('name', f"frame_{frame_info['index']:05d}.png"),
+                'action': frame_info.get('action'),
                 'frame': {
                     'x': current_x,
                     'y': current_y,
@@ -262,41 +333,50 @@ class VideoToSpriteSheet:
                 'frames': sheet_frames
             }
             sheets_info.append(sheet_data)
+            print(f"[DEBUG] Saved final sheet {sheet_idx} with {len(sheet_frames)} frames")
             
             sheet_path = os.path.join(self.output_dir, f"spritesheet_{sheet_idx:03d}.png")
             current_sheet.save(sheet_path)
             
             print(f"  Sheet {sheet_idx}: {len(sheet_frames)} 帧 -> {sheet_path}")
         
+        print(f"[DEBUG] create_sprite_sheets returning {len(sheets_info)} sheets")
+        for sheet in sheets_info:
+            print(f"[DEBUG]   Sheet {sheet['index']}: {len(sheet['frames'])} frames")
         print()
         return sheets_info
 
     def generate_metadata(self, sheets_info: list, frame_count: int) -> dict:
-        """生成TexturePacker格式的JSON元数据"""
+        """生成TexturePacker格式的JSON元数据（统一的单个JSON包含所有帧）"""
         print("[第3步] 生成TexturePacker格式元数据...")
+        print(f"[DEBUG] generate_metadata: {len(sheets_info)} sheets, {frame_count} total frames")
         
-        # 为每个Sheet生成独立的JSON
+        # 创建统一的master metadata，包含所有帧
+        master_metadata = {
+            'meta': {
+                'app': 'VideoToSpriteSheet',
+                'version': '1.0',
+                'sheets': len(sheets_info),  # 记录总sheet数
+                'format': 'RGBA8888',
+                'size': {
+                    'w': self.atlas_size,
+                    'h': self.atlas_size
+                },
+                'scale': '1'
+            },
+            'frames': {}
+        }
+        
+        # 将所有sheet的frames合并到一个frames字典中
         for sheet_data in sheets_info:
             sheet_idx = sheet_data['index']
-            metadata = {
-                'meta': {
-                    'app': 'VideoToSpriteSheet',
-                    'version': '1.0',
-                    'image': f'spritesheet_{sheet_idx:03d}.png',
-                    'format': 'RGBA8888',
-                    'size': {
-                        'w': self.atlas_size,
-                        'h': self.atlas_size
-                    },
-                    'scale': '1'
-                },
-                'frames': {}
-            }
+            sheet_image = f'spritesheet_{sheet_idx:03d}.png'
             
             for frame_info in sheet_data['frames']:
-                frame_name = f"frame_{frame_info['original_index']:05d}.png"
+                frame_name = frame_info.get('name', f"frame_{frame_info['original_index']:05d}.png")
                 
-                metadata['frames'][frame_name] = {
+                master_metadata['frames'][frame_name] = {
+                    'image': sheet_image,  # 记录该frame属于哪个PNG
                     'frame': {
                         'x': frame_info['frame']['x'],
                         'y': frame_info['frame']['y'],
@@ -315,27 +395,23 @@ class VideoToSpriteSheet:
                         'w': frame_info['sourceSize']['w'],
                         'h': frame_info['sourceSize']['h']
                     },
+                    'action': frame_info.get('action'),  # 记录动作名
                     'duration': int((frame_info['timestamp'] * 1000))
                 }
-            
-            # 如果是第一张Sheet，保存为主文件
-            if sheet_idx == 0:
-                json_path = os.path.join(self.output_dir, 'spritesheet.json')
-            else:
-                # 其他Sheet保存为sheet_XXX.json
-                json_path = os.path.join(self.output_dir, f'spritesheet_{sheet_idx:03d}.json')
-            
-            with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump(metadata, f, ensure_ascii=False, indent=2)
-            
-            print(f"  元数据 -> {json_path} ({len(sheet_data['frames'])} 帧)")
+        
+        # 保存统一的master JSON
+        master_json_path = os.path.join(self.output_dir, 'spritesheet.json')
+        with open(master_json_path, 'w', encoding='utf-8') as f:
+            json.dump(master_metadata, f, ensure_ascii=False, indent=2)
+        
+        print(f"  统一元数据 -> {master_json_path} ({len(master_metadata['frames'])} 帧，跨 {len(sheets_info)} 个PNG)")
         
         print(f"  总Sheet数: {len(sheets_info)}")
         print(f"  总帧数: {frame_count}")
         print()
         
-        # 返回主元数据
-        return metadata
+        # 返回master metadata
+        return master_metadata
 
     def run(self):
         """执行完整流程"""
