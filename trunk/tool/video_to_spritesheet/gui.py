@@ -409,6 +409,12 @@ class VideoToSpriteSheetGUI(QMainWindow):
         param_group = QGroupBox("Parameters")
         param_layout = QFormLayout()
         
+        # Model name
+        self.model_name_edit = QLineEdit()
+        self.model_name_edit.setText(self.config.get('default_model_name', 'model'))
+        self.model_name_edit.setPlaceholderText("Enter model name (e.g., character_01)")
+        param_layout.addRow("Model Name:", self.model_name_edit)
+        
         # Compress ratio
         self.compress_ratio_spinbox = QDoubleSpinBox()
         self.compress_ratio_spinbox.setRange(0.5, 1.0)
@@ -601,7 +607,8 @@ class VideoToSpriteSheetGUI(QMainWindow):
     def play_action(self, action_name):
         """Play animation for a specific action"""
         output_dir = self.output_edit.text()
-        json_path = os.path.join(output_dir, 'spritesheet.json')
+        model_name = self.model_name_edit.text().strip() or 'model'
+        json_path = os.path.join(output_dir, f'{model_name}.json')
         
         if not os.path.exists(json_path):
             QMessageBox.warning(self, "Error", "Please generate sprite sheet first")
@@ -694,14 +701,15 @@ class VideoToSpriteSheetGUI(QMainWindow):
         """Load generated sequence frames with trim information from JSON"""
         try:
             frames_dir = os.path.join(output_dir, 'frames')
-            json_path = os.path.join(output_dir, 'spritesheet.json')
+            model_name = self.model_name_edit.text().strip() or 'model'
+            json_path = os.path.join(output_dir, f'{model_name}.json')
             
             if not os.path.exists(frames_dir):
                 self.add_log("frames directory not found")
                 return False
             
             if not os.path.exists(json_path):
-                self.add_log("spritesheet.json not found")
+                self.add_log(f"{model_name}.json not found")
                 return False
             
             # Load JSON metadata
@@ -944,6 +952,7 @@ class VideoToSpriteSheetGUI(QMainWindow):
                 self.add_log(f"Frame size: {frame_size} (compress_ratio={compress_ratio})")
                 self.add_log(f"Extract Count: {target_count} (total frames: {total_frames}, interval: {fps_interval})")
                 
+                model_name = self.model_name_edit.text().strip() or 'model'
                 converter = VideoToSpriteSheet(
                     video_path=video_path,
                     output_dir=output_dir,
@@ -951,7 +960,8 @@ class VideoToSpriteSheetGUI(QMainWindow):
                     atlas_size=1024,  # Temporary, will use actual value in phase 2
                     fps_interval=fps_interval,
                     action_name=action_name,
-                    max_frames=target_count
+                    max_frames=target_count,
+                    model_name=model_name
                 )
                 
                 self.add_log("Extracting frames...")
@@ -1104,18 +1114,21 @@ class VideoToSpriteSheetGUI(QMainWindow):
         self.generate_btn.setEnabled(False)
         
         try:
+            # Get model name
+            model_name = self.model_name_edit.text().strip() or 'model'
+            
             # Clear old JSON and PNG files before generation
             json_files = [
-                os.path.join(output_dir, 'spritesheet.json'),
-                os.path.join(output_dir, 'spritesheet_001.json'),
-                os.path.join(output_dir, 'spritesheet_002.json'),
-                os.path.join(output_dir, 'spritesheet_003.json'),
+                os.path.join(output_dir, f'{model_name}.json'),
+                os.path.join(output_dir, f'{model_name}_001.json'),
+                os.path.join(output_dir, f'{model_name}_002.json'),
+                os.path.join(output_dir, f'{model_name}_003.json'),
             ]
             png_files = [
-                os.path.join(output_dir, 'spritesheet_000.png'),
-                os.path.join(output_dir, 'spritesheet_001.png'),
-                os.path.join(output_dir, 'spritesheet_002.png'),
-                os.path.join(output_dir, 'spritesheet_003.png'),
+                os.path.join(output_dir, f'{model_name}_000.png'),
+                os.path.join(output_dir, f'{model_name}_001.png'),
+                os.path.join(output_dir, f'{model_name}_002.png'),
+                os.path.join(output_dir, f'{model_name}_003.png'),
             ]
             
             for json_file in json_files:
@@ -1142,7 +1155,8 @@ class VideoToSpriteSheetGUI(QMainWindow):
                 output_dir=output_dir,
                 frame_size=self.extracted_frames[0]['original_size'],
                 atlas_size=atlas_size,
-                fps_interval=1  # Not used in this phase
+                fps_interval=1,  # Not used in this phase
+                model_name=model_name
             )
             
             # Create sprite sheets with updated frame info

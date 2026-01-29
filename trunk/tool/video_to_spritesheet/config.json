@@ -1,6 +1,7 @@
 {
   "default_compress_ratio": 1.0,
   "default_atlas_size": 1024,
-  "default_fps_interval": 30,
+  "default_fps_interval": 5,
+  "default_model_name": "model",
   "output_directory": "output"
 }

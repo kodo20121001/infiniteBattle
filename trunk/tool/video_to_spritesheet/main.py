@@ -20,7 +20,8 @@ class VideoToSpriteSheet:
                  atlas_size: int = 1024,
                  fps_interval: int = 30,
                  action_name: str = None,
-                 max_frames: int = None):
+                 max_frames: int = None,
+                 model_name: str = None):
         """
         初始化转换器
         
@@ -30,6 +31,7 @@ class VideoToSpriteSheet:
             frame_size: 单个帧的大小（像素，正方形）
             atlas_size: Sprite Sheet的大小（像素，正方形）
             fps_interval: 帧间隔（每多少帧取一张，30fps视频的30表示1秒取1张）
+            model_name: 模型名称，用于输出文件命名
         """
         self.video_path = video_path
         self.output_dir = output_dir
@@ -38,6 +40,7 @@ class VideoToSpriteSheet:
         self.fps_interval = fps_interval
         self.action_name = action_name or Path(video_path).stem
         self.max_frames = max_frames
+        self.model_name = model_name or 'model'
         
         # 计算一张Sprite Sheet中能容纳的帧数
         self.frames_per_row = atlas_size // frame_size
@@ -281,7 +284,7 @@ class VideoToSpriteSheet:
                 sheets_info.append(sheet_data)
                 
                 # 创建新Sheet
-                sheet_path = os.path.join(self.output_dir, f"spritesheet_{sheet_idx:03d}.png")
+                sheet_path = os.path.join(self.output_dir, f"{self.model_name}_{sheet_idx:03d}.png")
                 current_sheet.save(sheet_path)
                 
                 current_sheet = Image.new('RGBA', (self.atlas_size, self.atlas_size), color=(0, 0, 0, 0))
@@ -335,7 +338,7 @@ class VideoToSpriteSheet:
             sheets_info.append(sheet_data)
             print(f"[DEBUG] Saved final sheet {sheet_idx} with {len(sheet_frames)} frames")
             
-            sheet_path = os.path.join(self.output_dir, f"spritesheet_{sheet_idx:03d}.png")
+            sheet_path = os.path.join(self.output_dir, f"{self.model_name}_{sheet_idx:03d}.png")
             current_sheet.save(sheet_path)
             
             print(f"  Sheet {sheet_idx}: {len(sheet_frames)} 帧 -> {sheet_path}")
@@ -370,7 +373,7 @@ class VideoToSpriteSheet:
         # 将所有sheet的frames合并到一个frames字典中
         for sheet_data in sheets_info:
             sheet_idx = sheet_data['index']
-            sheet_image = f'spritesheet_{sheet_idx:03d}.png'
+            sheet_image = f'{self.model_name}_{sheet_idx:03d}.png'
             
             for frame_info in sheet_data['frames']:
                 frame_name = frame_info.get('name', f"frame_{frame_info['original_index']:05d}.png")
@@ -400,7 +403,7 @@ class VideoToSpriteSheet:
                 }
         
         # 保存统一的master JSON
-        master_json_path = os.path.join(self.output_dir, 'spritesheet.json')
+        master_json_path = os.path.join(self.output_dir, f'{self.model_name}.json')
         with open(master_json_path, 'w', encoding='utf-8') as f:
             json.dump(master_metadata, f, ensure_ascii=False, indent=2)
         
