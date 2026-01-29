@@ -31,7 +31,7 @@ export enum ActorState {
 export class Actor {
     readonly id: string;                    // 实例的唯一标识
     readonly actorType: ActorType;
-    readonly modelId: number;
+    readonly modelId: string;
     readonly unitType: number;              // 单位类型（对应 unit.json 的 id，如 101、102）
     readonly campId: number;
 
@@ -63,7 +63,7 @@ export class Actor {
     constructor(
         id: string,
         actorType: ActorType,
-        modelId: number,
+        modelId: string,
         unitType: number,
         campId: number,
         position: FixedVector3 = new FixedVector3(0, 0, 0)
@@ -74,9 +74,6 @@ export class Actor {
         this.unitType = unitType;
         this.campId = campId;
         this._position = position;
-        if (this.actorType === ActorType.Unit) {
-            console.log(`[Actor] create unit: id=${this.id}, unitType=${this.unitType}, campId=${this.campId}, pos=(${position.x},${position.y},${position.z})`);
-        }
     }
 
     /**

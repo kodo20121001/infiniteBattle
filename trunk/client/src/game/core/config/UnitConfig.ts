@@ -6,7 +6,7 @@ import { Configs } from "../../common/Configs";
 export interface UnitConfig {
     id: number;                // 单位ID
     name: string;              // 单位名称
-    modelId: number;           // 对应的模型ID
+    modelId: string;           // 对应的模型ID
     skillIds: number[];        // 技能ID列表
     attackSkillId: number;     // 基础攻击技能ID
     hitY: number;              // 受击点高度

@@ -19,7 +19,7 @@ export class Unit extends Actor {
 
     constructor(
         id: string,
-        modelId: number,
+        modelId: string,
         unitType: number,
         campId: number
     ) {
@@ -127,7 +127,7 @@ export class Building extends Actor {
 
     constructor(
         id: string,
-        modelId: number,
+        modelId: string,
         buildingId: number,
         campId: number
     ) {

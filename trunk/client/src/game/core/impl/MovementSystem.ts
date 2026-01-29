@@ -257,7 +257,9 @@ export class MovementSystem extends GameSystem {
 
         const pos = actor.getPosition();
         const obstacleCheckDistance = this._getObstacleCheckDistance(actor);
-        console.log(`[moveTo] Unit ${command.actorId} from (${pos.x.toFixed(1)}, ${pos.z.toFixed(1)}) to (${command.targetX.toFixed(1)}, ${command.targetZ.toFixed(1)}), entering MovingStraight`);
+        
+        // 设置Actor状态为移动中
+        actor.setState('moving' as any);
         
         const moveData: MoveData = {
             actor,
@@ -300,6 +302,7 @@ export class MovementSystem extends GameSystem {
         // 到达目标
         if (distance < data.arrivalRadius) {
             data.state = MoveState.Arrived;
+            data.actor.setState('idle' as any);
             this._moveData.delete(data.actor.id);
             return;
         }
@@ -318,7 +321,6 @@ export class MovementSystem extends GameSystem {
         
         // 有障碍 -> 切换到 A* 寻路
         if (!canContinue) {
-            console.log(`[_updateStraightMove] >>> OBSTACLE! Unit ${data.actor.id} switching to A*`);
             this._switchToPathfinding(data);
             return;
         }
@@ -349,6 +351,7 @@ export class MovementSystem extends GameSystem {
         if (!path || path.length === 0) {
             console.log(`[_switchToPathfinding] >>> BLOCKED! Unit ${data.actor.id} no path found`);
             data.state = MoveState.Blocked;
+            data.actor.setState('idle' as any);
             return;
         }
         
@@ -390,6 +393,7 @@ export class MovementSystem extends GameSystem {
         // 路径已完成
         if (data.currentPathIndex >= data.path.length) {
             data.state = MoveState.Arrived;
+            data.actor.setState('idle' as any);
             this._moveData.delete(data.actor.id);
             return;
         }
@@ -401,6 +405,7 @@ export class MovementSystem extends GameSystem {
         // 到达目标
         if (distToTarget < data.arrivalRadius) {
             data.state = MoveState.Arrived;
+            data.actor.setState('idle' as any);
             this._moveData.delete(data.actor.id);
             return;
         }
@@ -421,6 +426,8 @@ export class MovementSystem extends GameSystem {
             console.log(`[_updateMoving] Unit ${data.actor.id} >>> Switching back to straight line`);
             data.state = MoveState.MovingStraight;
             data.straightLineTarget = { x: data.targetX, z: data.targetZ };
+            // 确保Actor状态保持为moving
+            data.actor.setState('moving' as any);
             return;
         }
 

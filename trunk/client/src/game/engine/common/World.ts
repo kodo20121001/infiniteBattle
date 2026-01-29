@@ -1,6 +1,7 @@
 import { Camera2D } from '../base/Camera2D';
 import { Renderer } from './Renderer';
 import { SpriteManager } from './SpriteManager';
+import { Time } from './Time';
 
 
 /**
@@ -108,7 +109,14 @@ export class World {
         }
         this._deltaTime = currentTime - this._lastFrameTime;
         this._lastFrameTime = currentTime;
+        
+        // 限制deltaTime范围，避免异常值
+        if (this._deltaTime < 0) this._deltaTime = 0;
         if (this._deltaTime > 0.1) this._deltaTime = 0.1; // 最大步长0.1秒
+        
+        // 更新全局时间系统
+        Time.update(this._deltaTime);
+        
         // 固定更新
         if (this._fixedUpdateCallback) {
             this._accumulator += this._deltaTime;

@@ -4,6 +4,7 @@
  */
 
 import type { Actor } from './Actor';
+import { ActorState } from './Actor';
 import type { Game } from './GameSystem';
 import { GameSystem } from './GameSystemBase';
 import { EventUtils } from './GameUtils';
@@ -92,13 +93,33 @@ export class SkillSystem extends GameSystem {
 
         if (!skillData || !behaviorConfig) return;
 
+        // 设置施法者为"施法"状态以触发攻击动画
+        caster.setState(ActorState.Acting);
+
         // 遍历所有分段
+        let maxDelay = 0;
         for (const segment of behaviorConfig.segments) {
             // 遍历分段内的所有事件
             for (const event of segment.events) {
+                const delayInSeconds = event.time || 0;
+                if (delayInSeconds > maxDelay) {
+                    maxDelay = delayInSeconds;
+                }
                 this._scheduleEvent(caster, target, event, skillData);
             }
         }
+
+        // 技能结束后恢复状态
+        const skillDurationMs = (maxDelay + 0.5) * 1000; // 加0.5秒缓冲
+        setTimeout(() => {
+            // 检查施法者是否仍在施法状态，如果是则恢复到idle
+            if (caster.getState() === ActorState.Acting) {
+                // 如果还在移动，恢复到moving状态，否则idle
+                const moveData = (this.game.getSystem('movement') as any)?._getMoveData?.(caster.id);
+                const newState = moveData ? ActorState.Moving : ActorState.Idle;
+                caster.setState(newState);
+            }
+        }, skillDurationMs);
     }
 
     /**
@@ -171,11 +192,9 @@ export class SkillSystem extends GameSystem {
             case 'sound':
             case 'animation':
                 // 其他事件类型可在这里实现
-                console.log(`Event type ${type} not yet implemented`);
                 break;
 
             case 'end':
-                console.log('Skill ended');
                 break;
 
             default:

@@ -13,7 +13,7 @@ import type { LevelConfig } from '../config/LevelConfig';
 import { Sprite2D } from '../../engine/base/Sprite2D';
 import { AnimatedSprite2D } from '../../engine/base/AnimatedSprite2D';
 import { AnimationClip } from '../../engine/base/AnimationClip';
-import { getModelConfig, getModelActions } from '../config/ModelConfig';
+import { getModelConfig } from '../config/ModelConfig';
 import { getUnitConfig } from '../config/UnitConfig';
 import { Assets } from '../../engine/common/Assets';
 import { worldToMapPixel } from '../base/WorldProjection';
@@ -43,29 +43,16 @@ export class ClientGameRunner {
                     const modelId = unitConfig.modelId;
                     const modelConfig = getModelConfig(modelId);
                     if (!modelConfig) throw new Error(`Model config not found for model id: ${modelId}`);
-                    const actions = getModelActions(modelId);
-                    if (actions.length === 0) throw new Error(`No actions found for model id: ${modelId}`);
-                    const clips = [];
-                    const baseFolder = `/unit/${unitConfig.id}`;
-                    for (const action of actions) {
-                        try {
-                            const images = await assets.getImageSequence(`${baseFolder}/${action.name}`);
-                            const clip = AnimationClip.fromImages(
-                                action.name,
-                                images,
-                                action.loop ?? true,
-                                action.duration ?? 1.0,
-                                action.frameCount
-                            );
-                            clips.push(clip);
-                        } catch (err) {
-                            console.warn(`Failed to load action '${action.name}' for unit type ${unitConfig.id}:`, err);
-                        }
-                    }
-                    if (clips.length === 0) throw new Error('No animation clips loaded successfully');
+                    
+                    // 使用固定路径约定：/unit/{modelId}.json
+                    const jsonPath = `/unit/${modelId}.json`;
+                    
+                    // 使用新的 create 方法从 JSON 加载
+                    const sprite = await AnimatedSprite2D.create(jsonPath);
+                    
                     // actor 可能已被移除
                     if (!this._game.getActor(actor.id)) return;
-                    const sprite = new AnimatedSprite2D(clips);
+                    
                     sprite.setPosition(0, 0);
                     spriteManager.add(spriteId, sprite);
                     actor.setSpriteId(spriteId);
@@ -177,8 +164,6 @@ export class ClientGameRunner {
                 // 异步加载角色动画
                 const loadPromise = (async () => {
                     try {
-                        console.log(`[loadLevel] Loading sprite for actor ${actor.id}, unitType=${actor.unitType}`);
-                        
                         // 1. 获取单位配置（根据 unitType）
                         const unitConfig = getUnitConfig(actor.unitType);
                         if (!unitConfig) {
@@ -194,40 +179,11 @@ export class ClientGameRunner {
                             throw new Error(`Model config not found for model id: ${modelId}`);
                         }
 
-                        // 4. 获取所有动作
-                        const actions = getModelActions(modelId);
-                        if (actions.length === 0) {
-                            throw new Error(`No actions found for model id: ${modelId}`);
-                        }
-
-                        // 5. 创建所有动画 clips
-                        const clips: AnimationClip[] = [];
-                        // 使用 unitConfig.id 作为单位类型来查找动画资源
-                        const baseFolder = `/unit/${unitConfig.id}`;
-
-                        for (const action of actions) {
-                            try {
-                                console.log(`[loadLevel] Loading action ${action.name} from ${baseFolder}/${action.name}`);
-                                const images = await assets.getImageSequence(`${baseFolder}/${action.name}`);
-                                const clip = AnimationClip.fromImages(
-                                    action.name,
-                                    images,
-                                    action.loop ?? true,
-                                    action.duration ?? 1.0,
-                                    action.frameCount
-                                );
-                                clips.push(clip);
-                            } catch (err) {
-                                console.warn(`Failed to load action '${action.name}' for unit type ${unitConfig.id}:`, err);
-                            }
-                        }
-
-                        if (clips.length === 0) {
-                            throw new Error('No animation clips loaded successfully');
-                        }
-
-                        // 6. 创建动画精灵
-                        const sprite = new AnimatedSprite2D(clips);
+                        // 4. 使用固定路径约定：/unit/{modelId}.json
+                        const jsonPath = `/unit/${modelId}.json`;
+                        
+                        // 5. 使用新的 create 方法从 JSON 加载
+                        const sprite = await AnimatedSprite2D.create(jsonPath);
                         sprite.setPosition(0, 0);
                         spriteManager.add(spriteId, sprite);
                         actor.setSpriteId(spriteId);
@@ -361,12 +317,36 @@ export class ClientGameRunner {
                 // 世界坐标转地图平面像素坐标（未含相机/视口变换）
                 const [screenX, screenY] = worldToMapPixel(pos.x, pos.y, pos.z, pixelsPerMeterX, pixelsPerMeterY);
                 sprite.setPosition(screenX, screenY);
-                sprite.rotation = actor.getRotation();
+                // sprite.rotation = actor.getRotation(); // 不旋转精灵
                 const scale = actor.getScale();
                 sprite.setScale(scale, scale);
                 sprite.visible = actor.isVisible();
                 // 使用 z 坐标（深度）- y（高度）控制渲染层级（越深越靠后，越高越靠前）
                 sprite.position.z = pos.z - pos.y;
+                
+                // 根据Actor状态切换动画（优先级：die > acting > moving > idle）
+                if (sprite instanceof AnimatedSprite2D) {
+                    const state = actor.getState();
+                    let targetAnimation = 'idle';
+                    
+                    // 按优先级检查状态
+                    if (actor.isDead()) {
+                        targetAnimation = 'die';
+                    } else if (state === 'acting') {
+                        // 技能动作优先级最高（仅次于死亡）
+                        targetAnimation = 'attack';
+                    } else if (state === 'moving') {
+                        targetAnimation = 'move';
+                    } else {
+                        targetAnimation = 'idle';
+                    }
+                    
+                    const currentClip = sprite.getCurrentClipName();
+                    // 只有当前动画不是目标动画时才切换
+                    if (currentClip !== targetAnimation && sprite.getClip(targetAnimation)) {
+                        sprite.switchClip(targetAnimation, true);
+                    }
+                }
             }
         }
 

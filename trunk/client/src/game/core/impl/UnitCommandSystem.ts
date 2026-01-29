@@ -239,6 +239,7 @@ export class UnitCommandSystem extends GameSystem {
      */
     private _tryCastSkill(skillSystem: SkillSystem, caster: Actor, target: Actor, skillConfig: any): void {
         if (!skillConfig) return;
+        console.log(`[施放技能] 施法者=${caster.id}, 目标=${target.id}, 技能=${skillConfig.name || skillConfig.id}`);
         // 直接使用 skillConfig 作为行为配置，不通过 ID 查表
         skillSystem.castSkill({
             caster,

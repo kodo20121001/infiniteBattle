@@ -12,6 +12,7 @@ class Assets {
   constructor() {
     this.register('image', Assets.loadImage);
     this.register('imageSequence', Assets.loadImageSequence);
+    this.register('json', Assets.loadJson);
   }
 
   register<T>(type: string, loader: ResourceLoader<T>): void {
@@ -40,8 +41,8 @@ class Assets {
     return this.get<HTMLImageElement>('image', url);
   }
 
-  async getImageSequence(basePath: string): Promise<HTMLImageElement[]> {
-    return this.get<HTMLImageElement[]>('imageSequence', basePath);
+  async getJson<T = any>(url: string): Promise<T> {
+    return this.get<T>('json', url);
   }
 
   release(type: string, key: string): void {
@@ -95,6 +96,14 @@ class Assets {
     }
 
     return images;
+  }
+
+  private static async loadJson<T = any>(url: string): Promise<T> {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to load JSON: ${url}`);
+    }
+    return response.json();
   }
 }
 

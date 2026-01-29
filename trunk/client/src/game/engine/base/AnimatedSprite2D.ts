@@ -1,7 +1,36 @@
 import { Sprite2D } from './Sprite2D';
 import { AnimationClip } from './AnimationClip';
+import { Texture } from './Texture';
 import { assets } from '../common/Assets';
 import { Time } from '../common/Time';
+
+/**
+ * video_to_spritesheet 生成的 JSON 格式接口
+ */
+interface SpriteSheetFrame {
+  image: string;
+  frame: { x: number; y: number; w: number; h: number };
+  rotated: boolean;
+  trimmed: boolean;
+  spriteSourceSize: { x: number; y: number; w: number; h: number };
+  sourceSize: { w: number; h: number };
+  action: string;
+  duration: number;
+}
+
+interface SpriteSheetMeta {
+  app: string;
+  version: string;
+  sheets: number;
+  format: string;
+  size: { w: number; h: number };
+  scale: string;
+}
+
+interface SpriteSheetData {
+  meta: SpriteSheetMeta;
+  frames: Record<string, SpriteSheetFrame>;
+}
 
 /**
  * AnimatedSprite2D - 动画精灵
@@ -95,14 +124,126 @@ export class AnimatedSprite2D extends Sprite2D {
   }
 
   /**
-   * 从文件夹路径创建动画精灵（创建单个 clip）
-   * @param name 动画片段名称
-   * @param basePath 基础路径，如 '/idle' 会加载 /idle0, /idle1, /idle2...
+   * 从 video_to_spritesheet 生成的 JSON 创建动画精灵
+   * @param jsonPath JSON 文件路径（如 '/unit/monkey.json'）
+   * @returns Promise<AnimatedSprite2D>
    */
-  static async fromSequence(name: string, basePath: string): Promise<AnimatedSprite2D> {
-    const images = await assets.getImageSequence(basePath);
-    const clip = AnimationClip.fromImages(name, images);
-    return new AnimatedSprite2D(clip);
+  static async create(jsonPath: string): Promise<AnimatedSprite2D> {
+    // 1. 加载 JSON 数据
+    const data = await assets.getJson<SpriteSheetData>(jsonPath);
+    
+    // 2. 提取基础路径（去除文件名）
+    const lastSlashIndex = jsonPath.lastIndexOf('/');
+    const basePath = jsonPath.substring(0, lastSlashIndex);
+    
+    // 3. 加载所有 spritesheet 图片
+    const sheetImages = new Map<string, HTMLImageElement>();
+    const sheetNames = new Set<string>();
+    
+    // 收集所有需要的 sheet 图片名
+    for (const frameData of Object.values(data.frames)) {
+      sheetNames.add(frameData.image);
+    }
+    
+    // 加载所有 sheet 图片
+    for (const sheetName of sheetNames) {
+      const sheetPath = `${basePath}/${sheetName}`;
+      const img = await assets.getImage(sheetPath);
+      sheetImages.set(sheetName, img);
+    }
+    
+    // 4. 按动作分组帧数据
+    const actionFrames = new Map<string, Array<{
+      key: string;
+      data: SpriteSheetFrame;
+    }>>();
+    
+    for (const [key, frameData] of Object.entries(data.frames)) {
+      const action = frameData.action;
+      if (!actionFrames.has(action)) {
+        actionFrames.set(action, []);
+      }
+      actionFrames.get(action)!.push({ key, data: frameData });
+    }
+    
+    // 5. 为每个动作创建 AnimationClip
+    const clips: AnimationClip[] = [];
+    
+    for (const [actionName, frames] of actionFrames) {
+      // 按文件名排序（确保帧顺序正确）
+      frames.sort((a, b) => a.key.localeCompare(b.key));
+      
+      // 裁剪每一帧并创建纹理
+      const textures: Texture[] = [];
+      
+      for (const { data: frameData } of frames) {
+        const sheetImage = sheetImages.get(frameData.image);
+        if (!sheetImage) {
+          console.warn(`Sheet image not found: ${frameData.image}`);
+          continue;
+        }
+        
+        // 创建 canvas 来裁剪图片（裁剪后的纹理）
+        const trimmedCanvas = document.createElement('canvas');
+        trimmedCanvas.width = frameData.frame.w;
+        trimmedCanvas.height = frameData.frame.h;
+        const trimmedCtx = trimmedCanvas.getContext('2d');
+        
+        if (trimmedCtx) {
+          trimmedCtx.drawImage(
+            sheetImage,
+            frameData.frame.x,
+            frameData.frame.y,
+            frameData.frame.w,
+            frameData.frame.h,
+            0,
+            0,
+            frameData.frame.w,
+            frameData.frame.h
+          );
+
+          // 根据 TexturePacker 规则恢复到原始尺寸，保持锚点稳定
+          const sourceW = frameData.sourceSize?.w ?? frameData.frame.w;
+          const sourceH = frameData.sourceSize?.h ?? frameData.frame.h;
+          const offsetX = frameData.spriteSourceSize?.x ?? 0;
+          const offsetY = frameData.spriteSourceSize?.y ?? 0;
+
+          let finalCanvas: HTMLCanvasElement = trimmedCanvas;
+          if (sourceW !== trimmedCanvas.width || sourceH !== trimmedCanvas.height || offsetX !== 0 || offsetY !== 0) {
+            const fullCanvas = document.createElement('canvas');
+            fullCanvas.width = Math.max(1, sourceW);
+            fullCanvas.height = Math.max(1, sourceH);
+            const fullCtx = fullCanvas.getContext('2d');
+            if (fullCtx) {
+              fullCtx.drawImage(trimmedCanvas, offsetX, offsetY);
+              finalCanvas = fullCanvas;
+            }
+          }
+          
+          textures.push(new Texture(finalCanvas));
+        }
+      }
+      
+      if (textures.length > 0) {
+        // 使用 12fps 的帧率创建动画片段（原视频可能是12fps）
+        const clip = new AnimationClip(actionName, textures, true, undefined, 30);
+        clips.push(clip);
+      }
+    }
+    
+    if (clips.length === 0) {
+      throw new Error(`No animation clips found in ${jsonPath}`);
+    }
+    
+    // 6. 创建并返回 AnimatedSprite2D 实例
+    const animatedSprite = new AnimatedSprite2D(clips);
+    // 默认播放 idle 动画（如果存在），否则播放第一个动画
+    if (animatedSprite.getClip('idle')) {
+      animatedSprite.play('idle', true);
+    } else {
+      animatedSprite.play();
+    }
+    return animatedSprite;
   }
 
   /**

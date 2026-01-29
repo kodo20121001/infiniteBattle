@@ -22,14 +22,7 @@
               "power": 1
             }
           },
-          {
-            "id": 4,
-            "type": "bullet",
-            "time": 0.4,
-            "data": {
-              "bulletId": 1
-            }
-          },
+
           {
             "id": 5,
             "type": "sound",
