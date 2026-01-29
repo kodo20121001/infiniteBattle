@@ -1,0 +1,4 @@
+opencv-python==4.8.1.78
+Pillow==10.1.0
+PyQt5==5.15.9
+rembg
