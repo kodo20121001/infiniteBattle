@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (
     QLabel, QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPushButton, QFileDialog,
     QProgressBar, QMessageBox, QGroupBox, QFormLayout, QTextEdit,
     QSlider, QTabWidget, QRadioButton, QButtonGroup, QDialog, QScrollArea, QGridLayout,
+    QCheckBox,
     QListWidget, QListWidgetItem
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QRect, QPoint
@@ -155,7 +156,15 @@ class FrameEditorDialog(QDialog):
         super().__init__(parent)
         self.frame_path = frame_path
         self.trim_info = trim_info.copy()
-        self.original_size = original_size
+        if isinstance(original_size, dict):
+            self.original_width = int(original_size.get('w', original_size.get('width', original_size.get('h', 0))))
+            self.original_height = int(original_size.get('h', original_size.get('height', self.original_width)))
+        elif isinstance(original_size, (tuple, list)) and len(original_size) >= 2:
+            self.original_width = int(original_size[0])
+            self.original_height = int(original_size[1])
+        else:
+            self.original_width = int(original_size)
+            self.original_height = int(original_size)
         
         self.setWindowTitle(f"Edit Frame - {os.path.basename(frame_path)}")
         self.setModal(True)
@@ -179,7 +188,7 @@ class FrameEditorDialog(QDialog):
             frame_img = frame_img.convert('RGBA')
         
         # Create canvas with original size and gray background
-        canvas = Image.new('RGBA', (self.original_size, self.original_size), (200, 200, 200, 255))
+        canvas = Image.new('RGBA', (self.original_width, self.original_height), (200, 200, 200, 255))
         
         # Paste trimmed frame at trim position
         canvas.paste(frame_img, (self.trim_info['x'], self.trim_info['y']), frame_img)
@@ -195,7 +204,7 @@ class FrameEditorDialog(QDialog):
         
         # Left: vertical range slider
         self.v_range_slider = RangeSlider(Qt.Vertical)
-        self.v_range_slider.setRange(0, self.original_size)
+        self.v_range_slider.setRange(0, self.original_height)
         self.v_range_slider.setLow(self.trim_info['y'])
         self.v_range_slider.setHigh(self.trim_info['y'] + self.trim_info['h'])
         self.v_range_slider.rangeChanged.connect(self.on_vertical_range_changed)
@@ -206,7 +215,7 @@ class FrameEditorDialog(QDialog):
         
         # Horizontal range slider for left/right
         self.h_range_slider = RangeSlider(Qt.Horizontal)
-        self.h_range_slider.setRange(0, self.original_size)
+        self.h_range_slider.setRange(0, self.original_width)
         self.h_range_slider.setLow(self.trim_info['x'])
         self.h_range_slider.setHigh(self.trim_info['x'] + self.trim_info['w'])
         self.h_range_slider.rangeChanged.connect(self.on_horizontal_range_changed)
@@ -258,24 +267,26 @@ class FrameEditorDialog(QDialog):
     def update_slider_sizes(self):
         """Update slider sizes to match image display"""
         # Image display area is 600x600
-        scale = min(580 / self.original_size, 580 / self.original_size)
-        scaled_size = int(self.original_size * scale)
+        scale = min(580 / self.original_width, 580 / self.original_height)
+        scaled_w = int(self.original_width * scale)
+        scaled_h = int(self.original_height * scale)
         
         # Update slider sizes to match scaled image
-        self.h_range_slider.setFixedWidth(scaled_size)
-        self.v_range_slider.setFixedHeight(scaled_size)
+        self.h_range_slider.setFixedWidth(scaled_w)
+        self.v_range_slider.setFixedHeight(scaled_h)
         
         # Since h_slider and image are in the same container, they auto-align!
     
     def update_display(self):
         """Update display with trim rectangle"""
         # Calculate scale to fit in label
-        scale = min(580 / self.original_size, 580 / self.original_size)
-        scaled_size = int(self.original_size * scale)
+        scale = min(580 / self.original_width, 580 / self.original_height)
+        scaled_w = int(self.original_width * scale)
+        scaled_h = int(self.original_height * scale)
         
         # Scale canvas
         scaled_pixmap = self.canvas_pixmap.scaled(
-            scaled_size, scaled_size,
+            scaled_w, scaled_h,
             Qt.KeepAspectRatio, Qt.SmoothTransformation
         )
         
@@ -313,7 +324,7 @@ class FrameEditorDialog(QDialog):
             canvas_img = canvas_img.convert('RGBA')
         
         # Create full-size canvas
-        full_canvas = Image.new('RGBA', (self.original_size, self.original_size), (0, 0, 0, 0))
+        full_canvas = Image.new('RGBA', (self.original_width, self.original_height), (0, 0, 0, 0))
         
         # We need to get the original untrimmed frame
         # Since we only have the trimmed frame, we need to work differently
@@ -518,6 +529,12 @@ class VideoToSpriteSheetGUI(QMainWindow):
         
         bg_layout.addWidget(self.bg_black)
         bg_layout.addWidget(self.bg_white)
+        
+        # Preview size mode
+        self.preview_real_size = QCheckBox("Real Size")
+        self.preview_real_size.setChecked(False)
+        self.preview_real_size.toggled.connect(self.update_preview_mode)
+        bg_layout.addWidget(self.preview_real_size)
         bg_layout.addStretch()
         animation_layout.addLayout(bg_layout)
         
@@ -569,6 +586,7 @@ class VideoToSpriteSheetGUI(QMainWindow):
         self.animation_timer.timeout.connect(self.update_animation_frame)
         self.current_animation_frame = 0
         self.animation_frames = []
+        self.animation_frames_raw = []
         self.is_playing = False
         self.current_action = None
         
@@ -583,7 +601,36 @@ class VideoToSpriteSheetGUI(QMainWindow):
             self.animation_label.setStyleSheet("QLabel { background-color: black; border: 2px solid #ccc; border-radius: 5px; }")
         else:
             self.animation_label.setStyleSheet("QLabel { background-color: white; border: 2px solid #ccc; border-radius: 5px; }")
-    
+
+    def update_preview_mode(self):
+        """Update preview scaling mode"""
+        self._refresh_animation_frames()
+
+    def _refresh_animation_frames(self):
+        """Apply preview mode to raw frames and update display"""
+        if not self.animation_frames_raw:
+            self.animation_frames = []
+            return
+
+        if self.preview_real_size.isChecked():
+            self.animation_frames = self.animation_frames_raw
+        else:
+            self.animation_frames = [
+                pm.scaledToHeight(400, Qt.SmoothTransformation)
+                for pm in self.animation_frames_raw
+            ]
+
+        if self.animation_frames:
+            self.current_animation_frame %= len(self.animation_frames)
+            self.animation_label.setPixmap(self.animation_frames[self.current_animation_frame])
+
+    def _scale_pixmap_for_display(self, pil_image):
+        """Convert PIL image to QPixmap scaled for display (400px height)"""
+        data = pil_image.tobytes('raw', 'RGBA')
+        qimg = QImage(data, pil_image.width, pil_image.height, QImage.Format_RGBA8888)
+        pixmap = QPixmap.fromImage(qimg)
+        return pixmap.scaledToHeight(400, Qt.SmoothTransformation)
+
     def build_action_buttons(self):
         """Build action buttons from extracted frames"""
         # Clear existing buttons
@@ -632,6 +679,7 @@ class VideoToSpriteSheetGUI(QMainWindow):
             
             # Load frames for this action
             self.animation_frames = []
+            self.animation_frames_raw = []
             action_prefix = f"{action_name}_"
             
             for frame_file in sorted(metadata['frames'].keys()):
@@ -663,15 +711,13 @@ class VideoToSpriteSheetGUI(QMainWindow):
                 data = canvas.tobytes('raw', 'RGBA')
                 qimg = QImage(data, canvas.width, canvas.height, QImage.Format_RGBA8888)
                 pixmap = QPixmap.fromImage(qimg)
-                
-                # Scale to display area
-                pixmap = pixmap.scaledToHeight(400, Qt.SmoothTransformation)
-                self.animation_frames.append(pixmap)
+                self.animation_frames_raw.append(pixmap)
             
-            self.add_log(f"Loaded {len(self.animation_frames)} frames for {action_name}")
+            self.add_log(f"Loaded {len(self.animation_frames_raw)} frames for {action_name}")
             
-            if self.animation_frames:
-                self.animation_label.setPixmap(self.animation_frames[0])
+            if self.animation_frames_raw:
+                self.current_animation_frame = 0
+                self._refresh_animation_frames()
                 self.speed_slider.setEnabled(True)
                 
                 # Auto-play
@@ -726,6 +772,7 @@ class VideoToSpriteSheetGUI(QMainWindow):
                 return False
             
             self.animation_frames = []
+            self.animation_frames_raw = []
             for frame_file in sorted(metadata['frames'].keys()):
                 frame_path = os.path.join(frames_dir, frame_file)
                 if not os.path.exists(frame_path):
@@ -752,16 +799,14 @@ class VideoToSpriteSheetGUI(QMainWindow):
                 data = canvas.tobytes('raw', 'RGBA')
                 qimg = QImage(data, canvas.width, canvas.height, QImage.Format_RGBA8888)
                 pixmap = QPixmap.fromImage(qimg)
-                
-                # Scale to display area
-                pixmap = pixmap.scaledToHeight(400, Qt.SmoothTransformation)
-                self.animation_frames.append(pixmap)
+                self.animation_frames_raw.append(pixmap)
             
-            self.add_log(f"Loaded {len(self.animation_frames)} frames with trim information")
+            self.add_log(f"Loaded {len(self.animation_frames_raw)} frames with trim information")
             
             # Display first frame
-            if self.animation_frames:
-                self.animation_label.setPixmap(self.animation_frames[0])
+            if self.animation_frames_raw:
+                self.current_animation_frame = 0
+                self._refresh_animation_frames()
                 self.speed_slider.setEnabled(True)
             
             return True
@@ -1043,7 +1088,7 @@ class VideoToSpriteSheetGUI(QMainWindow):
         dialog = FrameEditorDialog(
             frame_info['path'],
             frame_info['trim_info'],
-            frame_info['original_size'],
+            frame_info.get('source_size', {'w': frame_info['original_size'], 'h': frame_info['original_size']}),
             self
         )
         
@@ -1069,7 +1114,7 @@ class VideoToSpriteSheetGUI(QMainWindow):
         """Re-crop frame based on updated trim info"""
         frame_info = self.extracted_frames[frame_index]
         frame_path = frame_info['path']
-        original_size = frame_info['original_size']
+        source_size = frame_info.get('source_size', {'w': frame_info['original_size'], 'h': frame_info['original_size']})
         
         # Load the currently saved trimmed image
         trimmed_img = Image.open(frame_path)
@@ -1077,7 +1122,7 @@ class VideoToSpriteSheetGUI(QMainWindow):
             trimmed_img = trimmed_img.convert('RGBA')
         
         # Reconstruct the full original frame by placing trimmed image at old position
-        full_frame = Image.new('RGBA', (original_size, original_size), (0, 0, 0, 0))
+        full_frame = Image.new('RGBA', (source_size['w'], source_size['h']), (0, 0, 0, 0))
         full_frame.paste(trimmed_img, (old_trim['x'], old_trim['y']), trimmed_img)
         
         # Now crop the new trim area from the full frame
@@ -1153,7 +1198,10 @@ class VideoToSpriteSheetGUI(QMainWindow):
             converter = VideoToSpriteSheet(
                 video_path=reference_video,
                 output_dir=output_dir,
-                frame_size=self.extracted_frames[0]['original_size'],
+                frame_size=max(
+                    self.extracted_frames[0].get('source_size', {'w': self.extracted_frames[0]['original_size'], 'h': self.extracted_frames[0]['original_size']})['w'],
+                    self.extracted_frames[0].get('source_size', {'w': self.extracted_frames[0]['original_size'], 'h': self.extracted_frames[0]['original_size']})['h']
+                ),
                 atlas_size=atlas_size,
                 fps_interval=1,  # Not used in this phase
                 model_name=model_name

@@ -197,19 +197,24 @@ class VideoToSpriteSheet:
         while success:
             # 按间隔提取帧
             if count % self.fps_interval == 0:
-                # 转换为PIL Image，并等比缩放到 frame_size 内（不拉伸）
+                # 转换为PIL Image，并按倍率缩放（不拉伸）
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                pil_image = Image.fromarray(image).convert('RGB')
-                orig_w, orig_h = pil_image.size
-                scale = min(self.frame_size / orig_w, self.frame_size / orig_h)
-                new_w = max(1, int(orig_w * scale))
-                new_h = max(1, int(orig_h * scale))
-                pil_image = pil_image.resize((new_w, new_h), Image.LANCZOS)
-                
+                orig_w, orig_h = image.shape[1], image.shape[0]
+                # 限制在 frame_size 内（使用最大边约束，不拉伸）
+                max_side = max(orig_w, orig_h)
+                if max_side > self.frame_size:
+                    fit_scale = self.frame_size / max_side
+                    scaled_w = max(1, int(orig_w * fit_scale))
+                    scaled_h = max(1, int(orig_h * fit_scale))
+                else:
+                    scaled_w = orig_w
+                    scaled_h = orig_h
+                pil_image = Image.fromarray(image).convert('RGB').resize((scaled_w, scaled_h), Image.LANCZOS)
+
                 # 使用rembg去除背景
                 print(f"    处理第 {extracted + 1} 帧 (去除背景中...)")
                 pil_image_no_bg = remove(pil_image)
-                
+
                 # 自动裁剪透明边界
                 trimmed_image, trim_info = self.trim_image(pil_image_no_bg)
                 
@@ -225,7 +230,7 @@ class VideoToSpriteSheet:
                     'path': frame_path,
                     'timestamp': count / fps,  # 时间戳（秒）
                     'original_size': self.frame_size,
-                    'source_size': {'w': new_w, 'h': new_h},
+                    'source_size': {'w': scaled_w, 'h': scaled_h},
                     'trim_info': trim_info
                 })
                 extracted += 1
