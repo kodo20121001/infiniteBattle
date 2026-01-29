@@ -197,12 +197,14 @@ class VideoToSpriteSheet:
         while success:
             # 按间隔提取帧
             if count % self.fps_interval == 0:
-                # 调整帧大小
+                # 转换为PIL Image，并等比缩放到 frame_size 内（不拉伸）
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                resized = cv2.resize(image, (self.frame_size, self.frame_size))
-                
-                # 转换为PIL Image
-                pil_image = Image.fromarray(resized).convert('RGB')
+                pil_image = Image.fromarray(image).convert('RGB')
+                orig_w, orig_h = pil_image.size
+                scale = min(self.frame_size / orig_w, self.frame_size / orig_h)
+                new_w = max(1, int(orig_w * scale))
+                new_h = max(1, int(orig_h * scale))
+                pil_image = pil_image.resize((new_w, new_h), Image.LANCZOS)
                 
                 # 使用rembg去除背景
                 print(f"    处理第 {extracted + 1} 帧 (去除背景中...)")
@@ -223,6 +225,7 @@ class VideoToSpriteSheet:
                     'path': frame_path,
                     'timestamp': count / fps,  # 时间戳（秒）
                     'original_size': self.frame_size,
+                    'source_size': {'w': new_w, 'h': new_h},
                     'trim_info': trim_info
                 })
                 extracted += 1
@@ -319,8 +322,8 @@ class VideoToSpriteSheet:
                     'h': frame_info['trim_info']['h']
                 },
                 'sourceSize': {
-                    'w': frame_info['original_size'],
-                    'h': frame_info['original_size']
+                    'w': frame_info.get('source_size', {'w': frame_info['original_size']}).get('w', frame_info['original_size']),
+                    'h': frame_info.get('source_size', {'h': frame_info['original_size']}).get('h', frame_info['original_size'])
                 },
                 'timestamp': frame_info['timestamp']
             })
