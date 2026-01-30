@@ -276,21 +276,21 @@ export class SkillSystem extends GameSystem {
         const startPos = data.fromCaster ? caster.getPosition().clone() : { x: 0, y: 0, z: 0 };
 
         // 确定目标位置或目标单位
-        let targetUnitId: string | number | undefined;
+        let targetActorNo: string | number | undefined;
         let targetPosition: { x: number; y: number; z?: number } | undefined;
 
         if (data.toTarget && target) {
             // 使用实例ID便于跟踪移动目标
-            targetUnitId = target.id;
+            targetActorNo = target.id;
             targetPosition = target.getPosition();
-        } else if (data.targetUnitId) {
-            targetUnitId = data.targetUnitId;
+        } else if (data.targetActorNo) {
+            targetActorNo = data.targetActorNo;
         } else if (data.targetPosition) {
             targetPosition = data.targetPosition;
         }
 
         // 若缺少目标，则默认沿施法者朝向前方 1 米，避免无目标导致子弹不发射
-        if (!targetUnitId && !targetPosition) {
+        if (!targetActorNo && !targetPosition) {
             const pos = caster.getPosition();
             targetPosition = { x: pos.x + 1, y: pos.y, z: pos.z };
         }
@@ -301,12 +301,12 @@ export class SkillSystem extends GameSystem {
 
         // 启动子弹，传递运行时上下文
         bullet.start({
-            getPositionByUnitId: (unitId: string | number) => {
+            getPositionByActorNo: (actorNo: number) => {
                 // 从游戏中查找单位位置（通过实例ID）
-                const actor = this.game.getActor(String(unitId));
+                const actor = this.game.getActor(String(actorNo));
                 return actor ? actor.getPosition() : null;
             },
-            defaultTargetUnitId: targetUnitId,
+            defaultTargetActorNo: targetActorNo,
             defaultTargetPosition: targetPosition,
             onBulletEnd: (data: any) => {
                 console.log('[SkillSystem] Bullet ended:', data);

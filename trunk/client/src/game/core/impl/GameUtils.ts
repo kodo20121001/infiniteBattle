@@ -194,11 +194,11 @@ export class EventUtils {
     /**
      * 广播单位死亡事件
      */
-    static broadcastUnitDeathEvent(game: Game, unitId: string, killerId?: string): void {
+    static broadcastUnitDeathEvent(game: Game, actorNo: number, killerId?: string): void {
         const eventSystem = game.getSystem('event') as any;
         if (eventSystem) {
             eventSystem.emit('onUnitDeath', {
-                unitId,
+                actorNo,
                 killerId,
                 frameIndex: game.getGameState().getFrameIndex(),
             });

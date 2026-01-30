@@ -5,8 +5,8 @@
 
 // 创建单位行为
 export interface LevelConfigActionCreateUnit {
-    /** 单位类型ID */
-    unitType: string;
+    /** 单位ID */
+    unitId: string;
     /** 所属阵营ID */
     campId: number;
     /** 位置名（地图点名） */
@@ -19,14 +19,14 @@ export interface LevelConfigActionCreateUnit {
 
 // 移除单位行为
 export interface LevelConfigActionRemoveUnit {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
 }
 
 // 移动单位行为
 export interface LevelConfigActionMoveUnit {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
     /** 目标位置名 */
     targetPositionName: string;
 }
@@ -67,8 +67,8 @@ export interface LevelConfigActionShowMessage {
 
 // 改变阵营行为
 export interface LevelConfigActionChangeCamp {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
     /** 新阵营ID */
     newCampId: number;
 }

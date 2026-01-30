@@ -5,7 +5,7 @@ import { ConfigManager } from '@/common/ConfigManager';
 import { Configs } from '@/game/common/Configs';
 
 const TEST_LEVEL_ID = 99001;
-const TEST_UNIT_ID = 101; // 默认用 101 号单位
+const TEST_UNIT_ID = "monkey"; // 默认用 101 号单位
 
 const PathfindingTester = ({ onBack, onBackToHub }) => {
   const canvasRef = useRef(null);

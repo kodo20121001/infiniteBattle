@@ -52,7 +52,7 @@ export interface SkillBehaviorEffectEventData {
 	/** 是否飞向目标 */
 	toTarget?: boolean;
 	/** 指定目标单位ID（可选） */
-	targetUnitId?: number;
+	targetActorNo?: number;
 	/** 指定目标位置（可选） */
 	targetPosition?: { x: number; y: number; z?: number };
 }
@@ -75,7 +75,7 @@ export interface SkillBehaviorBulletEventData {
 	/** 是否飞向目标 */
 	toTarget?: boolean;
 	/** 指定目标单位ID（可选） */
-	targetUnitId?: number;
+	targetActorNo?: number;
 	/** 指定目标位置（可选） */
 	targetPosition?: { x: number; y: number; z?: number };
 }

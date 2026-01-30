@@ -18,12 +18,12 @@ export class Unit extends Actor {
     private _skills: number[] = [];
 
     constructor(
-        id: string,
+        actorNo: string,
         modelId: string,
-        unitType: number,
+        unitId: number,
         campId: number
     ) {
-        super(id, ActorType.Unit, modelId, unitType, campId);
+        super(actorNo, ActorType.Unit, modelId, unitId, campId);
     }
 
     /**

@@ -37,10 +37,10 @@ const BulletConditionFields: React.FC<Props> = ({ condition, onUpdate }) => {
               type="number"
               className="w-32 bg-slate-900 border border-slate-700 rounded px-2 py-1"
               placeholder="可选"
-              value={(condition.params as any)?.targetUnitId || ''}
+              value={(condition.params as any)?.targetActorNo || ''}
               onChange={(e) => {
                 const val = e.target.value ? Number(e.target.value) : undefined;
-                updateParam('targetUnitId', val);
+                updateParam('targetActorNo', val);
               }}
             />
           </div>

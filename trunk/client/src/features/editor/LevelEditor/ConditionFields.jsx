@@ -13,7 +13,7 @@ export default function ConditionFields({ condition, onUpdate }) {
 
   const renderFields = () => {
     switch (condition.type) {
-      case 'unitType':
+      case 'unitId':
         return (
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
@@ -26,11 +26,11 @@ export default function ConditionFields({ condition, onUpdate }) {
               />
             </div>
             <div className="space-y-1">
-              <div className="text-slate-400">单位类型</div>
+              <div className="text-slate-400">单位ID</div>
               <input
                 className="w-32 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs"
-                value={params.unitType || ''}
-                onChange={e => updateField('unitType', e.target.value)}
+                value={params.unitId || ''}
+                onChange={e => updateField('unitId', e.target.value)}
               />
             </div>
           </div>
@@ -64,11 +64,11 @@ export default function ConditionFields({ condition, onUpdate }) {
               />
             </div>
             <div className="space-y-1">
-              <div className="text-slate-400">单位类型（可选）</div>
+              <div className="text-slate-400">单位ID（可选）</div>
               <input
                 className="w-32 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs"
-                value={params.unitType || ''}
-                onChange={e => updateField('unitType', e.target.value)}
+                value={params.unitId || ''}
+                onChange={e => updateField('unitId', e.target.value)}
               />
             </div>
             <div className="space-y-1">

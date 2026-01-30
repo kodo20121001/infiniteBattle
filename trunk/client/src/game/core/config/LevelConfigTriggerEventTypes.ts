@@ -19,38 +19,38 @@ export interface LevelConfigTriggerEventLevelEnd {
 
 // 单位进入区域事件
 export interface LevelConfigTriggerEventUnitEnterRegion {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
     /** 区域ID或名称 */
     region: string;
 }
 
 // 单位离开区域事件
 export interface LevelConfigTriggerEventUnitLeaveRegion {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
     /** 区域ID或名称 */
     region: string;
 }
 
 // 单位死亡事件
 export interface LevelConfigTriggerEventUnitDie {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
     /** 死亡原因 */
     reason?: string;
 }
 
 // 单位复活事件
 export interface LevelConfigTriggerEventUnitRevive {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
 }
 
 // 单位血量变化事件
 export interface LevelConfigTriggerEventUnitHpChange {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
     /** 变化前血量 */
     oldHp: number;
     /** 变化后血量 */
@@ -59,8 +59,8 @@ export interface LevelConfigTriggerEventUnitHpChange {
 
 // 单位魔法变化事件
 export interface LevelConfigTriggerEventUnitMpChange {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
     /** 变化前魔法值 */
     oldMp: number;
     /** 变化后魔法值 */
@@ -69,16 +69,16 @@ export interface LevelConfigTriggerEventUnitMpChange {
 
 // 单位释放技能事件
 export interface LevelConfigTriggerEventUnitCastSkill {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
     /** 技能ID */
     skillId: number;
 }
 
 // 单位升级事件
 export interface LevelConfigTriggerEventUnitLevelUp {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
     /** 升级后等级 */
     newLevel: number;
 }

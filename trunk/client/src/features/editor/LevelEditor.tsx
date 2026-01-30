@@ -40,7 +40,7 @@ const makeDefaultTrigger = (id = 1): LevelTriggerConfig => ({
 });
 
 const makeDefaultCondition = (): LevelConditionConfig => ({
-  type: 'unitType',
+  type: 'unitId',
   params: {}
 });
 
@@ -77,11 +77,11 @@ const eventTypeLabels: Record<LevelTriggerEventType, string> = {
 };
 
 const conditionTypes: LevelConditionType[] = [
-  'unitType', 'camp', 'unitCount', 'variableCompare', 'unitInRegion', 'unitHpBelow'
+  'unitId', 'camp', 'unitCount', 'variableCompare', 'unitInRegion', 'unitHpBelow'
 ];
 
 const conditionTypeLabels: Record<LevelConditionType, string> = {
-  'unitType': '单位类型',
+  'unitId': '单位ID',
   'camp': '阵营',
   'unitCount': '单位数量',
   'variableCompare': '变量比较',

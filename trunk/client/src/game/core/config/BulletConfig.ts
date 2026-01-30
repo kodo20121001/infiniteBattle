@@ -98,7 +98,7 @@ export interface BulletConditionLifetimeGreater {
 // 子弹距离条件
 export interface BulletConditionDistanceLess {
     /** 目标单位ID（若为飞向单位） */
-    targetUnitId?: number;
+    targetActorNo?: number;
     /** 目标位置（若为飞向坐标） */
     targetPosition?: { x: number; y: number; z?: number };
     /** 阈值距离 */

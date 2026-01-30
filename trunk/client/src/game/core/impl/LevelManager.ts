@@ -363,10 +363,10 @@ export class LevelManager {
       return;
     }
 
-    // 选取目标单位：优先 actorId，其次 campId/unitType
+    // 选取目标单位：优先 actorId，其次 campId/unitId
     let targetActor = actors.find(a => a.id === params.actorId);
     if (!targetActor && params.campId !== undefined) {
-      targetActor = actors.find(a => a.campId === params.campId && (!params.unitType || a.unitType === params.unitType));
+      targetActor = actors.find(a => a.campId === params.campId && (!params.unitId || a.unitId === params.unitId));
     }
     if (!targetActor) {
       console.warn('[LevelManager] moveUnit: no actor found for selector');

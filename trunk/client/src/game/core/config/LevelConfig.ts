@@ -129,7 +129,7 @@ export interface LevelConditionConfig {
  * 条件类型枚举
  */
 export type LevelConditionType =
-    | 'unitType'         // 单位类型
+    | 'unitId'           // 单位ID
     | 'camp'             // 阵营
     | 'unitCount'        // 单位数量
     | 'variableCompare'  // 变量比较

@@ -37,8 +37,8 @@ export class ClientGameRunner {
             const spriteId = `sprite_${actor.id}`;
             (async () => {
                 try {
-                    const unitConfig = getUnitConfig(actor.unitType);
-                    if (!unitConfig) throw new Error(`Unit config not found for unit type: ${actor.unitType}`);
+                    const unitConfig = getUnitConfig(actor.unitId);
+                    if (!unitConfig) throw new Error(`Unit config not found for unit id: ${actor.unitId}`);
                     const modelId = unitConfig.modelId;
                     const modelConfig = getModelConfig(modelId);
                     if (!modelConfig) throw new Error(`Model config not found for model id: ${modelId}`);
@@ -156,12 +156,12 @@ export class ClientGameRunner {
                 // 异步加载角色动画
                 const loadPromise = (async () => {
                     try {
-                        console.log(`[loadLevel] Loading sprite for actor ${actor.id}, unitType=${actor.unitType}`);
+                        console.log(`[loadLevel] Loading sprite for actor ${actor.id}, unitId=${actor.unitId}`);
                         
-                        // 1. 获取单位配置（根据 unitType）
-                        const unitConfig = getUnitConfig(actor.unitType);
+                        // 1. 获取单位配置（根据 unitId）
+                        const unitConfig = getUnitConfig(actor.unitId);
                         if (!unitConfig) {
-                            throw new Error(`Unit config not found for unit type: ${actor.unitType}`);
+                            throw new Error(`Unit config not found for unit id: ${actor.unitId}`);
                         }
 
                         // 2. 从单位配置中获取模型 ID

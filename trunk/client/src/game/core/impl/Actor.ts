@@ -32,7 +32,7 @@ export class Actor {
     readonly id: string;                    // 实例的唯一标识
     readonly actorType: ActorType;
     readonly modelId: string;
-    readonly unitType: number;              // 单位类型（对应 unit.json 的 id，如 101、102）
+    readonly unitId: number;                // 单位ID（对应 unit.json 的 id，如 101、102）
     readonly campId: number;
 
     protected _position: FixedVector3;      // 3D 位置 (x, y, z)
@@ -61,21 +61,21 @@ export class Actor {
     protected _spriteId: string | null = null;
 
     constructor(
-        id: string,
+        actorNo: string,
         actorType: ActorType,
         modelId: string,
-        unitType: number,
+        unitId: number,
         campId: number,
         position: FixedVector3 = new FixedVector3(0, 0, 0)
     ) {
-        this.id = id;
+        this.id = actorNo;
         this.actorType = actorType;
         this.modelId = modelId;
-        this.unitType = unitType;
+        this.unitId = unitId;
         this.campId = campId;
         this._position = position;
         if (this.actorType === ActorType.Unit) {
-            console.log(`[Actor] create unit: id=${this.id}, unitType=${this.unitType}, campId=${this.campId}, pos=(${position.x},${position.y},${position.z})`);
+            console.log(`[Actor] create unit: id=${this.id}, unitId=${this.unitId}, campId=${this.campId}, pos=(${position.x},${position.y},${position.z})`);
         }
     }
 
@@ -117,7 +117,7 @@ export class Actor {
      */
     setPosition(x: number, y: number = 0, z: number = 0): void {
         if (this.actorType === ActorType.Unit) {
-            console.log(`[Actor] setPosition: id=${this.id}, unitType=${this.unitType}, campId=${this.campId}, (${x}, ${y}, ${z})`);
+            console.log(`[Actor] setPosition: id=${this.id}, unitId=${this.unitId}, campId=${this.campId}, (${x}, ${y}, ${z})`);
         }
         this._position.x = x;
         this._position.y = y;

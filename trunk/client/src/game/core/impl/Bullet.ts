@@ -20,11 +20,11 @@ export type BulletEventType = 'bulletStarted' | 'bulletEnded' | 'triggerFired';
  */
 export interface BulletRuntimeContext {
     /** 可用于查询单位位置 */
-    getPositionByUnitId?: (unitId: string | number) => VectorLike | null;
+    getPositionByActorNo?: (actorNo: number) => VectorLike | null;
     /** 可用于通知外部命中/结束 */
     onBulletEnd?: (data: { bulletId: string; reason?: string }) => void;
     /** 运行时默认目标（无需写回配置） */
-    defaultTargetUnitId?: number | string;
+    defaultTargetActorNo?: number | string;
     defaultTargetPosition?: VectorLike;
 }
 
@@ -39,8 +39,8 @@ export class Bullet extends Actor {
     private _flightController: BulletFlightController | null = null;
     private _runtimeCtx: BulletRuntimeContext | undefined;
 
-    constructor(id: string, config: BulletConfig, campId: number, position: FixedVector3 = new FixedVector3(0, 0, 0)) {
-        super(id, ActorType.Bullet, config.modelId, config.id, campId, position);
+    constructor(actorNo: string, config: BulletConfig, campId: number, position: FixedVector3 = new FixedVector3(0, 0, 0)) {
+        super(actorNo, ActorType.Bullet, config.modelId, config.id, campId, position);
         this._config = config;
         this._segments = config.segments || [];
     }
@@ -132,13 +132,13 @@ export class Bullet extends Actor {
         const stopOnHit = params?.stopOnHit !== false;
         
         const targetPos = this._resolveTargetPosition(params, ctx);
-        if (!targetPos && !params?.targetUnitId) {
+        if (!targetPos && !params?.targetActorNo) {
             console.warn('[Bullet] bulletFlyToTarget: no target');
             return;
         }
 
         const flightConfig: BulletFlightConfig = {
-            targetUnitId: params?.targetUnitId,
+            targetActorNo: params?.targetActorNo,
             targetPosition: targetPos || undefined,
             speed,
             acceleration,
@@ -150,9 +150,9 @@ export class Bullet extends Actor {
             stopOnHit
         };
 
-        const getTargetPos = (unitId?: string | number) => {
-            if (unitId !== undefined && ctx?.getPositionByUnitId) {
-                return ctx.getPositionByUnitId(unitId);
+        const getTargetPos = (unitNo: number) => {
+            if (unitNo !== undefined && ctx?.getPositionByActorNo) {
+                return ctx.getPositionByActorNo(unitNo);
             }
             return targetPos;
         };
@@ -184,11 +184,11 @@ export class Bullet extends Actor {
         if (params?.targetPosition) {
             return params.targetPosition;
         }
-        if (params?.targetUnitId && ctx?.getPositionByUnitId) {
-            return ctx.getPositionByUnitId(params.targetUnitId) || null;
+        if (params?.targetActorNo && ctx?.getPositionByActorNo) {
+            return ctx.getPositionByActorNo(params.targetActorNo) || null;
         }
-        if (ctx?.defaultTargetUnitId !== undefined && ctx.getPositionByUnitId) {
-            return ctx.getPositionByUnitId(ctx.defaultTargetUnitId) || null;
+        if (ctx?.defaultTargetActorNo !== undefined && ctx.getPositionByActorNo) {
+            return ctx.getPositionByActorNo(ctx.defaultTargetActorNo) || null;
         }
         if (ctx?.defaultTargetPosition) {
             return ctx.defaultTargetPosition;
@@ -211,7 +211,7 @@ export class Bullet extends Actor {
                 return this._elapsed >= (condition.params as any).lifetimeSec;
             case 'bulletDistanceLess': {
                 const p = condition.params as any;
-                const target = p.targetPosition || (p.targetUnitId ? ctx?.getPositionByUnitId?.(p.targetUnitId) : null);
+                const target = p.targetPosition || (p.targetActorNo ? ctx?.getPositionByActorNo?.(p.targetActorNo) : null);
                 if (!target) return false;
                 const pos = this.getPosition();
                 const dx = target.x - pos.x;

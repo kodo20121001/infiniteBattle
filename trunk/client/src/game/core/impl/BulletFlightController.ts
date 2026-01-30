@@ -7,7 +7,7 @@ type VectorLike = { x: number; y: number; z?: number };
  */
 export interface BulletFlightConfig {
     /** 目标单位ID（动态追踪） */
-    targetUnitId?: number;
+    targetActorNo?: number;
     /** 目标位置（静态目标） */
     targetPosition?: VectorLike;
     /** 初始速度 */
@@ -132,8 +132,8 @@ export class BulletFlightController {
 
     private _resolveCurrentTarget(): VectorLike | null {
         // 优先追踪动态目标
-        if (this._config.targetUnitId !== undefined) {
-            const pos = this._getTargetPosition(this._config.targetUnitId);
+        if (this._config.targetActorNo !== undefined) {
+            const pos = this._getTargetPosition(this._config.targetActorNo);
             if (pos) return pos;
         }
         // 静态目标

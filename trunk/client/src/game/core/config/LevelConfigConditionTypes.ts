@@ -4,11 +4,11 @@
  */
 
 // 单位类型条件
-export interface LevelConfigConditionUnitType {
+export interface LevelConfigConditionUnitId {
+    /** 单位NO */
+    actorNo: number;
     /** 单位ID */
-    unitId: number;
-    /** 单位类型 */
-    unitType: string;
+    unitId: string;
 }
 
 // 阵营条件
@@ -21,8 +21,8 @@ export interface LevelConfigConditionCamp {
 export interface LevelConfigConditionUnitCount {
     /** 阵营ID */
     campId: number;
-    /** 单位类型（可选） */
-    unitType?: string;
+    /** 单位ID（可选） */
+    unitId?: string;
     /** 数量比较符号（=, >, <, >=, <=） */
     compare: string;
     /** 比较数量 */
@@ -41,16 +41,16 @@ export interface LevelConfigConditionVariableCompare {
 
 // 单位在区域条件
 export interface LevelConfigConditionUnitInRegion {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
     /** 区域ID或名称 */
     region: string;
 }
 
 // 单位血量低于条件
 export interface LevelConfigConditionUnitHpBelow {
-    /** 单位ID */
-    unitId: number;
+    /** 单位NO */
+    actorNo: number;
     /** 血量阈值 */
     hpThreshold: number;
 }
@@ -59,7 +59,7 @@ export interface LevelConfigConditionUnitHpBelow {
  * 条件类型与数据结构映射
  */
 export type LevelConfigConditionDataMap = {
-    unitType: LevelConfigConditionUnitType;
+    unitId: LevelConfigConditionUnitId;
     camp: LevelConfigConditionCamp;
     unitCount: LevelConfigConditionUnitCount;
     variableCompare: LevelConfigConditionVariableCompare;
