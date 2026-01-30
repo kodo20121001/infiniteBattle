@@ -31,7 +31,7 @@ export enum ActorState {
 export class Actor {
     readonly id: string;                    // 实例的唯一标识
     readonly actorType: ActorType;
-    readonly modelId: number;
+    readonly modelId: string;
     readonly unitType: number;              // 单位类型（对应 unit.json 的 id，如 101、102）
     readonly campId: number;
 
@@ -63,7 +63,7 @@ export class Actor {
     constructor(
         id: string,
         actorType: ActorType,
-        modelId: number,
+        modelId: string,
         unitType: number,
         campId: number,
         position: FixedVector3 = new FixedVector3(0, 0, 0)
@@ -87,7 +87,7 @@ export class Actor {
         this._modelConfig = modelConfig;
         this._maxHp = modelConfig.hp || 100;
         this._hp = this._maxHp;
-        this._speed = modelConfig.speed || 5;
+        this._speed = unitConfig.moveSpeed ?? modelConfig.speed ?? 5;
         this._scale = modelConfig.scale || 1;
         this._radius = modelConfig.radius || 0.5;
         this._skillIds = unitConfig.skillIds || [];

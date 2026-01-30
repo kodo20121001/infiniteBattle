@@ -11,6 +11,8 @@ import { SkillSystem } from './SkillSystem';
 import { UnitCommandSystem } from './UnitCommandSystem';
 import { LevelManager } from './LevelManager';
 import { MovementSystem } from './MovementSystem';
+import { AnimationSystem } from './AnimationSystem';
+import { StatusSystem } from './StatusSystem';
 
 /**
  * 游戏系统基类
@@ -171,6 +173,8 @@ export class Game {
      * 初始化游戏系统
      */
     private _initializeSystems(): void {
+        this.registerSystem('status', new StatusSystem(this));
+        this.registerSystem('animation', new AnimationSystem(this));
         this.registerSystem('movement', new MovementSystem(this));
         this.registerSystem('moveBy', new MoveBySystem(this));
         this.registerSystem('damage', new DamageSystem(this));

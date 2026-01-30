@@ -43,7 +43,7 @@ const makeDefaultBullet = (id = 1): BulletConfig => ({
   id,
   name: '子弹',
   description: '',
-  modelId: 1,
+  modelId: 'monkey',
   segments: [makeDefaultSegment(1)]
 });
 
@@ -87,7 +87,7 @@ const normalizeBullet = (bullet: any): BulletConfig => ({
   id: bullet?.id ?? 1,
   name: bullet?.name ?? '子弹',
   description: bullet?.description ?? '',
-  modelId: bullet?.modelId ?? 1,
+  modelId: bullet?.modelId ?? 'monkey',
   segments: (bullet?.segments ?? []).map((seg: any, sIdx: number) => ({
     id: seg.id ?? (sIdx + 1),
     name: seg.name ?? `分段-${sIdx + 1}`,
@@ -456,10 +456,10 @@ const BulletEditor = () => {
             <div>
               <label className="block text-xs text-slate-400 mb-1">模型ID</label>
               <input
-                type="number"
+                type="text"
                 className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm"
                 value={draft.modelId}
-                onChange={e => handleFieldChange('modelId', Number(e.target.value))}
+                onChange={e => handleFieldChange('modelId', e.target.value)}
               />
             </div>
             <div>

@@ -7,7 +7,6 @@ export class Time {
     private static _time: number = 0;
     private static _frameCount: number = 0;
     private static _timeScale: number = 1;
-    private static _lastFrameTime: number = 0;
 
     /**
      * 上一帧到这一帧的时间间隔（秒）
@@ -17,24 +16,10 @@ export class Time {
     }
 
     /**
-     * 上一帧到这一帧的时间间隔（毫秒）
-     */
-    static get deltaTimeMs(): number {
-        return this._deltaTime * 1000;
-    }
-
-    /**
      * 游戏开始以来的总时间（秒）
      */
     static get time(): number {
         return this._time;
-    }
-
-    /**
-     * 游戏开始以来的总时间（毫秒）
-     */
-    static get timeMs(): number {
-        return this._time * 1000;
     }
 
     /**
@@ -71,19 +56,13 @@ export class Time {
 
     /**
      * 更新时间（内部调用）
-     * @param currentTime 当前时间戳（毫秒）
+     * @param deltaSeconds 本帧经过的时间（秒）
      */
-    static update(currentTime: number): void {
-        if (this._lastFrameTime === 0) {
-            this._lastFrameTime = currentTime;
-            return;
-        }
-
-        const realDelta = currentTime - this._lastFrameTime;
-        this._deltaTime = realDelta * this._timeScale;
+    static update(deltaSeconds: number): void {
+        const safeDelta = Math.max(0, deltaSeconds);
+        this._deltaTime = safeDelta * this._timeScale;
         this._time += this._deltaTime;
         this._frameCount++;
-        this._lastFrameTime = currentTime;
     }
 
     /**
@@ -93,6 +72,5 @@ export class Time {
         this._deltaTime = 0;
         this._time = 0;
         this._frameCount = 0;
-        this._lastFrameTime = 0;
     }
 }

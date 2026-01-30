@@ -19,7 +19,7 @@ export class Unit extends Actor {
 
     constructor(
         id: string,
-        modelId: number,
+        modelId: string,
         unitType: number,
         campId: number
     ) {
@@ -45,6 +45,7 @@ export class Unit extends Actor {
         // 子类可以在这里添加具体的单位逻辑
         // 例如 AI 控制、状态机等
     }
+
 
     /**
      * 设置攻击力
@@ -127,7 +128,7 @@ export class Building extends Actor {
 
     constructor(
         id: string,
-        modelId: number,
+        modelId: string,
         buildingId: number,
         campId: number
     ) {

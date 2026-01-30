@@ -23,14 +23,6 @@
             }
           },
           {
-            "id": 4,
-            "type": "bullet",
-            "time": 0.4,
-            "data": {
-              "bulletId": 1
-            }
-          },
-          {
             "id": 5,
             "type": "sound",
             "time": 0.42,

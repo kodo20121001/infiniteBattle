@@ -12,18 +12,18 @@ import type { World } from '../../engine/common/World';
 import type { LevelConfig } from '../config/LevelConfig';
 import { Sprite2D } from '../../engine/base/Sprite2D';
 import { AnimatedSprite2D } from '../../engine/base/AnimatedSprite2D';
-import { AnimationClip } from '../../engine/base/AnimationClip';
-import { getModelConfig, getModelActions } from '../config/ModelConfig';
+import { getModelConfig } from '../config/ModelConfig';
 import { getUnitConfig } from '../config/UnitConfig';
-import { Assets } from '../../engine/common/Assets';
 import { worldToMapPixel } from '../base/WorldProjection';
 import type { Actor } from './Actor';
+import type { AnimationSystem } from './AnimationSystem';
 
 /**
  * 客户端游戏运行器
  * 负责处理渲染和帧同步
  */
 export class ClientGameRunner {
+    private _animDebugMissingStatus: Set<string> = new Set();
         // 正在加载 sprite 的 actor id 集合，防止重复加载
         private _pendingSpriteLoads: Set<string> = new Set();
 
@@ -34,7 +34,6 @@ export class ClientGameRunner {
             if (!actor || actor.getSpriteId() || this._pendingSpriteLoads.has(actor.id)) return;
             this._pendingSpriteLoads.add(actor.id);
             const spriteManager = this._world.getSpriteManager();
-            const assets = new Assets();
             const spriteId = `sprite_${actor.id}`;
             (async () => {
                 try {
@@ -43,30 +42,11 @@ export class ClientGameRunner {
                     const modelId = unitConfig.modelId;
                     const modelConfig = getModelConfig(modelId);
                     if (!modelConfig) throw new Error(`Model config not found for model id: ${modelId}`);
-                    const actions = getModelActions(modelId);
-                    if (actions.length === 0) throw new Error(`No actions found for model id: ${modelId}`);
-                    const clips = [];
-                    const baseFolder = `/unit/${unitConfig.id}`;
-                    for (const action of actions) {
-                        try {
-                            const images = await assets.getImageSequence(`${baseFolder}/${action.name}`);
-                            const clip = AnimationClip.fromImages(
-                                action.name,
-                                images,
-                                action.loop ?? true,
-                                action.duration ?? 1.0,
-                                action.frameCount
-                            );
-                            clips.push(clip);
-                        } catch (err) {
-                            console.warn(`Failed to load action '${action.name}' for unit type ${unitConfig.id}:`, err);
-                        }
-                    }
-                    if (clips.length === 0) throw new Error('No animation clips loaded successfully');
                     // actor 可能已被移除
                     if (!this._game.getActor(actor.id)) return;
-                    const sprite = new AnimatedSprite2D(clips);
+                    const sprite = await AnimatedSprite2D.create(`/unit/${modelId}.json`);
                     sprite.setPosition(0, 0);
+                    this._applyUnitAnimation(actor, sprite, true);
                     spriteManager.add(spriteId, sprite);
                     actor.setSpriteId(spriteId);
                 } catch (err) {
@@ -149,7 +129,6 @@ export class ClientGameRunner {
         this._levelManager.loadLevel(levelConfig, mapConfig);
         
         const spriteManager = this._world.getSpriteManager();
-        const assets = new Assets();
         
         // 创建并加载地图
         this._map = new GameMap(mapConfig, spriteManager);
@@ -193,42 +172,10 @@ export class ClientGameRunner {
                         if (!modelConfig) {
                             throw new Error(`Model config not found for model id: ${modelId}`);
                         }
-
-                        // 4. 获取所有动作
-                        const actions = getModelActions(modelId);
-                        if (actions.length === 0) {
-                            throw new Error(`No actions found for model id: ${modelId}`);
-                        }
-
-                        // 5. 创建所有动画 clips
-                        const clips: AnimationClip[] = [];
-                        // 使用 unitConfig.id 作为单位类型来查找动画资源
-                        const baseFolder = `/unit/${unitConfig.id}`;
-
-                        for (const action of actions) {
-                            try {
-                                console.log(`[loadLevel] Loading action ${action.name} from ${baseFolder}/${action.name}`);
-                                const images = await assets.getImageSequence(`${baseFolder}/${action.name}`);
-                                const clip = AnimationClip.fromImages(
-                                    action.name,
-                                    images,
-                                    action.loop ?? true,
-                                    action.duration ?? 1.0,
-                                    action.frameCount
-                                );
-                                clips.push(clip);
-                            } catch (err) {
-                                console.warn(`Failed to load action '${action.name}' for unit type ${unitConfig.id}:`, err);
-                            }
-                        }
-
-                        if (clips.length === 0) {
-                            throw new Error('No animation clips loaded successfully');
-                        }
-
-                        // 6. 创建动画精灵
-                        const sprite = new AnimatedSprite2D(clips);
+                        // 4. 创建动画精灵（使用模型ID对应的 spritesheet JSON）
+                        const sprite = await AnimatedSprite2D.create(`/unit/${modelId}.json`);
                         sprite.setPosition(0, 0);
+                        this._applyUnitAnimation(actor, sprite, true);
                         spriteManager.add(spriteId, sprite);
                         actor.setSpriteId(spriteId);
                         console.log(`[loadLevel] Successfully loaded sprite for actor ${actor.id}`);
@@ -361,12 +308,15 @@ export class ClientGameRunner {
                 // 世界坐标转地图平面像素坐标（未含相机/视口变换）
                 const [screenX, screenY] = worldToMapPixel(pos.x, pos.y, pos.z, pixelsPerMeterX, pixelsPerMeterY);
                 sprite.setPosition(screenX, screenY);
-                sprite.rotation = actor.getRotation();
+                sprite.rotation = 0;
                 const scale = actor.getScale();
                 sprite.setScale(scale, scale);
                 sprite.visible = actor.isVisible();
                 // 使用 z 坐标（深度）- y（高度）控制渲染层级（越深越靠后，越高越靠前）
                 sprite.position.z = pos.z - pos.y;
+                if (sprite instanceof AnimatedSprite2D) {
+                    this._applyUnitAnimation(actor, sprite, false);
+                }
             }
         }
 
@@ -374,6 +324,25 @@ export class ClientGameRunner {
         if (this._debugShowBlockedCells && this._map && mapConfig) {
             this._renderDebugBlockedCells(mapConfig);
         }
+    }
+
+    /**
+     * 根据 Unit 状态切换动画
+     */
+    private _applyUnitAnimation(actor: Actor, sprite: AnimatedSprite2D, force: boolean): void {
+        const animationSystem = this._game.getSystem<AnimationSystem>('animation');
+        const desiredClip = animationSystem?.getClipName(actor.id) ?? null;
+        if (!desiredClip) {
+            if (!this._animDebugMissingStatus.has(actor.id)) {
+                console.warn(`[Animation] No status for actor ${actor.id}, cannot select clip`);
+                this._animDebugMissingStatus.add(actor.id);
+            }
+            return;
+        }
+        if (!sprite.getClip(desiredClip)) return;
+        if (!force && sprite.getCurrentClipName() === desiredClip) return;
+        sprite.play(desiredClip);
+        console.log(`[Animation] actor=${actor.id} clip=${desiredClip}`);
     }
 
     /**

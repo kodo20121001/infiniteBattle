@@ -16,35 +16,25 @@ export class DemoConfigManager extends ConfigManager {
         this.demoConfigs.set('unit_9101', {
             id: 9101,
             name: '演示攻击者',
-            modelId: 201,
+            modelId: 'monkey',
             skillIds: [9001],
             attackSkillId: 9001,
             hitY: 1.2,
             sightRange: 3,
-            obstacleCheckDistance: 3,
-            avoidanceEnabled: true,
-            avoidanceRangeFactor: 0.15,
-            separationStrength: 0.2,
-            slideEnabled: true,
-            slideFactor: 0.4,
-            safeMargin: 0.0
+            moveSpeed: 5,
+            obstacleCheckDistance: 3
         });
 
         this.demoConfigs.set('unit_9102', {
             id: 9102,
             name: '演示目标',
-            modelId: 202,
+            modelId: '202',
             skillIds: [],
             attackSkillId: 1,
             hitY: 1.0,
             sightRange: 3,
-            obstacleCheckDistance: 3,
-            avoidanceEnabled: true,
-            avoidanceRangeFactor: 0.15,
-            separationStrength: 0.2,
-            slideEnabled: true,
-            slideFactor: 0.4,
-            safeMargin: 0.0
+            moveSpeed: 5,
+            obstacleCheckDistance: 3
         });
 
         // 子弹演示关卡 (9901)

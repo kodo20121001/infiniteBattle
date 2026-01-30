@@ -24,6 +24,7 @@ import { SteeringBehavior, type AgentState, type SteeringOutput } from './Steeri
 import type { Game } from './GameSystem';
 import type { Actor } from './Actor';
 import type { GameMap } from './Map';
+import type { StatusSystem } from './StatusSystem';
 
 /**
  * 寻路模式
@@ -272,19 +273,24 @@ export class MovementSystem extends GameSystem {
 
             switch (data.state) {
                 case MoveState.MovingStraight:
+                    this._applyUnitMoveState(data.actor, MoveState.MovingStraight);
                     this._updateStraightMove(data, fixedDeltaTime);
                     break;
                 case MoveState.Moving:
+                    this._applyUnitMoveState(data.actor, MoveState.Moving);
                     this._updateMoving(data, fixedDeltaTime);
                     break;
                 case MoveState.Turning:
+                    this._applyUnitMoveState(data.actor, MoveState.Turning);
                     this._updateTurning(data, fixedDeltaTime);
                     break;
                 case MoveState.Blocked:
+                    this._applyUnitMoveState(data.actor, MoveState.Blocked);
                     // 被阻挡后，继续尝试直线移动或等待
                     this._updateBlocked(data, fixedDeltaTime);
                     break;
                 case MoveState.Arrived:
+                    this._applyUnitMoveState(data.actor, MoveState.Arrived);
                     this._moveData.delete(actorId);
                     break;
             }
@@ -303,7 +309,6 @@ export class MovementSystem extends GameSystem {
 
         const pos = actor.getPosition();
         const obstacleCheckDistance = this._getObstacleCheckDistance(actor);
-        console.log(`[moveTo] Unit ${command.actorId} from (${pos.x.toFixed(1)}, ${pos.z.toFixed(1)}) to (${command.targetX.toFixed(1)}, ${command.targetZ.toFixed(1)}), entering MovingStraight`);
         
         const moveData: MoveData = {
             actor,
@@ -331,6 +336,7 @@ export class MovementSystem extends GameSystem {
         };
         
         this._moveData.set(command.actorId, moveData);
+        this._applyUnitMoveState(actor, MoveState.MovingStraight);
         return true;
     }
 
@@ -369,10 +375,8 @@ export class MovementSystem extends GameSystem {
         // 有障碍 -> 根据寻路模式切换到对应的寻路方式
         if (!canContinue) {
             if (this._pathfindingMode === PathfindingMode.AStar) {
-                console.log(`[_updateStraightMove] >>> OBSTACLE! Unit ${data.actor.id} switching to A*`);
                 this._switchToPathfinding(data);
             } else {
-                console.log(`[_updateStraightMove] >>> OBSTACLE! Unit ${data.actor.id} switching to FlowField`);
                 this._switchToFlowField(data);
             }
             return;
@@ -912,7 +916,28 @@ export class MovementSystem extends GameSystem {
      * 停止移动
      */
     stopMove(actorId: string): void {
+        const data = this._moveData.get(actorId);
+        if (data) {
+            this._applyUnitMoveState(data.actor, MoveState.Arrived);
+        }
         this._moveData.delete(actorId);
+    }
+
+    /**
+     * 同步 Unit 的移动相关动画状态
+     */
+    private _applyUnitMoveState(actor: Actor, state: MoveState): void {
+        const statusSystem = this.game.getSystem<StatusSystem>('status');
+        if (!statusSystem) return;
+        if (state === MoveState.Arrived) {
+            statusSystem.setIdle(actor.id);
+            return;
+        }
+        if (state === MoveState.Turning) {
+            statusSystem.setTurnRound(actor.id);
+            return;
+        }
+        statusSystem.setWalk(actor.id);
     }
 
     /**

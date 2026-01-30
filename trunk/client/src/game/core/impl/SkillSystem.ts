@@ -12,6 +12,7 @@ import { Configs } from '../../common/Configs';
 import type { SkillBehaviorConfig, SkillBehaviorEvent } from '../config/SkillBehaviorConfig';
 import { getSkillBehaviorConfig } from '../config/SkillBehaviorConfig';
 import { getSkillConfig, type SkillConfig } from '../config/SkillConfig';
+import type { StatusSystem } from './StatusSystem';
 
 /**
  * 技能执行上下文
@@ -92,6 +93,17 @@ export class SkillSystem extends GameSystem {
 
         if (!skillData || !behaviorConfig) return;
 
+        // 切换施法动画状态（仅 Unit）
+        const statusSystem = this.game.getSystem<StatusSystem>('status');
+        statusSystem?.setCast(caster.id);
+        const maxDelay = this._getMaxEventTime(behaviorConfig);
+        const restoreDelayMs = Math.max(0, maxDelay) * 1000;
+        setTimeout(() => {
+            if (!caster.isDead()) {
+                statusSystem?.setIdle(caster.id);
+            }
+        }, restoreDelayMs);
+
         // 遍历所有分段
         for (const segment of behaviorConfig.segments) {
             // 遍历分段内的所有事件
@@ -99,6 +111,20 @@ export class SkillSystem extends GameSystem {
                 this._scheduleEvent(caster, target, event, skillData);
             }
         }
+    }
+
+    /**
+     * 获取技能行为中最大的事件时间（秒）
+     */
+    private _getMaxEventTime(behaviorConfig: SkillBehaviorConfig): number {
+        let maxTime = 0;
+        for (const segment of behaviorConfig.segments) {
+            for (const event of segment.events) {
+                const t = event.time ?? 0;
+                if (t > maxTime) maxTime = t;
+            }
+        }
+        return maxTime;
     }
 
     /**

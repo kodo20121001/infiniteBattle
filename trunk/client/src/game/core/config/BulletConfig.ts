@@ -9,7 +9,7 @@ export interface BulletConfig {
     /** 子弹描述 */
     description?: string;
     /** 初始化时使用的模型ID（资源或表现层ID） */
-    modelId: number;
+    modelId: string;
     /** 分段配置列表 */
     segments: BulletSegmentConfig[];
 }
