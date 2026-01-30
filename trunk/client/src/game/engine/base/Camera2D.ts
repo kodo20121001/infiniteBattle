@@ -41,6 +41,13 @@ export class Camera2D {
     }
 
     /**
+     * 获取视口尺寸
+     */
+    getViewport(): { width: number; height: number } {
+        return { width: this.viewport.width, height: this.viewport.height };
+    }
+
+    /**
      * 获取位置（世界坐标）
      */
     get position(): Vector3 {

@@ -177,6 +177,12 @@ export class World {
 
     setViewport(width: number, height: number): void {
         this.camera.setViewport(width, height);
+    }
+
+    /**
+     * 调整 Canvas 尺寸（不改变相机视口）
+     */
+    resizeCanvas(width: number, height: number): void {
         this.renderer.resize(width, height);
     }
 

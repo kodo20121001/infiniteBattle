@@ -1059,7 +1059,7 @@ const MapEditor = () => {
             <PathTool mapData={mapData} setMapData={setMapData} currentPathId={currentPathId} setCurrentPathId={setCurrentPathId} />
           )}
           {tool === 'block' && (
-            <BlockTool gridColCount={gridColCount} gridRowCount={gridRowCount} showBlockedCells={showBlockedCells} setShowBlockedCells={setShowBlockedCells} />
+            <BlockTool gridColCount={gridColCount} gridRowCount={gridRowCount} showBlockedCells={showBlockedCells} setShowBlockedCells={setShowBlockedCells} mapData={mapData} setMapData={setMapData} setToast={setToast} />
           )}
           {tool === 'build' && (
             <BuildTool mapData={mapData} setMapData={setMapData} buildCols={buildColCount} buildRows={buildRowCount} />

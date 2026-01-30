@@ -199,7 +199,6 @@ export class Renderer {
         this.canvas.style.width = `${width}px`;
         this.canvas.style.height = `${height}px`;
         this.gl.viewport(0, 0, width, height);
-        this.camera.setViewport(width, height);
     }
 
     /**
@@ -214,26 +213,45 @@ export class Renderer {
         this.gl.useProgram(this.spriteProgram);
         this.gl.bindVertexArray(this.spriteVAO);
 
-        // 投影矩阵：屏幕空间正交投影（固定）
-        // 深度范围扩大到 -1000 到 1000，支持背景图层 (z=-100) 和前景图层
+        // 从相机获取视口尺寸
+        const cameraViewport = this.camera.getViewport();
+        const viewportW = cameraViewport.width || this.canvas.width;
+        const viewportH = cameraViewport.height || this.canvas.height;
+        
+        // 计算 letterbox（canvas 尺寸 vs 相机视口尺寸）
+        const scaleX = this.canvas.width / viewportW;
+        const scaleY = this.canvas.height / viewportH;
+        const letterboxScale = Math.min(scaleX, scaleY);
+        
+        const scaledViewportW = viewportW * letterboxScale;
+        const scaledViewportH = viewportH * letterboxScale;
+        const letterboxOffsetX = (this.canvas.width - scaledViewportW) / 2;
+        const letterboxOffsetY = (this.canvas.height - scaledViewportH) / 2;
+
+        // 设置 WebGL viewport（带 letterbox 偏移）
+        this.gl.viewport(
+            letterboxOffsetX,
+            letterboxOffsetY,
+            scaledViewportW,
+            scaledViewportH
+        );
+
+        // 投影矩阵：使用相机视口尺寸
         const projMatrix = this.orthoMatrix(
             0,
-            this.canvas.width,
-            this.canvas.height,
+            viewportW,
+            viewportH,
             0,
             -1000,
             1000
         );
 
         // 视图矩阵：处理相机变换
-        // 将相机位置变换到屏幕中心，并应用缩放
         const cameraPos = this.camera.position;
         const cameraZoom = this.camera.zoom;
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
+        const centerX = viewportW / 2;
+        const centerY = viewportH / 2;
 
-        // 视图矩阵 = translate(centerX, centerY) * scale(zoom) * translate(-cameraPos.x, -cameraPos.y)
-        // 用列主序矩阵表示：
         const viewMatrix = new Float32Array(16);
         viewMatrix[0] = cameraZoom;                                    // scaleX
         viewMatrix[5] = cameraZoom;                                    // scaleY

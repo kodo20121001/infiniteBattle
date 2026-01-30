@@ -423,7 +423,6 @@ export class MovementSystem extends GameSystem {
         );
         
         if (canContinue) {
-            console.log(`[_updateMoving] Unit ${data.actor.id} >>> Switching back to straight line`);
             data.state = MoveState.MovingStraight;
             data.straightLineTarget = { x: data.targetX, z: data.targetZ };
             // 确保Actor状态保持为moving

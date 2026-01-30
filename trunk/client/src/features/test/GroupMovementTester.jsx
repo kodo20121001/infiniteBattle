@@ -129,7 +129,10 @@ const GroupMovementTester = ({ onBack, onBackToHub }) => {
       levelConfigs[TEST_LEVEL_ID] = buildTestLevel(selectedMap.id, targetPos);
 
       const world = new World(canvasRef.current, width || 800, height || 600, 60);
-      world.setViewport(width || 800, height || 600);
+      world.resizeCanvas(width || 800, height || 600);
+      const viewportW = selectedMap.viewportWidth || width || 800;
+      const viewportH = selectedMap.viewportHeight || height || 600;
+      world.setViewport(viewportW, viewportH);
       const runner = new ClientGameRunner(world);
       runner.init();
       await runner.loadLevel(TEST_LEVEL_ID, selectedMap.id);
@@ -142,7 +145,11 @@ const GroupMovementTester = ({ onBack, onBackToHub }) => {
         const nextWidth = Math.max(1, Math.floor(nextRect?.width || 0));
         const nextHeight = Math.max(1, Math.floor(nextRect?.height || 0));
         if (canvas) { canvas.width = nextWidth; canvas.height = nextHeight; }
-        runnerRef.current?.getWorld?.()?.setViewport(nextWidth, nextHeight);
+        const world = runnerRef.current?.getWorld?.();
+        world?.resizeCanvas?.(nextWidth, nextHeight);
+        const viewportW = selectedMap.viewportWidth || nextWidth;
+        const viewportH = selectedMap.viewportHeight || nextHeight;
+        world?.setViewport?.(viewportW, viewportH);
       };
       window.addEventListener('resize', handleResize);
       resizeHandlerRef.current = handleResize;
