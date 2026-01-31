@@ -41,6 +41,13 @@ export class Camera2D {
     }
 
     /**
+     * 调整相机视口（允许相机自行处理视口逻辑）
+     */
+    resize(width: number, height: number): void {
+        this.setViewport(width, height);
+    }
+
+    /**
      * 获取位置（世界坐标）
      */
     get position(): Vector3 {

@@ -85,7 +85,7 @@ export default function App() {
 
   // 如果已登录，显示游戏界面
   if (isLoggedIn) {
-    return <GameView />;
+    return <GameView theme={activeTheme} levelId={1} />;
   }
 
   // 否则显示登录界面

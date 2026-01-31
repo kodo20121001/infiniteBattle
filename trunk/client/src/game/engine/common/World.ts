@@ -171,8 +171,8 @@ export class World {
         this.spriteManager.clear();
     }
 
-    setViewport(width: number, height: number): void {
-        this.camera.setViewport(width, height);
+    resize(width: number, height: number): void {
+        this.camera.resize(width, height);
         this.renderer.resize(width, height);
     }
 

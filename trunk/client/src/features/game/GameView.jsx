@@ -1,130 +1,109 @@
-import React, { useEffect, useRef } from 'react';
-import { Camera2D } from '../../game/engine/base/Camera2D';
-import { Sprite2D } from '../../game/engine/base/Sprite2D';
-import { AnimatedSprite2D } from '../../game/engine/base/AnimatedSprite2D';
-import { Texture } from '../../game/engine/base/Texture';
+import React, { useEffect, useRef, useState } from 'react';
 import { World } from '../../game/engine/common/World';
-import { assets } from '../../game/engine/common/Assets';
+import { ClientGameRunner } from '../../game/core/impl';
+import { ConfigManager } from '../../common/ConfigManager';
+import { Configs } from '../../game/common/Configs';
+import GameUI from '../auth/GameUI.jsx';
 
-const GameView = () => {
+const DEFAULT_LEVEL_ID = 1;
+
+const GameView = ({ theme, levelId = DEFAULT_LEVEL_ID }) => {
   const canvasRef = useRef(null);
+  const runnerRef = useRef(null);
+  const resizeHandlerRef = useRef(null);
+  const [status, setStatus] = useState('loading');
+  const [message, setMessage] = useState('初始化游戏中...');
+
+  const cleanupRunner = () => {
+    if (resizeHandlerRef.current) {
+      window.removeEventListener('resize', resizeHandlerRef.current);
+      resizeHandlerRef.current = null;
+    }
+    if (runnerRef.current) {
+      runnerRef.current.destroy();
+      runnerRef.current = null;
+    }
+  };
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // 初始化游戏系统
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
-
-    // 创建 World 实例，集成渲染、精灵管理、主循环
-    const world = new World({
-      canvas,
-      width,
-      height,
-      backgroundColor: '#1a1a1a',
-    });
-
-    let destroyed = false;
-
-    const setupSprite = async () => {
-      // 创建默认圆形纹理
-      const playerCanvas = document.createElement('canvas');
-      playerCanvas.width = 60;
-      playerCanvas.height = 60;
-      const playerCtx = playerCanvas.getContext('2d');
-      if (playerCtx) {
-        playerCtx.beginPath();
-        playerCtx.arc(30, 30, 30, 0, Math.PI * 2);
-        playerCtx.fillStyle = '#ff6b6b';
-        playerCtx.fill();
-        playerCtx.strokeStyle = '#fff';
-        playerCtx.lineWidth = 3;
-        playerCtx.stroke();
-        playerCtx.closePath();
-      }
-
-      // 加载动画帧纹理
-      const frameTextures = [Texture.fromImage(playerCanvas)];
+    const initGame = async () => {
       try {
-        const img1 = await assets.getImage('/player.png');
-        frameTextures[0] = Texture.fromImage(img1);
-      } catch (e) {
-        console.warn('Failed to load player.png, using fallback', e);
-      }
-      try {
-        const img2 = await assets.getImage('/player1.png');
-        frameTextures.push(Texture.fromImage(img2));
-      } catch (e) {
-        console.warn('Failed to load player1.png, using fallback', e);
-        frameTextures.push(frameTextures[0]);
-      }
-      if (destroyed) return null;
+        setStatus('loading');
+        setMessage('加载配置中...');
 
-      // 创建动画精灵
-      const playerSprite = new AnimatedSprite2D(frameTextures);
-      playerSprite.setPosition(width / 2, height / 2);
-      playerSprite.setFrameDuration(0.5);
-      playerSprite.play(true);
-      world.spriteManager.add('player', playerSprite);
+        const canvas = canvasRef.current;
+        if (!canvas) return;
 
-      // 游戏状态
-      let playerVelocity = { x: 2, y: 2 };
-      const worldWidth = width * 2;
-      const worldHeight = height * 2;
-      const spriteRadius = Math.max(frameTextures[0].width, frameTextures[0].height) / 2;
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(1, Math.floor(rect?.width || window.innerWidth));
+        const height = Math.max(1, Math.floor(rect?.height || window.innerHeight));
+        canvas.width = width;
+        canvas.height = height;
 
-      // 更新逻辑
-      world.gameLoop.onUpdate((deltaTime) => {
-        playerSprite.update(deltaTime);
-        const playerPos = playerSprite.position;
-        const newX = playerPos.x + playerVelocity.x;
-        const newY = playerPos.y + playerVelocity.y;
-        if (newX <= spriteRadius || newX >= worldWidth - spriteRadius) {
-          playerVelocity.x = -playerVelocity.x;
+        // 初始化配置管理器
+        const configManager = new ConfigManager();
+        Configs.init(configManager);
+
+        // 创建 World 和 GameRunner
+        const world = new World(canvas, width, height, 60);
+        world.resize(width, height);
+        const runner = new ClientGameRunner(world);
+        runner.init();
+
+        setMessage('加载关卡中...');
+        
+        // 加载关卡
+        const levelConfigs = Configs.Get('level') || {};
+        const levelConfig = levelConfigs[levelId];
+        if (!levelConfig) {
+          throw new Error(`关卡 ${levelId} 配置不存在`);
         }
-        if (newY <= spriteRadius || newY >= worldHeight - spriteRadius) {
-          playerVelocity.y = -playerVelocity.y;
-        }
-        playerSprite.setPosition(newX, newY, 0);
-      });
-      // 渲染逻辑
-      world.gameLoop.onRender(() => {
-        world.renderer.render();
-      });
-      world.gameLoop.start();
-      return playerSprite;
+
+        await runner.loadLevel(levelId, levelConfig.mapId);
+        runnerRef.current = runner;
+
+        // 处理窗口大小改变
+        const handleResize = () => {
+          const nextRect = canvas?.getBoundingClientRect();
+          const nextWidth = Math.max(1, Math.floor(nextRect?.width || 0));
+          const nextHeight = Math.max(1, Math.floor(nextRect?.height || 0));
+          if (canvas) {
+            canvas.width = nextWidth;
+            canvas.height = nextHeight;
+          }
+          runnerRef.current?.getWorld?.()?.resize(nextWidth, nextHeight);
+        };
+        window.addEventListener('resize', handleResize);
+        resizeHandlerRef.current = handleResize;
+
+        setStatus('running');
+        setMessage('游戏运行中');
+      } catch (err) {
+        console.error('初始化游戏失败:', err);
+        setStatus('error');
+        setMessage(`✗ 初始化失败: ${err.message}`);
+        cleanupRunner();
+      }
     };
 
-    setupSprite();
+    initGame();
+    return cleanupRunner;
+  }, [levelId]);
 
-    // 处理窗口大小改变
-    const handleResize = () => {
-      const newWidth = window.innerWidth;
-      const newHeight = window.innerHeight;
-      world.renderer.resize(newWidth, newHeight);
-    };
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      destroyed = true;
-      window.removeEventListener('resize', handleResize);
-      world.gameLoop.stop();
-      world.spriteManager.clear();
-      assets.release('image', '/player.png');
-      assets.release('image', '/player1.png');
-    };
-  }, []);
+  const handlePlaceBuilding = (building) => {
+    console.log('放置建筑:', building);
+    // TODO: 实现建筑放置逻辑
+  };
 
   return (
-    <div className="relative w-full h-screen bg-black">
-      <canvas ref={canvasRef} className="absolute top-0 left-0" />
-      <div className="absolute top-4 left-4 text-white font-mono">
-        <h1 className="text-2xl font-bold mb-2">Game View</h1>
-        <p className="text-sm opacity-70">Press ESC to return</p>
+    <div className="relative w-full h-screen bg-black overflow-hidden">
+      <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />
+      <div className="absolute top-4 left-4 bg-black/60 px-4 py-2 rounded text-white font-mono">
+        <h1 className="text-lg font-bold">Game View</h1>
+        <p className="text-xs opacity-70">Status: {status}</p>
+        {status === 'error' && <p className="text-xs text-red-400 mt-1">{message}</p>}
       </div>
+      {theme && status === 'running' && <GameUI theme={theme} onPlace={handlePlaceBuilding} />}
     </div>
   );
 };

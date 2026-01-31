@@ -136,12 +136,7 @@ export class ClientGameRunner {
         this._map = new GameMap(mapConfig, spriteManager);
         await this._map.loadBackgrounds();
 
-        // 应用地图配置中的视口与相机初始位置
-        const viewportW = Number(mapConfig.viewportWidth || 0);
-        const viewportH = Number(mapConfig.viewportHeight || 0);
-        if (viewportW > 0 && viewportH > 0) {
-            this._world.setViewport(viewportW, viewportH);
-        }
+        // 应用地图配置中的相机初始位置（视口大小由外部 canvas/World.resize 控制）
         if (mapConfig.cameraX !== undefined && mapConfig.cameraY !== undefined) {
             const camZ = mapConfig.cameraZ ?? 0;
             this._world.getCamera().setPosition(mapConfig.cameraX, mapConfig.cameraY, camZ);
