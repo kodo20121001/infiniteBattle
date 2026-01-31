@@ -61,14 +61,14 @@ export class UnitCommandSystem extends GameSystem {
         const nowSeconds = this._game.getGameState().getElapsedTime();
 
         for (const actor of actors) {
-            const state = this._commands.get(actor.id);
+            const state = this._commands.get(actor.actorNo);
             if (!state) continue;
 
             const cmd = state.command;
 
             // 处理自动施法：守卫 / 攻击移动 / 原地防守
             if (skillSystem) {
-                const autoSkill = this._autoSkills.get(actor.id);
+                const autoSkill = this._autoSkills.get(actor.actorNo);
                 if (autoSkill) {
                     const target = this._findNearestEnemy(actor, autoSkill.castRange || 300);
                     if (target && nowSeconds - autoSkill.lastCastTime >= autoSkill.cooldown) {
@@ -111,7 +111,7 @@ export class UnitCommandSystem extends GameSystem {
                                 const movedEnough = !last || Math.hypot(targetPos.x - last.x, targetPos.z - last.z) > 0.5;
                                 if (movedEnough) {
                                     movement.moveTo({
-                                        actorId: actor.id,
+                                        actorId: actor.actorNo,
                                         targetX: targetPos.x,
                                         targetZ: targetPos.z,
                                         speed: actor.getSpeed(),
@@ -121,7 +121,7 @@ export class UnitCommandSystem extends GameSystem {
                             } else {
                                 // 距离足够，停止移动并施放技能
                                 if (movement.stopMove) {
-                                    movement.stopMove(actor.id);
+                                    movement.stopMove(actor.actorNo);
                                 }
                                 this._tryBaseAttack(skillSystem, actor, nowSeconds, enemy);
                             }
@@ -135,7 +135,7 @@ export class UnitCommandSystem extends GameSystem {
                 if (shouldIssueMoveCommand && !state.hasIssuedMove && movement && cmd.targetPos) {
                     const speed = actor.getSpeed();
                     movement.moveTo({
-                        actorId: actor.id,
+                        actorId: actor.actorNo,
                         targetX: cmd.targetPos.x,
                         targetZ: cmd.targetPos.y,
                         speed,
@@ -154,7 +154,7 @@ export class UnitCommandSystem extends GameSystem {
                     const dist = Math.sqrt(dx * dx + dz * dz);
                     if (dist > 1) {
                         movement.moveTo({
-                            actorId: actor.id,
+                            actorId: actor.actorNo,
                             targetX: guardPos.x,
                             targetZ: guardPos.y,
                             speed: actor.getSpeed(),
@@ -167,7 +167,7 @@ export class UnitCommandSystem extends GameSystem {
             if (cmd.type === 'HoldPosition') {
                 // 只在进入命令时停一次，让技能驱动的位移（如 moveBy）不被持续打断
                 if (movement && !state.hasStoppedOnce) {
-                    movement.stopMove(actor.id);
+                    movement.stopMove(actor.actorNo);
                     state.hasStoppedOnce = true;
                 }
             }
@@ -175,7 +175,7 @@ export class UnitCommandSystem extends GameSystem {
             // Stop / Idle：清除移动
             if (cmd.type === 'Stop' || cmd.type === 'Idle') {
                 if (movement && !state.hasStoppedOnce) {
-                    movement.stopMove(actor.id);
+                    movement.stopMove(actor.actorNo);
                     state.hasStoppedOnce = true;
                 }
             }
@@ -257,11 +257,11 @@ export class UnitCommandSystem extends GameSystem {
         if (attackSkillId <= 0) return;
 
         // 初始化该单位的攻击状态
-        if (!this._baseAttacks.has(actor.id)) {
-            this._baseAttacks.set(actor.id, { lastAttackTime: -999 });
+        if (!this._baseAttacks.has(actor.actorNo)) {
+            this._baseAttacks.set(actor.actorNo, { lastAttackTime: -999 });
         }
 
-        const attackState = this._baseAttacks.get(actor.id)!;
+        const attackState = this._baseAttacks.get(actor.actorNo)!;
 
         // 读取施放距离
         const skillConfig = getSkillConfig(attackSkillId);

@@ -43,7 +43,6 @@ export class AnimatedSprite2D extends Sprite2D {
   private frameTime = 0;
   private isPlaying = false;
   private isLooping = true;
-  private _debugFrameLogCount = 0;
 
   constructor(clips: AnimationClip | AnimationClip[]) {
     let clipsArray: AnimationClip[];
@@ -348,12 +347,6 @@ export class AnimatedSprite2D extends Sprite2D {
       }
 
       this.setTexture(this.currentClip.frames[this.currentFrameIndex]);
-      if (this._debugFrameLogCount < 5) {
-        console.log(
-          `[AnimatedSprite2D] clip=${this.currentClip.name} frame=${this.currentFrameIndex} frameDuration=${frameDuration.toFixed(4)} dt=${deltaTime.toFixed(4)}`
-        );
-        this._debugFrameLogCount += 1;
-      }
     }
   }
 }

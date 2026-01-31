@@ -29,10 +29,9 @@ export enum ActorState {
  * x: 水平方向, y: 高度, z: 深度
  */
 export class Actor {
-    readonly id: string;                    // 实例的唯一标识
+    readonly actorNo: string;               // 实例的唯一标识
     readonly actorType: ActorType;
     readonly modelId: string;
-    readonly unitId: number;                // 单位ID（对应 unit.json 的 id，如 101、102）
     readonly campId: number;
 
     protected _position: FixedVector3;      // 3D 位置 (x, y, z)
@@ -64,18 +63,16 @@ export class Actor {
         actorNo: string,
         actorType: ActorType,
         modelId: string,
-        unitId: number,
         campId: number,
         position: FixedVector3 = new FixedVector3(0, 0, 0)
     ) {
-        this.id = actorNo;
+        this.actorNo = actorNo;
         this.actorType = actorType;
         this.modelId = modelId;
-        this.unitId = unitId;
         this.campId = campId;
         this._position = position;
         if (this.actorType === ActorType.Unit) {
-            console.log(`[Actor] create unit: id=${this.id}, unitId=${this.unitId}, campId=${this.campId}, pos=(${position.x},${position.y},${position.z})`);
+            console.log(`[Actor] create unit: actorNo=${this.actorNo}, campId=${this.campId}, pos=(${position.x},${position.y},${position.z})`);
         }
     }
 
@@ -117,7 +114,7 @@ export class Actor {
      */
     setPosition(x: number, y: number = 0, z: number = 0): void {
         if (this.actorType === ActorType.Unit) {
-            console.log(`[Actor] setPosition: id=${this.id}, unitId=${this.unitId}, campId=${this.campId}, (${x}, ${y}, ${z})`);
+            console.log(`[Actor] setPosition: actorNo=${this.actorNo}, campId=${this.campId}, (${x}, ${y}, ${z})`);
         }
         this._position.x = x;
         this._position.y = y;

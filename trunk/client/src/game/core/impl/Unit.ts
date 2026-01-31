@@ -6,11 +6,13 @@
 import { Actor, ActorType, ActorState } from './Actor';
 import type { UnitConfig } from '../config/UnitConfig';
 import type { ModelConfig } from '../config/ModelConfig';
+import { FixedVector3 } from '../base/fixed/FixedVector3';
 
 /**
  * 游戏单位实现
  */
 export class Unit extends Actor {
+    readonly unitId: number;
     private _attackPower: number = 10;
     private _defense: number = 5;
     private _experience: number = 0;
@@ -21,9 +23,11 @@ export class Unit extends Actor {
         actorNo: string,
         modelId: string,
         unitId: number,
-        campId: number
+        campId: number,
+        position: FixedVector3 = new FixedVector3(0, 0, 0)
     ) {
-        super(actorNo, ActorType.Unit, modelId, unitId, campId);
+        super(actorNo, ActorType.Unit, modelId, campId, position);
+        this.unitId = unitId;
     }
 
     /**
@@ -124,6 +128,7 @@ export class Unit extends Actor {
  * 建筑实现
  */
 export class Building extends Actor {
+    readonly buildingId: number;
     private _constructionProgress: number = 100; // 建造进度 0-100
 
     constructor(
@@ -132,7 +137,8 @@ export class Building extends Actor {
         buildingId: number,
         campId: number
     ) {
-        super(id, ActorType.Building, modelId, buildingId, campId);
+        super(id, ActorType.Building, modelId, campId);
+        this.buildingId = buildingId;
     }
 
     /**

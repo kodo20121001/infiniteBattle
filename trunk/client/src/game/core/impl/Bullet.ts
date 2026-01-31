@@ -20,12 +20,14 @@ export type BulletEventType = 'bulletStarted' | 'bulletEnded' | 'triggerFired';
  */
 export interface BulletRuntimeContext {
     /** 可用于查询单位位置 */
-    getPositionByActorNo?: (actorNo: number) => VectorLike | null;
+    getPositionByActorNo?: (actorNo: number | string) => VectorLike | null;
     /** 可用于通知外部命中/结束 */
     onBulletEnd?: (data: { bulletId: string; reason?: string }) => void;
     /** 运行时默认目标（无需写回配置） */
     defaultTargetActorNo?: number | string;
     defaultTargetPosition?: VectorLike;
+    /** 子弹结束原因（运行时附加） */
+    reason?: string;
 }
 
 /**
@@ -40,7 +42,7 @@ export class Bullet extends Actor {
     private _runtimeCtx: BulletRuntimeContext | undefined;
 
     constructor(actorNo: string, config: BulletConfig, campId: number, position: FixedVector3 = new FixedVector3(0, 0, 0)) {
-        super(actorNo, ActorType.Bullet, config.modelId, config.id, campId, position);
+        super(actorNo, ActorType.Bullet, config.modelId, campId, position);
         this._config = config;
         this._segments = config.segments || [];
     }
@@ -53,7 +55,7 @@ export class Bullet extends Actor {
         this._elapsed = 0;
         this.setActive(true);
         this._runEventTriggers('bulletStart', ctx);
-        this._emit('bulletStarted', { bulletId: this.id });
+        this._emit('bulletStarted', { bulletId: this.actorNo });
     }
 
     /**
@@ -64,8 +66,8 @@ export class Bullet extends Actor {
         this.setActive(false);
         const ctx = this._runtimeCtx;
         this._runEventTriggers('bulletEnd', { ...(ctx || {}), reason });
-        this._emit('bulletEnded', { bulletId: this.id, reason });
-        ctx?.onBulletEnd?.({ bulletId: this.id, reason });
+        this._emit('bulletEnded', { bulletId: this.actorNo, reason });
+        ctx?.onBulletEnd?.({ bulletId: this.actorNo, reason });
     }
 
     override update(deltaTime: number): void {

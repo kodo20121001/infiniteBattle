@@ -356,7 +356,7 @@ export class MovementSystem extends GameSystem {
         // 到达目标
         if (distance < data.arrivalRadius) {
             data.state = MoveState.Arrived;
-            this._moveData.delete(data.actor.id);
+            this._moveData.delete(data.actor.actorNo);
             return;
         }
         
@@ -471,7 +471,7 @@ export class MovementSystem extends GameSystem {
         const path = PathfindingSystem.findPath(data.actor, data.targetX, data.targetZ, this._map);
         
         if (!path || path.length === 0) {
-            console.log(`[_switchToAStar] >>> BLOCKED! Unit ${data.actor.id} no path found`);
+            console.log(`[_switchToAStar] >>> BLOCKED! Unit ${data.actor.actorNo} no path found`);
             data.state = MoveState.Blocked;
             return;
         }
@@ -527,7 +527,7 @@ export class MovementSystem extends GameSystem {
         );
 
         if (!flowField) {
-            console.log(`[_switchToFlowField] >>> BLOCKED! Unit ${data.actor.id} cannot generate FlowField`);
+            console.log(`[_switchToFlowField] >>> BLOCKED! Unit ${data.actor.actorNo} cannot generate FlowField`);
             data.state = MoveState.Blocked;
             return;
         }
@@ -535,7 +535,7 @@ export class MovementSystem extends GameSystem {
         // 检查单位是否在流场可达范围内
         const pos = data.actor.getPosition();
         if (!PathfindingSystem.isReachableInFlowField(pos.x, pos.z, flowField)) {
-            console.log(`[_switchToFlowField] >>> UNREACHABLE! Unit ${data.actor.id} not reachable in FlowField`);
+            console.log(`[_switchToFlowField] >>> UNREACHABLE! Unit ${data.actor.actorNo} not reachable in FlowField`);
             data.state = MoveState.Blocked;
             return;
         }
@@ -594,7 +594,7 @@ export class MovementSystem extends GameSystem {
         // 路径已完成
         if (data.currentPathIndex >= data.path.length) {
             data.state = MoveState.Arrived;
-            this._moveData.delete(data.actor.id);
+            this._moveData.delete(data.actor.actorNo);
             return;
         }
 
@@ -605,7 +605,7 @@ export class MovementSystem extends GameSystem {
         // 到达目标
         if (distToTarget < data.arrivalRadius) {
             data.state = MoveState.Arrived;
-            this._moveData.delete(data.actor.id);
+            this._moveData.delete(data.actor.actorNo);
             return;
         }
         
@@ -716,7 +716,7 @@ export class MovementSystem extends GameSystem {
         // 到达目标
         if (distance < data.arrivalRadius) {
             data.state = MoveState.Arrived;
-            this._moveData.delete(data.actor.id);
+            this._moveData.delete(data.actor.actorNo);
             return;
         }
 
@@ -736,7 +736,7 @@ export class MovementSystem extends GameSystem {
             );
             
             if (canContinue) {
-                console.log(`[_updateFlowFieldMove] Unit ${data.actor.id} >>> Near target, switching to straight line`);
+                console.log(`[_updateFlowFieldMove] Unit ${data.actor.actorNo} >>> Near target, switching to straight line`);
                 data.state = MoveState.MovingStraight;
                 return;
             }
@@ -745,7 +745,7 @@ export class MovementSystem extends GameSystem {
         // 从流场获取移动方向
         const flowDir = PathfindingSystem.getFlowDirectionInterpolated(pos.x, pos.z, flowField);
         if (!flowDir) {
-            console.warn(`[_updateFlowFieldMove] Unit ${data.actor.id} cannot get flow direction, regenerating...`);
+            console.warn(`[_updateFlowFieldMove] Unit ${data.actor.actorNo} cannot get flow direction, regenerating...`);
             this._switchToFlowField(data);
             return;
         }
@@ -831,7 +831,7 @@ export class MovementSystem extends GameSystem {
         // 到达目标
         if (distance < data.arrivalRadius) {
             data.state = MoveState.Arrived;
-            this._moveData.delete(data.actor.id);
+            this._moveData.delete(data.actor.actorNo);
             return;
         }
         
@@ -848,7 +848,7 @@ export class MovementSystem extends GameSystem {
         );
         
         if (canContinue) {
-            console.log(`[_updateBlocked] Unit ${data.actor.id} >>> Obstacle cleared! Switching back to straight line`);
+            console.log(`[_updateBlocked] Unit ${data.actor.actorNo} >>> Obstacle cleared! Switching back to straight line`);
             data.state = MoveState.MovingStraight;
             return;
         }
@@ -929,14 +929,14 @@ export class MovementSystem extends GameSystem {
         const statusSystem = this.game.getSystem<StatusSystem>('status');
         if (!statusSystem) return;
         if (state === MoveState.Arrived) {
-            statusSystem.setIdle(actor.id);
+            statusSystem.setIdle(actor.actorNo);
             return;
         }
         if (state === MoveState.Turning) {
-            statusSystem.setTurnRound(actor.id);
+            statusSystem.setTurnRound(actor.actorNo);
             return;
         }
-        statusSystem.setWalk(actor.id);
+        statusSystem.setWalk(actor.actorNo);
     }
 
     /**

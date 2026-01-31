@@ -77,7 +77,7 @@ export class StraightMovementSystem {
         
         // 前方被阻挡，切换到A*寻路
         if (!canContinue) {
-            console.log(`[StraightMovement] >>> OBSTACLE DETECTED! Unit ${data.actor.id}, switching to A*`);
+            console.log(`[StraightMovement] >>> OBSTACLE DETECTED! Unit ${data.actor.actorNo}, switching to A*`);
             onSwitchToPathfinding();
             return;
         }

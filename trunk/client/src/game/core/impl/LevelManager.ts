@@ -9,6 +9,7 @@ import type { SceneManager } from './SceneManager';
 import type { LevelConfig, LevelTriggerConfig, LevelActionConfig, LevelTriggerEventType } from '../config/LevelConfig';
 import type { MapConfig } from './Map';
 import { MovementSystem } from './MovementSystem';
+import { Unit } from './Unit';
 
 /**
  * 关卡事件类型
@@ -366,7 +367,7 @@ export class LevelManager {
     // 选取目标单位：优先 actorId，其次 campId/unitId
     let targetActor = actors.find(a => a.id === params.actorId);
     if (!targetActor && params.campId !== undefined) {
-      targetActor = actors.find(a => a.campId === params.campId && (!params.unitId || a.unitId === params.unitId));
+      targetActor = actors.find(a => a.campId === params.campId && (!params.unitId || (a instanceof Unit && a.unitId === params.unitId)));
     }
     if (!targetActor) {
       console.warn('[LevelManager] moveUnit: no actor found for selector');
@@ -375,7 +376,7 @@ export class LevelManager {
 
     const speed = params.speed ?? targetActor.getSpeed?.() ?? 5;
     movement.moveTo({
-      actorId: targetActor.id,
+      actorId: targetActor.actorNo,
       targetX: targetPos.x,
       targetZ: targetPos.y,
       speed,

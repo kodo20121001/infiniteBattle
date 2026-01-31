@@ -303,7 +303,7 @@ export class Game {
      * 添加角色
      */
     addActor(actor: Actor): void {
-        this._actors.set(actor.id, actor);
+        this._actors.set(actor.actorNo, actor);
     }
 
     /**

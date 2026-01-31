@@ -95,12 +95,12 @@ export class SkillSystem extends GameSystem {
 
         // 切换施法动画状态（仅 Unit）
         const statusSystem = this.game.getSystem<StatusSystem>('status');
-        statusSystem?.setCast(caster.id);
+        statusSystem?.setCast(caster.actorNo);
         const maxDelay = this._getMaxEventTime(behaviorConfig);
         const restoreDelayMs = Math.max(0, maxDelay) * 1000;
         setTimeout(() => {
             if (!caster.isDead()) {
-                statusSystem?.setIdle(caster.id);
+                statusSystem?.setIdle(caster.actorNo);
             }
         }, restoreDelayMs);
 
@@ -140,7 +140,7 @@ export class SkillSystem extends GameSystem {
         // event.time 单位为秒，需要转换为毫秒用于 setTimeout
         const delayInSeconds = event.time || 0;
         const delayInMilliseconds = delayInSeconds * 1000;
-        const taskKey = `${caster.id}_${skillData.id}`;
+        const taskKey = `${caster.actorNo}_${skillData.id}`;
 
         // 创建延迟任务
         const timeoutId = setTimeout(() => {
@@ -197,11 +197,9 @@ export class SkillSystem extends GameSystem {
             case 'sound':
             case 'animation':
                 // 其他事件类型可在这里实现
-                console.log(`Event type ${type} not yet implemented`);
                 break;
 
             case 'end':
-                console.log('Skill ended');
                 break;
 
             default:
@@ -243,8 +241,8 @@ export class SkillSystem extends GameSystem {
         // 通过伤害系统应用伤害
         const damageSystem = this.game.getSystem('damage') as any;
         if (damageSystem && damage > 0) {
-            damageSystem.causeDamage(caster.id, target.id, Math.floor(damage));
-            EventUtils.broadcastDamageEvent(this.game, caster.id, target.id, Math.floor(damage));
+            damageSystem.causeDamage(caster.actorNo, target.actorNo, Math.floor(damage));
+            EventUtils.broadcastDamageEvent(this.game, caster.actorNo, target.actorNo, Math.floor(damage));
         }
     }
 
@@ -281,7 +279,7 @@ export class SkillSystem extends GameSystem {
 
         if (data.toTarget && target) {
             // 使用实例ID便于跟踪移动目标
-            targetActorNo = target.id;
+            targetActorNo = target.actorNo;
             targetPosition = target.getPosition();
         } else if (data.targetActorNo) {
             targetActorNo = data.targetActorNo;
@@ -296,12 +294,12 @@ export class SkillSystem extends GameSystem {
         }
 
         // 创建子弹（不改全局配置，目标通过 runtime ctx 传递）
-        const bulletId_str = `bullet_${caster.id}_${Date.now()}_${Math.random()}`;
+        const bulletId_str = `bullet_${caster.actorNo}_${Date.now()}_${Math.random()}`;
         const bullet = new Bullet(bulletId_str, bulletConfig, caster.campId, startPos);
 
         // 启动子弹，传递运行时上下文
         bullet.start({
-            getPositionByActorNo: (actorNo: number) => {
+            getPositionByActorNo: (actorNo: number | string) => {
                 // 从游戏中查找单位位置（通过实例ID）
                 const actor = this.game.getActor(String(actorNo));
                 return actor ? actor.getPosition() : null;
@@ -311,7 +309,7 @@ export class SkillSystem extends GameSystem {
             onBulletEnd: (data: any) => {
                 console.log('[SkillSystem] Bullet ended:', data);
                 // 移除子弹
-                (this.game as any).removeActor?.(bullet.id);
+                (this.game as any).removeActor?.(bullet.actorNo);
             }
         });
 
@@ -365,7 +363,7 @@ export class SkillSystem extends GameSystem {
                 // speed 单位为 单位/秒
                 const speed = distance / duration;
                 movementSystem.moveTo({
-                    actorId: caster.id,
+                    actorId: caster.actorNo,
                     targetX,
                     targetZ,
                     speed,
@@ -376,7 +374,7 @@ export class SkillSystem extends GameSystem {
                 moveBySystem.applyMoveBy(caster, distance, angle);
             }
 
-            EventUtils.broadcastMoveByEvent(this.game, caster.id, distance, angle);
+            EventUtils.broadcastMoveByEvent(this.game, caster.actorNo, distance, angle);
         }
     }
 

@@ -91,7 +91,7 @@ export class PathFollowingSystem {
             
             // 前方没有障碍，才切回直线移动
             if (canContinue) {
-                console.log(`[PathFollowing] Unit ${data.actor.id} >>> SWITCHING BACK to straight line`);
+                console.log(`[PathFollowing] Unit ${data.actor.actorNo} >>> SWITCHING BACK to straight line`);
                 data.state = MoveState.MovingStraight;
                 data.straightLineTarget = { x: data.targetX, z: data.targetZ };
                 return;

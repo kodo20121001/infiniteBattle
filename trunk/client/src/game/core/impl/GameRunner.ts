@@ -16,6 +16,7 @@ import { getModelConfig } from '../config/ModelConfig';
 import { getUnitConfig } from '../config/UnitConfig';
 import { worldToMapPixel } from '../base/WorldProjection';
 import type { Actor } from './Actor';
+import { Unit } from './Unit';
 import type { AnimationSystem } from './AnimationSystem';
 
 /**
@@ -31,10 +32,11 @@ export class ClientGameRunner {
          * 异步为 actor 加载 sprite（懒加载，非阻塞逻辑帧）
          */
         private _loadActorSprite(actor: Actor) {
-            if (!actor || actor.getSpriteId() || this._pendingSpriteLoads.has(actor.id)) return;
-            this._pendingSpriteLoads.add(actor.id);
+            if (!actor || actor.getSpriteId() || this._pendingSpriteLoads.has(actor.actorNo)) return;
+            if (!(actor instanceof Unit)) return;
+            this._pendingSpriteLoads.add(actor.actorNo);
             const spriteManager = this._world.getSpriteManager();
-            const spriteId = `sprite_${actor.id}`;
+            const spriteId = `sprite_${actor.actorNo}`;
             (async () => {
                 try {
                     const unitConfig = getUnitConfig(actor.unitId);
@@ -43,7 +45,7 @@ export class ClientGameRunner {
                     const modelConfig = getModelConfig(modelId);
                     if (!modelConfig) throw new Error(`Model config not found for model id: ${modelId}`);
                     // actor 可能已被移除
-                    if (!this._game.getActor(actor.id)) return;
+                    if (!this._game.getActor(actor.actorNo)) return;
                     const sprite = await AnimatedSprite2D.create(`/unit/${modelId}.json`);
                     sprite.setPosition(0, 0);
                     this._applyUnitAnimation(actor, sprite, true);
@@ -51,13 +53,13 @@ export class ClientGameRunner {
                     actor.setSpriteId(spriteId);
                 } catch (err) {
                     // actor 可能已被移除
-                    if (!this._game.getActor(actor.id)) return;
-                    console.warn(`Failed to load animated sprite for actor ${actor.id}:`, err);
+                    if (!this._game.getActor(actor.actorNo)) return;
+                    console.warn(`Failed to load animated sprite for actor ${actor.actorNo}:`, err);
                     const sprite = this._createPlaceholderSprite(actor.campId);
                     spriteManager.add(spriteId, sprite);
                     actor.setSpriteId(spriteId);
                 } finally {
-                    this._pendingSpriteLoads.delete(actor.id);
+                    this._pendingSpriteLoads.delete(actor.actorNo);
                 }
             })();
         }
@@ -150,13 +152,18 @@ export class ClientGameRunner {
         const spriteLoadPromises: Promise<void>[] = [];
         
         for (const actor of actors) {
+            // 只有 Unit 类型的 actor 才有 unitId，才需要加载单位动画
+            if (!(actor instanceof Unit)) {
+                continue;
+            }
+            
             if (!actor.getSpriteId()) {
-                const spriteId = `sprite_${actor.id}`;
+                const spriteId = `sprite_${actor.actorNo}`;
 
                 // 异步加载角色动画
                 const loadPromise = (async () => {
                     try {
-                        console.log(`[loadLevel] Loading sprite for actor ${actor.id}, unitId=${actor.unitId}`);
+                        console.log(`[loadLevel] Loading sprite for actor ${actor.actorNo}, unitId=${actor.unitId}`);
                         
                         // 1. 获取单位配置（根据 unitId）
                         const unitConfig = getUnitConfig(actor.unitId);
@@ -178,14 +185,14 @@ export class ClientGameRunner {
                         this._applyUnitAnimation(actor, sprite, true);
                         spriteManager.add(spriteId, sprite);
                         actor.setSpriteId(spriteId);
-                        console.log(`[loadLevel] Successfully loaded sprite for actor ${actor.id}`);
+                        console.log(`[loadLevel] Successfully loaded sprite for actor ${actor.actorNo}`);
                     } catch (err) {
-                        console.warn(`Failed to load animated sprite for actor ${actor.id}:`, err);
+                        console.warn(`Failed to load animated sprite for actor ${actor.actorNo}:`, err);
                         // 降级使用占位符
                         const sprite = this._createPlaceholderSprite(actor.campId);
                         spriteManager.add(spriteId, sprite);
                         actor.setSpriteId(spriteId);
-                        console.log(`[loadLevel] Using placeholder sprite for actor ${actor.id}`);
+                        console.log(`[loadLevel] Using placeholder sprite for actor ${actor.actorNo}`);
                     }
                 })();
                 
@@ -331,18 +338,17 @@ export class ClientGameRunner {
      */
     private _applyUnitAnimation(actor: Actor, sprite: AnimatedSprite2D, force: boolean): void {
         const animationSystem = this._game.getSystem<AnimationSystem>('animation');
-        const desiredClip = animationSystem?.getClipName(actor.id) ?? null;
+        const desiredClip = animationSystem?.getClipName(actor.actorNo) ?? null;
         if (!desiredClip) {
-            if (!this._animDebugMissingStatus.has(actor.id)) {
-                console.warn(`[Animation] No status for actor ${actor.id}, cannot select clip`);
-                this._animDebugMissingStatus.add(actor.id);
+            if (!this._animDebugMissingStatus.has(actor.actorNo)) {
+                console.warn(`[Animation] No status for actor ${actor.actorNo}, cannot select clip`);
+                this._animDebugMissingStatus.add(actor.actorNo);
             }
             return;
         }
         if (!sprite.getClip(desiredClip)) return;
         if (!force && sprite.getCurrentClipName() === desiredClip) return;
         sprite.play(desiredClip);
-        console.log(`[Animation] actor=${actor.id} clip=${desiredClip}`);
     }
 
     /**

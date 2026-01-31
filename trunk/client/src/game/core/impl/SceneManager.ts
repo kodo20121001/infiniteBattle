@@ -5,6 +5,8 @@
 
 import { Game } from './GameSystem';
 import { Actor, ActorType } from './Actor';
+import { Unit } from './Unit';
+import type { StatusSystem } from './StatusSystem';
 import { FixedVector3 } from '../base/fixed/FixedVector3';
 import type { LevelConfig, LevelUnitConfig } from '../config/LevelConfig';
 import type { UnitConfig } from '../config/UnitConfig';
@@ -90,9 +92,8 @@ export class SceneManager {
         // 创建角色
         const actorId = `${levelUnitConfig.campId}_${levelUnitConfig.unitId}_${Date.now()}_${Math.random()}`;
         const position = new FixedVector3(x, y, z);
-        const actor = new Actor(
+        const unit = new Unit(
             actorId,
-            ActorType.Unit,
             unitConfig.modelId,
             levelUnitConfig.unitId,  // 单位类型（对应 unit.json 的 id）
             levelUnitConfig.campId,
@@ -100,10 +101,14 @@ export class SceneManager {
         );
 
         // 初始化角色
-        actor.init(unitConfig, modelConfig);
+        unit.init(unitConfig, modelConfig);
 
         // 添加到游戏
-        this._game.addActor(actor);
+        this._game.addActor(unit);
+
+        // 初始化状态（避免动画系统无状态导致无法选择 clip）
+        const statusSystem = this._game.getSystem<StatusSystem>('status');
+        statusSystem?.setIdle(unit.actorNo);
     }
 
     /**
@@ -112,7 +117,7 @@ export class SceneManager {
     private _clearScene(): void {
         const actors = this._game.getActors();
         for (const actor of actors) {
-            this._game.removeActor(actor.id);
+            this._game.removeActor(actor.actorNo);
         }
     }
 
@@ -134,7 +139,7 @@ export class SceneManager {
 
             // 设置初始命令
             if (unitConfig.command) {
-                commandSystem.issueCommand(actor.id, unitConfig.command);
+                commandSystem.issueCommand(actor.actorNo, unitConfig.command);
             }
         });
     }
