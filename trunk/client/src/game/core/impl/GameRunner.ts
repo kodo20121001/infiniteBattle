@@ -6,7 +6,8 @@
 import { Game } from './GameSystem';
 import { SceneManager } from './SceneManager';
 import { LevelManager } from './LevelManager';
-import { GameMap, type MapConfig } from './Map';
+import { GameMap } from './Map';
+import type { MapConfig } from '../config/MapConfig';
 import { MovementSystem } from './MovementSystem';
 import type { World } from '../../engine/common/World';
 import type { LevelConfig } from '../config/LevelConfig';
@@ -14,10 +15,11 @@ import { Sprite2D } from '../../engine/base/Sprite2D';
 import { AnimatedSprite2D } from '../../engine/base/AnimatedSprite2D';
 import { getModelConfig } from '../config/ModelConfig';
 import { getUnitConfig } from '../config/UnitConfig';
-import { worldToMapPixel } from '../base/WorldProjection';
+import { worldToMapPixel, mapPixelToWorld } from '../base/WorldProjection';
 import type { Actor } from './Actor';
-import { Unit } from './Unit';
+import { Unit, Building } from './Unit';
 import type { AnimationSystem } from './AnimationSystem';
+import { getBuildGridIndex, getBuildGridCenter } from '../config/MapConfig';
 
 /**
  * 客户端游戏运行器
@@ -68,10 +70,15 @@ export class ClientGameRunner {
     private _sceneManager: SceneManager;
     private _levelManager: LevelManager;
     private _map: GameMap | null = null;
-    private _frameTime: number = 1000 / 30; // 30 FPS 帧同步
+    private _frameTime: number = 1 / 30; // 30 FPS 帧同步（秒）
     private _isRunning: boolean = false;
     private _debugShowBlockedCells: boolean = false; // 调试：显示阻挡格子
     private _debugBlockedCellSprites: Map<number, Sprite2D> = new Map(); // 阻挡格子的精灵
+    private _debugShowBuildCells: boolean = false; // 调试：显示可建筑格子
+    private _debugBuildCellSprites: Map<number, Sprite2D> = new Map(); // 可建筑格子的精灵
+    private _debugBuildCellSignature: string = '';
+    private _buildingPreviewSprite: Sprite2D | null = null; // 建筑预览精灵
+    private _buildingPreviewData: any = null; // 当前预览的建筑数据
 
     constructor(world: World) {
         this._world = world;
@@ -304,11 +311,12 @@ export class ClientGameRunner {
                 continue;
             }
             const spriteId = actor.getSpriteId();
+            if (!spriteId) continue;
             const pos = actor.getPosition();
             const sprite = spriteManager.get(spriteId);
             if (sprite) {
                 // 世界坐标转地图平面像素坐标（未含相机/视口变换）
-                const [screenX, screenY] = worldToMapPixel(pos.x, pos.y, pos.z, pixelsPerMeterX, pixelsPerMeterY);
+                const [screenX, screenY] = worldToMapPixel(pos.x, pos.y, pos.z, mapConfig.mapHeight, pixelsPerMeterX, pixelsPerMeterY);
                 sprite.setPosition(screenX, screenY);
                 sprite.rotation = 0;
                 const scale = actor.getScale();
@@ -324,7 +332,17 @@ export class ClientGameRunner {
 
         // 调试：渲染阻挡格子
         if (this._debugShowBlockedCells && this._map && mapConfig) {
-            this._renderDebugBlockedCells(mapConfig);
+            this._renderDebugBlockedCells(mapConfig as any);
+        }
+
+        // 调试：渲染可建筑格子
+        if (this._debugShowBuildCells && this._map && mapConfig) {
+            this._renderDebugBuildCells(mapConfig as any);
+        }
+
+        // 渲染建筑预览
+        if (this._buildingPreviewSprite && mapConfig) {
+            this._updateBuildingPreviewSprite(mapConfig as any);
         }
     }
 
@@ -352,7 +370,7 @@ export class ClientGameRunner {
     private _renderDebugBlockedCells(mapConfig: MapConfig): void {
         const gridWidth = mapConfig.gridWidth ?? 0;
         const gridHeight = mapConfig.gridHeight ?? 0;
-        const colCount = mapConfig.colCount ?? 0;
+        const colCount = (mapConfig as any).colCount ?? 0;
         const pixelsPerMeterX = mapConfig.pixelsPerMeterX ?? 32;
         const pixelsPerMeterY = mapConfig.pixelsPerMeterY ?? 16;
 
@@ -404,6 +422,74 @@ export class ClientGameRunner {
     }
 
     /**
+     * 调试渲染可建筑格子
+     */
+    private _renderDebugBuildCells(mapConfig: MapConfig): void {
+        const bw = mapConfig.buildGridWidth ?? mapConfig.gridWidth ?? 0;
+        const bh = mapConfig.buildGridHeight ?? mapConfig.gridHeight ?? 0;
+        const mapWidth = mapConfig.mapWidth ?? 0;
+        const mapHeight = mapConfig.mapHeight ?? 0;
+        const pixelsPerMeterX = mapConfig.pixelsPerMeterX ?? 32;
+        const pixelsPerMeterY = mapConfig.pixelsPerMeterY ?? 16;
+
+        if (bw <= 0 || bh <= 0 || mapWidth <= 0 || mapHeight <= 0) {
+            return;
+        }
+
+        const colCount = Math.floor(mapWidth / bw);
+        const rowCount = Math.floor(mapHeight / bh);
+        if (colCount <= 0 || rowCount <= 0) {
+            return;
+        }
+
+        const gridWidthPx = bw * pixelsPerMeterX;
+        const gridHeightPx = bh * pixelsPerMeterY;
+        const ox = (mapConfig.buildOffsetX ?? 0) * pixelsPerMeterX;
+        const oy = (mapConfig.buildOffsetY ?? 0) * pixelsPerMeterY;
+        const spriteManager = this._world.getSpriteManager();
+        const buildGridCells = mapConfig.buildGridCells ?? [];
+        const signature = buildGridCells.join(',');
+
+        // 如果格子数量或内容变化，重新创建精灵
+        if (this._debugBuildCellSprites.size !== buildGridCells.length || this._debugBuildCellSignature !== signature) {
+            this._debugBuildCellSprites.forEach((sprite, idx) => {
+                spriteManager.remove(`debug_build_${idx}`);
+                sprite.destroy();
+            });
+            this._debugBuildCellSprites.clear();
+            this._debugBuildCellSignature = signature;
+
+            buildGridCells.forEach((idx: number) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.ceil(gridWidthPx);
+                canvas.height = Math.ceil(gridHeightPx);
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.fillStyle = 'rgba(34, 197, 94, 0.25)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.strokeStyle = 'rgba(34, 197, 94, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+                }
+
+                const sprite = new Sprite2D(canvas);
+                sprite.setAnchor(0, 0);
+                sprite.position.z = -85;
+
+                const col = idx % colCount;
+                const row = Math.floor(idx / colCount);
+                const x = ox + col * gridWidthPx;
+                const y = oy + row * gridHeightPx;
+                sprite.setPosition(x, y);
+
+                const spriteId = `debug_build_${idx}`;
+                spriteManager.add(spriteId, sprite);
+                this._debugBuildCellSprites.set(idx, sprite);
+            });
+        }
+    }
+
+    /**
      * 获取World（仅用于初始化阶段设置回调）
      */
     getWorld(): World {
@@ -428,6 +514,15 @@ export class ClientGameRunner {
             sprite.destroy();
         });
         this._debugBlockedCellSprites.clear();
+        this._debugBuildCellSprites.forEach((sprite, idx) => {
+            spriteManager.remove(`debug_build_${idx}`);
+            sprite.destroy();
+        });
+        this._debugBuildCellSprites.clear();
+        this._debugBuildCellSignature = '';
+        
+        // 清理建筑预览
+        this._clearBuildingPreview();
         
         this.stop();
         this._sceneManager.destroy();
@@ -466,6 +561,213 @@ export class ClientGameRunner {
             this._debugBlockedCellSprites.clear();
         }
     }
+
+    /**
+     * 设置调试显示可建筑格子
+     */
+    setDebugShowBuildCells(show: boolean): void {
+        this._debugShowBuildCells = show;
+
+        if (!show) {
+            const spriteManager = this._world.getSpriteManager();
+            this._debugBuildCellSprites.forEach((sprite, idx) => {
+                spriteManager.remove(`debug_build_${idx}`);
+                sprite.destroy();
+            });
+            this._debugBuildCellSprites.clear();
+            this._debugBuildCellSignature = '';
+        }
+    }
+
+    /**
+     * 设置建筑预览
+     */
+    setBuildingPreview(building: any, screenX: number, screenY: number): void {
+        if (!building || !this._map) {
+            this._clearBuildingPreview();
+            return;
+        }
+
+        this._buildingPreviewData = {
+            building,
+            screenX,
+            screenY
+        };
+
+        // 如果预览精灵不存在，创建一个
+        if (!this._buildingPreviewSprite) {
+            // 根据网格大小创建预览
+            const mapConfig = this._map.getConfig();
+            const pixelsPerMeterX = mapConfig?.pixelsPerMeterX ?? 32;
+            const pixelsPerMeterY = mapConfig?.pixelsPerMeterY ?? 16;
+            const buildGridWidth = mapConfig?.buildGridWidth ?? mapConfig?.gridWidth ?? 32;
+            const buildGridHeight = mapConfig?.buildGridHeight ?? mapConfig?.gridHeight ?? 32;
+            
+            const canvasWidth = Math.ceil(buildGridWidth * pixelsPerMeterX);
+            const canvasHeight = Math.ceil(buildGridHeight * pixelsPerMeterY);
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(canvasWidth, 32);
+            canvas.height = Math.max(canvasHeight, 32);
+            
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                // 根据建筑类型绘制不同的颜色
+                let fillColor = 'rgba(34, 197, 94, 0.5)'; // 默认绿色
+                let strokeColor = 'rgba(34, 197, 94, 1)';
+                
+                if (building.id === 'barracks') {
+                    fillColor = 'rgba(59, 130, 246, 0.5)'; // 蓝色
+                    strokeColor = 'rgba(59, 130, 246, 1)';
+                } else if (building.id === 'barrier') {
+                    fillColor = 'rgba(239, 68, 68, 0.5)'; // 红色
+                    strokeColor = 'rgba(239, 68, 68, 1)';
+                }
+                
+                ctx.fillStyle = fillColor;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+            }
+
+            this._buildingPreviewSprite = new Sprite2D(canvas);
+            this._buildingPreviewSprite.setAnchor(0.5, 0.5);
+            this._buildingPreviewSprite.position.z = 100; // 在最上层
+            this._world.getSpriteManager().add('building_preview', this._buildingPreviewSprite);
+        }
+    }
+
+    /**
+     * 更新建筑预览精灵位置
+     */
+    private _updateBuildingPreviewSprite(mapConfig: MapConfig): void {
+        if (!this._buildingPreviewSprite || !this._buildingPreviewData) return;
+
+        const camera = this._world.getCamera();
+        const { screenX, screenY } = this._buildingPreviewData;
+
+        // 屏幕坐标转渲染像素坐标
+        const renderPos = camera.screenToWorld(screenX, screenY);
+        
+        // 渲染像素坐标转游戏世界米坐标
+        const pixelsPerMeterX = mapConfig.pixelsPerMeterX ?? 32;
+        const pixelsPerMeterY = mapConfig.pixelsPerMeterY ?? 16;
+        const [worldX, worldZ, worldY] = mapPixelToWorld(renderPos.x, renderPos.y, pixelsPerMeterX, pixelsPerMeterY);
+        
+        
+        // 检查是否在有效建筑格子上（使用 x, z 坐标，z是深度方向对应地图Y）
+        const gridIndex = getBuildGridIndex(worldX, worldZ, mapConfig);
+        const buildGridCells = mapConfig.buildGridCells ?? [];
+        const isValid = gridIndex >= 0 && buildGridCells.includes(gridIndex);
+
+        // 如果在有效格子上，吸附到格子中心
+        if (isValid) {
+            const center = getBuildGridCenter(gridIndex, mapConfig);
+            const [snapX, snapY] = worldToMapPixel(center.x, center.y, center.z ?? 0, pixelsPerMeterX, pixelsPerMeterY);
+            this._buildingPreviewSprite.setPosition(snapX, snapY);
+            
+            // 更改颜色为绿色（可以放置）
+            const texture = this._buildingPreviewSprite.getTexture();
+            if (texture && texture instanceof HTMLCanvasElement) {
+                const ctx = texture.getContext('2d');
+                if (ctx) {
+                    ctx.clearRect(0, 0, texture.width, texture.height);
+                    ctx.fillStyle = 'rgba(34, 197, 94, 0.6)';
+                    ctx.fillRect(0, 0, 64, 64);
+                    ctx.strokeStyle = 'rgba(34, 197, 94, 1)';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(2, 2, 60, 60);
+                }
+            }
+        } else {
+            // 跟随鼠标，显示红色（无法放置）
+            // 直接使用渲染坐标
+            this._buildingPreviewSprite.setPosition(renderPos.x, renderPos.y);
+            
+            const texture = this._buildingPreviewSprite.getTexture();
+            if (texture && texture instanceof HTMLCanvasElement) {
+                const ctx = texture.getContext('2d');
+                if (ctx) {
+                    ctx.clearRect(0, 0, texture.width, texture.height);
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.5)';
+                    ctx.fillRect(0, 0, 64, 64);
+                    ctx.strokeStyle = 'rgba(239, 68, 68, 1)';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(2, 2, 60, 60);
+                }
+            }
+        }
+
+        this._buildingPreviewSprite.visible = true;
+    }
+
+    /**
+     * 清除建筑预览
+     */
+    private _clearBuildingPreview(): void {
+        if (this._buildingPreviewSprite) {
+            this._world.getSpriteManager().remove('building_preview');
+            this._buildingPreviewSprite.destroy();
+            this._buildingPreviewSprite = null;
+        }
+        this._buildingPreviewData = null;
+    }
+
+    /**
+     * 尝试放置建筑
+     */
+    tryPlaceBuilding(building: any, screenX: number, screenY: number): { success: boolean; reason?: string; building?: Building } {
+        if (!this._map) {
+            return { success: false, reason: '地图未加载' };
+        }
+
+        const mapConfig = this._levelManager['_currentMapConfig'] as MapConfig;
+        if (!mapConfig) {
+            return { success: false, reason: '地图配置未找到' };
+        }
+
+        const camera = this._world.getCamera();
+        const renderPos = camera.screenToWorld(screenX, screenY);
+        
+        // 转换为游戏世界米坐标
+        const pixelsPerMeterX = mapConfig?.pixelsPerMeterX ?? 32;
+        const pixelsPerMeterY = mapConfig?.pixelsPerMeterY ?? 16;
+        const [worldX, worldZ, worldY] = mapPixelToWorld(renderPos.x, renderPos.y, mapConfig.mapHeight, pixelsPerMeterX, pixelsPerMeterY);
+
+        // 检查是否在有效建筑格子上
+        const gridIndex = getBuildGridIndex(worldX, worldZ, mapConfig);
+        const buildGridCells = mapConfig.buildGridCells ?? [];
+        
+        if (gridIndex < 0 || !buildGridCells.includes(gridIndex)) {
+            return { success: false, reason: '不在可建筑区域' };
+        }
+
+        // 获取格子中心坐标
+        const center = getBuildGridCenter(gridIndex, mapConfig);
+
+        // 创建建筑实例 - 使用统一的actor编号生成方式
+        const buildingActorNo = `1_building_${building.id}_${Date.now()}_${Math.random()}`;
+        const buildingInstance = new Building(
+            buildingActorNo,
+            'default_building_model', // TODO: 使用实际的模型ID
+            building.id === 'tower' ? 1 : building.id === 'barracks' ? 2 : 3, // 临时映射
+            1 // 玩家阵营
+        );
+
+        // 设置位置（x, y=0, z）
+        buildingInstance.getPosition().x = center.x;
+        buildingInstance.getPosition().y = 0;
+        buildingInstance.getPosition().z = center.y;
+        
+        // 添加到游戏中
+        this._game.addActor(buildingInstance);
+
+        // 清除预览
+        this._clearBuildingPreview();
+
+        return { success: true, building: buildingInstance };
+    }
 }
 
 /**
@@ -475,7 +777,7 @@ export class ClientGameRunner {
 export class ServerGameRunner {
     private _game: Game;
     private _sceneManager: SceneManager;
-    private _frameTime: number = 1000 / 30; // 30 FPS 帧同步
+    private _frameTime: number = 1 / 30; // 30 FPS 帧同步（秒）
     private _isRunning: boolean = false;
     private _frameTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -495,7 +797,7 @@ export class ServerGameRunner {
      * 加载和启动关卡
      */
     loadLevel(levelConfig: LevelConfig, mapConfig: MapConfig): void {
-        this._sceneManager.loadScene(levelConfig, mapConfig);
+        this._sceneManager.loadScene(levelConfig, mapConfig as any);
         this._start();
     }
 
@@ -512,8 +814,8 @@ export class ServerGameRunner {
 
         // 启动服务器侧的游戏循环
         this._frameTimer = setInterval(() => {
-            this._onFrameUpdate();
-        }, this._frameTime);
+            this._game.update(this._frameTime);
+        }, this._frameTime * 1000);
     }
 
     /**
