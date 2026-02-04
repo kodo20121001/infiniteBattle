@@ -20,7 +20,7 @@ export class DemoConfigManager extends ConfigManager {
             skillIds: [9001],
             attackSkillId: 9001,
             hitY: 1.2,
-            sightRange: 3,
+            sightRange: 10,
             moveSpeed: 5,
             obstacleCheckDistance: 3
         });
@@ -28,11 +28,11 @@ export class DemoConfigManager extends ConfigManager {
         this.demoConfigs.set('unit_9102', {
             id: 9102,
             name: '演示目标',
-            modelId: '202',
+            modelId: 'monkey',
             skillIds: [],
             attackSkillId: 1,
             hitY: 1.0,
-            sightRange: 3,
+            sightRange: 10,
             moveSpeed: 5,
             obstacleCheckDistance: 3
         });

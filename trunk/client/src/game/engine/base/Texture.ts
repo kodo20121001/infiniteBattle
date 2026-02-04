@@ -57,6 +57,13 @@ export class Texture {
   }
 
   /**
+   * 获取 HTML 图像元素
+   */
+  getImage(): HTMLImageElement | HTMLCanvasElement {
+    return this.image;
+  }
+
+  /**
    * 销毁 WebGL 纹理
    */
   destroy(gl: WebGL2RenderingContext): void {

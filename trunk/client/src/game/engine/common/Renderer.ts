@@ -1,153 +1,48 @@
-import { Camera2D } from '../base/Camera2D';
+import * as THREE from 'three';
+import { Camera } from '../base/Camera';
 import { SpriteManager } from './SpriteManager';
 
 /**
- * Renderer - WebGL 渲染器
- * 统一管理渲染流程，使用 WebGL 和相机渲染精灵管理器中的元素
+ * Renderer - Three.js 3D 渲染器
+ * 统一管理渲染流程，使用 Three.js 渲染精灵管理器中的元素
  */
 export class Renderer {
     private canvas: HTMLCanvasElement;
-    private gl: WebGL2RenderingContext;
-    private camera: Camera2D;
+    private scene: THREE.Scene;
+    private renderer: THREE.WebGLRenderer;
+    private camera: Camera;
     private spriteManager: SpriteManager;
     
     private _backgroundColor = { r: 0, g: 0, b: 0, a: 1 };
     private _clearBeforeRender = true;
-
-    // WebGL 资源
-    private spriteProgram: WebGLProgram;
-    private spriteVAO: WebGLVertexArrayObject;
-    private spriteVBO: WebGLBuffer;
-    private spriteIndexBuffer: WebGLBuffer;
+    private _gridObject: THREE.Object3D | null = null;
+    private _pointObjects: Map<string | number, THREE.Object3D> = new Map();
 
     constructor(
         canvas: HTMLCanvasElement,
-        camera: Camera2D,
+        camera: Camera,
         spriteManager: SpriteManager
     ) {
         this.canvas = canvas;
-        const context = canvas.getContext('webgl2', { antialias: true });
-        if (!context) {
-            throw new Error('Failed to get WebGL2 context from canvas');
-        }
-        this.gl = context;
         this.camera = camera;
         this.spriteManager = spriteManager;
 
-        // 初始化 WebGL
-        // 确保 CSS 尺寸与像素尺寸一致，避免浏览器拉伸
-        this.gl.viewport(0, 0, canvas.width, canvas.height);
-        this.gl.clearColor(0, 0, 0, 1);
-        this.gl.enable(this.gl.BLEND);
-        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+        // 创建 Three.js 场景
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x0f172a);  // 深蓝色背景，参照CoordinateTester
 
-        // 创建着色器程序
-        this.spriteProgram = this.createSpriteProgram();
+        // 创建 WebGL 渲染器
+        this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        this.renderer.setSize(canvas.width, canvas.height);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.setClearColor(new THREE.Color(0x0f172a), 1);  // 深蓝色
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+        this.renderer.toneMapping = THREE.NoToneMapping;
 
-        // 创建顶点数组对象
-        this.spriteVAO = this.gl.createVertexArray() as WebGLVertexArrayObject;
-        this.gl.bindVertexArray(this.spriteVAO);
 
-        // 创建顶点缓冲
-        this.spriteVBO = this.gl.createBuffer() as WebGLBuffer;
-        this.spriteIndexBuffer = this.gl.createBuffer() as WebGLBuffer;
-
-        // 设置顶点数据（四边形，0-1范围）
-        const vertices = new Float32Array([
-            0, 0, 0, 0,    // 左下
-            1, 0, 1, 0,    // 右下
-            1, 1, 1, 1,    // 右上
-            0, 1, 0, 1     // 左上
-        ]);
-
-        const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
-
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.spriteVBO);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, vertices, this.gl.STATIC_DRAW);
-
-        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.spriteIndexBuffer);
-        this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, indices, this.gl.STATIC_DRAW);
-
-        // 设置顶点属性
-        const posLoc = this.gl.getAttribLocation(this.spriteProgram, 'position');
-        const texCoordLoc = this.gl.getAttribLocation(this.spriteProgram, 'texCoord');
-
-        this.gl.enableVertexAttribArray(posLoc);
-        this.gl.vertexAttribPointer(posLoc, 2, this.gl.FLOAT, false, 16, 0);
-
-        this.gl.enableVertexAttribArray(texCoordLoc);
-        this.gl.vertexAttribPointer(texCoordLoc, 2, this.gl.FLOAT, false, 16, 8);
-
-        // 相机视口由 World/camera 自身维护
-    }
-
-    /**
-     * 创建精灵着色器程序
-     */
-    private createSpriteProgram(): WebGLProgram {
-        const vertexShaderSource = `#version 300 es
-        precision highp float;
-
-        uniform mat4 projection;
-        uniform mat4 view;
-        uniform mat4 model;
-
-        in vec2 position;
-        in vec2 texCoord;
-
-        out vec2 vTexCoord;
-
-        void main() {
-            gl_Position = projection * view * model * vec4(position, 0.0, 1.0);
-            vTexCoord = texCoord;
-        }`;
-
-        const fragmentShaderSource = `#version 300 es
-        precision highp float;
-
-        uniform sampler2D uTexture;
-        uniform vec4 tint;
-
-        in vec2 vTexCoord;
-        out vec4 fragColor;
-
-        void main() {
-            fragColor = texture(uTexture, vTexCoord) * tint;
-        }`;
-
-        const vertexShader = this.compileShader(vertexShaderSource, this.gl.VERTEX_SHADER);
-        const fragmentShader = this.compileShader(fragmentShaderSource, this.gl.FRAGMENT_SHADER);
-
-        const program = this.gl.createProgram() as WebGLProgram;
-        this.gl.attachShader(program, vertexShader);
-        this.gl.attachShader(program, fragmentShader);
-        this.gl.linkProgram(program);
-
-        if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-            console.error('Program link error:', this.gl.getProgramInfoLog(program));
-            throw new Error('Failed to link shader program');
-        }
-
-        this.gl.deleteShader(vertexShader);
-        this.gl.deleteShader(fragmentShader);
-
-        return program;
-    }
-
-    /**
-     * 编译着色器
-     */
-    private compileShader(source: string, type: number): WebGLShader {
-        const shader = this.gl.createShader(type) as WebGLShader;
-        this.gl.shaderSource(shader, source);
-        this.gl.compileShader(shader);
-
-        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-            console.error('Shader compile error:', this.gl.getShaderInfoLog(shader));
-            throw new Error('Failed to compile shader');
-        }
-
-        return shader;
+        // 添加基础光源
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        this.scene.add(ambientLight);
     }
 
     /**
@@ -161,6 +56,8 @@ export class Renderer {
             b: rgb.b / 255, 
             a: 1 
         };
+        this.scene.background = new THREE.Color(rgb.r / 255, rgb.g / 255, rgb.b / 255);
+        this.renderer.setClearColor(new THREE.Color(rgb.r / 255, rgb.g / 255, rgb.b / 255), 1);
     }
 
     /**
@@ -190,115 +87,118 @@ export class Renderer {
      * 更新 Canvas 尺寸
      */
     resize(width: number, height: number): void {
-        this.gl.viewport(0, 0, width, height);
+        this.renderer.setSize(width, height);
+        this.camera.resize(width, height);
     }
 
     /**
      * 渲染一帧
      */
     render(): void {
-        // 清屏
-        if (this._clearBeforeRender) {
-            this.clear();
-        }
+        // 清理场景中的旧精灵网格（保留其他对象如灯光）
+        const toRemove: THREE.Object3D[] = [];
+        this.scene.children.forEach((child: THREE.Object3D) => {
+            if (child.userData.isSpriteQuad || child.userData.isSprite3D || child.userData.isSpriteObject) {
+                toRemove.push(child);
+            }
+        });
+        toRemove.forEach(obj => this.scene.remove(obj));
 
-        this.gl.useProgram(this.spriteProgram);
-        this.gl.bindVertexArray(this.spriteVAO);
-
-        // 投影矩阵：屏幕空间正交投影（固定）
-        // 深度范围扩大到 -1000 到 1000，支持背景图层 (z=-100) 和前景图层
-        const projMatrix = this.orthoMatrix(
-            0,
-            this.canvas.width,
-            this.canvas.height,
-            0,
-            -1000,
-            1000
-        );
-
-        // 视图矩阵：处理相机变换
-        // 将相机位置变换到屏幕中心，并应用缩放
-        const cameraPos = this.camera.position;
-        const cameraZoom = this.camera.zoom;
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
-
-        // 视图矩阵 = translate(centerX, centerY) * scale(zoom) * translate(-cameraPos.x, -cameraPos.y)
-        // 用列主序矩阵表示：
-        const viewMatrix = new Float32Array(16);
-        viewMatrix[0] = cameraZoom;                                    // scaleX
-        viewMatrix[5] = cameraZoom;                                    // scaleY
-        viewMatrix[10] = 1;                                            // scaleZ
-        viewMatrix[12] = centerX - cameraPos.x * cameraZoom;           // translateX
-        viewMatrix[13] = centerY - cameraPos.y * cameraZoom;           // translateY
-        viewMatrix[15] = 1;
-
-        const projLoc = this.gl.getUniformLocation(this.spriteProgram, 'projection');
-        const viewLoc = this.gl.getUniformLocation(this.spriteProgram, 'view');
-
-        this.gl.uniformMatrix4fv(projLoc, false, projMatrix);
-        this.gl.uniformMatrix4fv(viewLoc, false, viewMatrix);
-
-        // 按深度排序（z值小的先渲染，在下层）
+        // 按深度排序
         this.spriteManager.sortByZIndex((sprite) => sprite.position.z);
 
-        // 渲染所有精灵（不修改精灵位置，让着色器处理坐标变换）
-        this.spriteManager.render(this.gl);
+        // 添加精灵网格到场景
+        const sprites = this.spriteManager.getAll();
+        for (const sprite of sprites) {
+            if (sprite.destroyed) continue;
+
+            // 只处理 Sprite2D（有 getThreeMesh 方法）
+            if ('getThreeMesh' in sprite && typeof (sprite as any).getThreeMesh === 'function') {
+                const mesh = (sprite as any).getThreeMesh();
+                if (mesh) {
+                    mesh.userData.isSpriteQuad = true;
+                    this.scene.add(mesh);
+                }
+            }
+
+            // 处理 Sprite3D（有 getThreeGroup 方法）
+            if ('getThreeGroup' in sprite && typeof (sprite as any).getThreeGroup === 'function') {
+                const group = (sprite as any).getThreeGroup();
+                if (group) {
+                    group.userData.isSprite3D = true;
+                    this.scene.add(group);
+                }
+            }
+
+            // 处理基础 Sprite（有 getThreeObject 方法）- 用于插件系统
+            if ('getThreeObject' in sprite && typeof (sprite as any).getThreeObject === 'function') {
+                // 确保不是 Sprite2D 或 Sprite3D（它们有专门的处理）
+                if (!('getThreeMesh' in sprite) && !('getThreeGroup' in sprite)) {
+                    const obj = (sprite as any).getThreeObject();
+                    if (obj) {
+                        obj.userData.isSpriteObject = true;
+                        this.scene.add(obj);
+                    }
+                }
+            }
+        }
+
+        // 清屏并渲染
+        if (this._clearBeforeRender) {
+            this.renderer.clear();
+        }
+
+        const threeCamera = this.camera.getThreeCamera();
+        this.renderer.render(this.scene, threeCamera);
     }
 
     /**
      * 清屏
      */
     clear(): void {
-        this.gl.clearColor(
-            this._backgroundColor.r,
-            this._backgroundColor.g,
-            this._backgroundColor.b,
-            this._backgroundColor.a
-        );
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        this.renderer.clear();
     }
 
     /**
-     * 创建正交投影矩阵
+     * 添加 3D 对象到场景（用于 3D 扩展）
      */
-    private orthoMatrix(left: number, right: number, bottom: number, top: number, near: number, far: number): Float32Array {
-        const result = new Float32Array(16);
-        
-        const rl = right - left;
-        const tb = top - bottom;
-        const fn = far - near;
-
-        result[0] = 2 / rl;
-        result[5] = 2 / tb;
-        result[10] = -2 / fn;
-        result[12] = -(right + left) / rl;
-        result[13] = -(top + bottom) / tb;
-        result[14] = -(far + near) / fn;
-        result[15] = 1;
-
-        return result;
+    addToScene(object: THREE.Object3D): void {
+        this.scene.add(object);
     }
 
     /**
-     * 创建平移矩阵
+     * 从场景移除 3D 对象
      */
-    private translationMatrix(x: number, y: number): Float32Array {
-        return new Float32Array([
-            1, 0, 0, 0,
-            0, 1, 0, 0,
-            0, 0, 1, 0,
-            x, y, 0, 1
-        ]);
+    removeFromScene(object: THREE.Object3D): void {
+        this.scene.remove(object);
+    }
+
+    /**
+     * 获取 Three.js 场景
+     */
+    getScene(): THREE.Scene {
+        return this.scene;
+    }
+
+    /**
+     * 获取 Three.js 渲染器
+     */
+    getThreeRenderer(): THREE.WebGLRenderer {
+        return this.renderer;
+    }
+
+    /**
+     * 获取 Three.js 相机
+     */
+    getThreeCamera(): THREE.OrthographicCamera {
+        return this.camera.getThreeCamera();
     }
 
     /**
      * 渲染 UI 层（不受相机影响）
      */
     renderUI(callback: (ctx: CanvasRenderingContext2D) => void): void {
-        // WebGL 不支持直接绘制 2D 文本，需要切换到 2D context
-        // 这个功能需要另外处理
-        console.warn('renderUI with WebGL requires a separate 2D canvas overlay');
+        console.warn('renderUI with Three.js requires a separate 2D canvas overlay');
     }
 
     /**
@@ -309,16 +209,9 @@ export class Renderer {
     }
 
     /**
-     * 获取 WebGL Context
-     */
-    getContext(): WebGL2RenderingContext {
-        return this.gl;
-    }
-
-    /**
      * 获取相机
      */
-    getCamera(): Camera2D {
+    getCamera(): Camera {
         return this.camera;
     }
 
@@ -330,21 +223,101 @@ export class Renderer {
     }
 
     /**
-     * 销毁渲染器并释放 WebGL 资源
+     * 销毁渲染器并释放资源
      */
     destroy(): void {
-        // 删除 WebGL 资源
-        if (this.spriteProgram) {
-            this.gl.deleteProgram(this.spriteProgram);
+        this.scene.clear();
+        this.renderer.dispose();
+    }
+
+    /**
+     * 显示网格（0.5 x 0.5）
+     */
+    showGrid(mapWidth: number, mapHeight: number): void {
+        // 移除旧网格
+        if (this._gridObject) {
+            this.scene.remove(this._gridObject);
+            this._gridObject = null;
         }
-        if (this.spriteVAO) {
-            this.gl.deleteVertexArray(this.spriteVAO);
+
+        // 创建新网格
+        const gridSize = Math.max(mapWidth, mapHeight);
+        const gridCellSize = 0.5;
+        const gridDivisions = Math.ceil(gridSize / gridCellSize);
+        const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x444444, 0x222222);
+        gridHelper.position.set(mapWidth / 2, 0, mapHeight / 2);
+        
+        this.scene.add(gridHelper);
+        this._gridObject = gridHelper;
+    }
+
+    /**
+     * 隐藏网格
+     */
+    hideGrid(): void {
+        if (this._gridObject) {
+            this.scene.remove(this._gridObject);
+            this._gridObject = null;
         }
-        if (this.spriteVBO) {
-            this.gl.deleteBuffer(this.spriteVBO);
+    }
+
+    /**
+     * 添加地图点标记
+     * @param id 点的ID
+     * @param x 世界坐标 X
+     * @param y 世界坐标 Y（高度）
+     * @param z 世界坐标 Z
+     * @param color 颜色（16进制）
+     * @param size 大小（米）
+     */
+    addPointMarker(id: string | number, x: number, y: number, z: number, color: number = 0xff0000, size: number = 0.5): void {
+        // 移除旧标记
+        this.removePointMarker(id);
+
+        // 创建球体标记
+        const geometry = new THREE.SphereGeometry(size, 16, 16);
+        const material = new THREE.MeshBasicMaterial({ color });
+        const sphere = new THREE.Mesh(geometry, material);
+        sphere.position.set(x, y, z);
+        
+        this.scene.add(sphere);
+        this._pointObjects.set(id, sphere);
+    }
+
+    /**
+     * 添加方块标记（用于坐标系角点）
+     */
+    addCubeMarker(id: string | number, x: number, y: number, z: number, color: number = 0xff0000, size: number = 0.6, height: number = 0.3): void {
+        this.removePointMarker(id);
+
+        const geometry = new THREE.BoxGeometry(size, height, size);
+        const material = new THREE.MeshBasicMaterial({ color });
+        const cube = new THREE.Mesh(geometry, material);
+        cube.position.set(x, y, z);
+
+        this.scene.add(cube);
+        this._pointObjects.set(id, cube);
+    }
+
+    /**
+     * 移除地图点标记
+     * @param id 点的ID
+     */
+    removePointMarker(id: string | number): void {
+        const pointObject = this._pointObjects.get(id);
+        if (pointObject) {
+            this.scene.remove(pointObject);
+            this._pointObjects.delete(id);
         }
-        if (this.spriteIndexBuffer) {
-            this.gl.deleteBuffer(this.spriteIndexBuffer);
-        }
+    }
+
+    /**
+     * 清除所有点标记
+     */
+    clearPointMarkers(): void {
+        this._pointObjects.forEach(pointObject => {
+            this.scene.remove(pointObject);
+        });
+        this._pointObjects.clear();
     }
 }

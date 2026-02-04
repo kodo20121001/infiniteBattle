@@ -190,7 +190,7 @@ const ImageTool = ({ mapData, setMapData, selectedNodeId, setSelectedNodeId }) =
         <button
           onClick={() => {
             const newId = getMaxNodeId(mapData.imageTree ?? []) + 1;
-            const newNode = { id: newId, name: `image-${newId}`, x: 0, y: 0 };
+            const newNode = { id: newId, name: `image-${newId}`, x: 0, y: 0, width: 1, height: 1 };
             setMapData((p) => ({ ...p, imageTree: [...(p.imageTree ?? []), newNode] }));
           }}
           className="w-full mb-2 py-1 bg-green-600 hover:bg-green-700 rounded text-xs border border-green-500"
@@ -288,22 +288,64 @@ const ImageTool = ({ mapData, setMapData, selectedNodeId, setSelectedNodeId }) =
               />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={() => {
+              // 复原为原始图片尺寸（以像素计）
+              if (selectedNode.path && selectedNode.path !== '') {
+                const img = new Image();
+                img.onload = () => {
+                  // 假设每米 100 像素的标准（与地图坐标系统一致）
+                  const pixelsPerMeter = 100;
+                  updateNode(selectedNode.id, { 
+                    width: img.width / pixelsPerMeter,
+                    height: img.height / pixelsPerMeter,
+                    scale: 1
+                  });
+                };
+                img.src = selectedNode.path;
+              }
+            }}
+            className="w-full py-1 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 text-xs"
+          >
+            复原尺寸
+          </button>
+          <div>
+            <div className="text-slate-400 text-[10px] mb-1">缩放比例（以原始尺寸为基准）</div>
+            <input
+              type="range"
+              min="0.1"
+              max="10"
+              step="0.1"
+              value={selectedNode.scale ?? 1}
+              onChange={(e) => {
+                const scale = Number(e.target.value);
+                updateNode(selectedNode.id, { scale });
+                // 根据图片的原始尺寸和新的 scale 值，同比缩放 width/height
+                if (selectedNode.path && selectedNode.path !== '') {
+                  const img = new Image();
+                  img.onload = () => {
+                    const naturalWidth = img.width;
+                    const naturalHeight = img.height;
+                    const pixelsPerMeter = 100;
+                    updateNode(selectedNode.id, { 
+                      width: (naturalWidth / pixelsPerMeter) * scale,
+                      height: (naturalHeight / pixelsPerMeter) * scale
+                    });
+                  };
+                  img.src = selectedNode.path;
+                }
+              }}
+              className="w-full"
+            />
+            <div className="text-xs text-slate-400 mt-1 text-center">{(selectedNode.scale ?? 1).toFixed(1)}x（每米 100 像素）</div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
             <div>
               <div className="text-slate-400 text-[10px]">旋转</div>
               <input
                 type="number"
                 value={selectedNode.rotation ?? 0}
                 onChange={(e) => updateNode(selectedNode.id, { rotation: Number(e.target.value) || 0 })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs"
-              />
-            </div>
-            <div>
-              <div className="text-slate-400 text-[10px]">缩放</div>
-              <input
-                type="number"
-                value={selectedNode.scale ?? 1}
-                onChange={(e) => updateNode(selectedNode.id, { scale: Number(e.target.value) || 1 })}
                 className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs"
               />
             </div>

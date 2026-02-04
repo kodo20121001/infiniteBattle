@@ -2,9 +2,30 @@
   {
     "id": "monkey",
     "name": "猴子模型",
-    "type": "2d",
+    "type": "2d_sequence",
+    "path": "/unit/monkey.json",
     "radius": 0.3,
     "scale": 0.2,
     "defaultAction": "idle"
+  },
+  {
+    "id": "zombie",
+    "name": "僵尸模型",
+    "type": "3d_fbx",
+    "path": "/unit/zombie.json",
+    "radius": 0.6,
+    "scale": 0.015, 
+    "defaultAction": "idle"
+  },
+  {
+    "id": "fire_ball",
+    "name": "火球特效",
+    "type": "none",
+    "path": "/effect/fire_ball.json",
+    "radius": 0.5,
+    "scale": 1.0,
+    "rotation": {
+      "x": -90
+    }
   }
 ]

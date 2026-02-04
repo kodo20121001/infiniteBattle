@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { worldToMapPixel, mapPixelToWorld } from '../../game/core/base/WorldProjection';
+import MapEditorPreview from './MapEditorPreview';
+import { worldToGrid, gridToWorld } from '../../game/core/impl/Map';
 import BlockTool from './mapeditor/BlockTool';
 import BuildTool from './mapeditor/BuildTool';
 import ImageTool from './mapeditor/ImageTool';
@@ -30,20 +31,22 @@ const MapEditor = () => {
   const [imageVersion, setImageVersion] = useState(0); // 用于触发重绘
   const [tool, setTool] = useState('block'); // block | build | point | path | image
   const [selectedPointId, setSelectedPointId] = useState(null);
-  const [dragPointId, setDragPointId] = useState(null);
   const [currentPathId, setCurrentPathId] = useState(null);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
-  const [dragNodeId, setDragNodeId] = useState(null); // imageTree 中选中的节点 id
   const [dirHandle, setDirHandle] = useState(null); // 保存目录句柄
   const [savePathName, setSavePathName] = useState(''); // 保存路径显示名称
   const [toast, setToast] = useState(''); // 临时提示
   const [showBlockedCells, setShowBlockedCells] = useState(true); // 显示阻挡格子
   const canvasRef = useRef(null);
+  const previewRef = useRef(null); // MapEditorPreview 引用
   const renderMetaRef = useRef({ scale: 1, offsetX: 0, offsetY: 0 });
   const imageCacheRef = useRef(new Map());
   const isMouseDownRef = useRef(false);
   const isLeftMouseDownRef = useRef(false);
   const isRightMouseDownRef = useRef(false);
+  const dragRef = useRef(null); // 统一的拖动信息：{ type, itemId, startX, startZ, startMouseX, startMouseZ }
+  const lastBlockIndexRef = useRef(null); // 记录上次操作的阻挡格索引，避免重复操作同一格
+  const testInitRef = useRef(false); // 测试标志：只初始化一次
 
   // 载入配置
   useEffect(() => {
@@ -86,9 +89,7 @@ const MapEditor = () => {
               const permission = await handleReq.result.requestPermission({ mode: 'readwrite' });
               if (permission === 'granted') {
                 setDirHandle(handleReq.result);
-                console.log('✓ 目录权限已恢复');
               } else {
-                console.log('✗ 目录权限被拒绝，需要重新选择');
                 // 清除无效句柄
                 const clearTx = db.transaction('settings', 'readwrite');
                 clearTx.objectStore('settings').delete('dirHandle');
@@ -138,6 +139,12 @@ const MapEditor = () => {
     if (colCount !== mapData.colCount || rowCount !== mapData.rowCount) {
       setMapData((p) => ({ ...p, colCount, rowCount }));
     }
+    // 测试：只初始化一次，添加两个格子用于测试
+    if (!testInitRef.current && (!mapData.gridCells || mapData.gridCells.length === 0)) {
+      testInitRef.current = true;
+      console.log(`[测试初始化] 添加 gridCells=[63, 84]`);
+      setMapData((p) => ({ ...p, gridCells: [63, 84] }));
+    }
   }, [mapData?.mapWidth, mapData?.mapHeight, mapData?.gridWidth, mapData?.gridHeight]);
 
   // 同步 JSON 文本编辑器
@@ -150,10 +157,11 @@ const MapEditor = () => {
   }, [mapData]);
 
   useEffect(() => {
-    // 切换工具时结束路径绘制与拖拽
+    // 切换工具时清理
     if (tool !== 'path') setCurrentPathId(null);
     if (tool !== 'image') setSelectedNodeId(null);
-    setDragPointId(null);
+    setSelectedPointId(null);
+    dragRef.current = null;
     isMouseDownRef.current = false;
   }, [tool]);
 
@@ -180,19 +188,57 @@ const MapEditor = () => {
     return best;
   };
 
-  const canvasToWorld = (evt) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const { scale, offsetX, offsetY } = renderMetaRef.current;
-    const pxPerMeterX = mapData?.pixelsPerMeterX && mapData.pixelsPerMeterX > 0 ? mapData.pixelsPerMeterX : 32;
-    const pxPerMeterY = mapData?.pixelsPerMeterY && mapData.pixelsPerMeterY > 0 ? mapData.pixelsPerMeterY : 16;
-    // 先得到画布像素坐标
-    const xPx = (evt.clientX - rect.left - offsetX) / scale;
-    const yPx = (evt.clientY - rect.top - offsetY) / scale;
-    // 使用 WorldProjection 转换为世界坐标（米）
-    const [worldX, worldZ, worldY] = mapPixelToWorld(xPx, yPx, pxPerMeterX, pxPerMeterY);
-    // 返回标准游戏坐标：x(水平), y(高度), z(深度)
-    return { x: worldX, y: worldY, z: worldZ };
+  // 使用 camera 投影做像素级命中（与显示一致）
+  const findNearestPointByScreen = (points, evt, radiusPx = 10) => {
+    if (!points || points.length === 0) return null;
+    const camera = previewRef.current?.camera;
+    if (!camera) return null;
+    const rect = evt.target?.getBoundingClientRect?.() || { left: 0, top: 0 };
+    const canvasX = evt.clientX - rect.left;
+    const canvasY = evt.clientY - rect.top;
+    let best = null;
+    let bestDist = radiusPx * radiusPx;
+    points.forEach((p) => {
+      const screen = camera.worldToCanvas(p.x, 0, p.z);
+      const dx = screen.x - canvasX;
+      const dy = screen.y - canvasY;
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= bestDist) {
+        bestDist = d2;
+        best = p;
+      }
+    });
+    return best;
   };
+
+  // 屏幕点击坐标转换到世界坐标（Camera 直接返回米）
+  const screenToWorld = (evt) => {
+    if (!mapData) return { x: 0, y: 0, z: 0 };
+
+    // 从 MapEditorPreview 获取 camera
+    const camera = previewRef.current?.camera;
+    if (!camera) {
+      console.warn('⚠️ Camera not available from MapEditorPreview');
+      return { x: 0, y: 0, z: 0 };
+    }
+
+    const rect = evt.target?.getBoundingClientRect?.() || { left: 0, top: 0 };
+    
+    // Camera 现在使用米坐标，直接返回
+    const canvasX = evt.clientX - rect.left;
+    const canvasY = evt.clientY - rect.top;
+    
+    const worldPos = camera.screenToWorld(
+      evt.clientX,
+      evt.clientY,
+      rect.left,
+      rect.top,
+      0  // worldY
+    );
+
+    return worldPos;
+  };
+
 
   const gridColCount = useMemo(() => {
     if (!mapData) return 0;
@@ -256,23 +302,21 @@ const MapEditor = () => {
     const ctx = canvas.getContext('2d');
     const padding = 12;
 
-    // 像素密度（米->像素）
-    const pxPerMeterX = mapData.pixelsPerMeterX && mapData.pixelsPerMeterX > 0 ? mapData.pixelsPerMeterX : 32;
-    const pxPerMeterY = mapData.pixelsPerMeterY && mapData.pixelsPerMeterY > 0 ? mapData.pixelsPerMeterY : 16;
+    // 新坐标系统：地图在 (0, 0, 0)，锚点中心
+    // 编辑器坐标系使用米单位，通过 ctx.scale() 转换为 canvas 像素
+    const mapWidth = mapData.mapWidth || 1;
+    const mapHeight = mapData.mapHeight || 1;
 
-    // 地图尺寸换算到像素
-    const mapWidthPx = mapData.mapWidth * pxPerMeterX;
-    const mapHeightPx = mapData.mapHeight * pxPerMeterY;
-
-    const maxWidth = canvas.parentElement?.clientWidth || mapWidthPx;
-    const maxHeight = canvas.parentElement?.clientHeight || mapHeightPx;
+    // canvas 缩放显示
+    const maxWidth = canvas.parentElement?.clientWidth || mapWidth;
+    const maxHeight = canvas.parentElement?.clientHeight || mapHeight;
     const scale = Math.min(
-      (maxWidth - padding * 2) / mapWidthPx,
-      (maxHeight - padding * 2) / mapHeightPx,
+      (maxWidth - padding * 2) / mapWidth,
+      (maxHeight - padding * 2) / mapHeight,
       1
     );
-    const drawWidth = mapWidthPx * scale;
-    const drawHeight = mapHeightPx * scale;
+    const drawWidth = mapWidth * scale;
+    const drawHeight = mapHeight * scale;
 
     canvas.width = maxWidth;
     canvas.height = maxHeight;
@@ -288,7 +332,7 @@ const MapEditor = () => {
 
     // 背景
     ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, mapWidthPx, mapHeightPx);
+    ctx.fillRect(0, 0, mapWidth, mapHeight);
 
     // 渲染图片树（先序）
     const drawNode = (node) => {
@@ -315,66 +359,70 @@ const MapEditor = () => {
     };
     mapData.imageTree?.forEach(drawNode);
 
-    // 网格（米->像素）
-    const gridWidthPx = mapData.gridWidth * pxPerMeterX;
-    const gridHeightPx = mapData.gridHeight * pxPerMeterY;
-    const hasValidGridSize = Number.isFinite(gridWidthPx) && gridWidthPx > 0 && Number.isFinite(gridHeightPx) && gridHeightPx > 0;
+    // 网格（直接使用米单位）
+    const gridWidth = mapData.gridWidth;
+    const gridHeight = mapData.gridHeight;
+    
+    const hasValidGridSize = Number.isFinite(gridWidth) && gridWidth > 0 && Number.isFinite(gridHeight) && gridHeight > 0;
+    console.log(`[hasValidGridSize] gridWidth=${gridWidth}, gridHeight=${gridHeight}, hasValidGridSize=${hasValidGridSize}`);
     if (hasValidGridSize) {
       ctx.strokeStyle = 'rgba(255,255,255,0.08)';
       ctx.lineWidth = 1;
-      for (let x = 0; x <= mapWidthPx; x += gridWidthPx) {
+      for (let x = 0; x <= mapWidth; x += gridWidth) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x, mapHeightPx);
+        ctx.lineTo(x, mapHeight);
         ctx.stroke();
       }
-      for (let y = 0; y <= mapHeightPx; y += gridHeightPx) {
+      for (let y = 0; y <= mapHeight; y += gridHeight) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(mapWidthPx, y);
+        ctx.lineTo(mapWidth, y);
         ctx.stroke();
       }
 
-      // 障碍格（米->像素）
+      // 障碍格绘制
       if (showBlockedCells) {
-        ctx.fillStyle = 'rgba(239,68,68,0.45)';
-        mapData.gridCells?.forEach((idx) => {
-          const gx = idx % gridColCount;
-          const gy = Math.floor(idx / gridColCount);
-          ctx.fillRect(
-            gx * gridWidthPx,
-            gy * gridHeightPx,
-            gridWidthPx,
-            gridHeightPx
-          );
+        ctx.fillStyle = 'rgba(239,68,68,0.8)';
+        const colCount = mapData.colCount || Math.floor(mapData.mapWidth / (mapData.gridWidth ?? 1));
+        // 测试用：如果 gridCells 为空，临时生成测试格子
+        const cellsToRender = mapData.gridCells && mapData.gridCells.length > 0 ? mapData.gridCells : [63, 84];
+        console.log(`[🔍 阻挡格绘制] gridCells=${JSON.stringify(mapData.gridCells)} (使用: ${JSON.stringify(cellsToRender)})`);
+        console.log(`  colCount=${colCount}, gridWidth=${gridWidth.toFixed(2)}, gridHeight=${gridHeight.toFixed(2)}, mapWidth=${mapWidth.toFixed(2)}, mapHeight=${mapHeight.toFixed(2)}`);
+        cellsToRender.forEach((idx) => {
+          const gx = idx % colCount;
+          const gy = Math.floor(idx / colCount);
+          const x = gx * gridWidth;
+          const y = gy * gridHeight;
+          console.log(`  idx=${idx}: gx=${gx}, gy=${gy}, x=${x.toFixed(2)}, y=${y.toFixed(2)}, 绘制矩形 (${x.toFixed(2)}, ${y.toFixed(2)}, ${gridWidth.toFixed(2)}, ${gridHeight.toFixed(2)})`);
+          ctx.fillRect(x, y, gridWidth, gridHeight);
         });
       }
     }
 
-    // 建筑网格线与可建筑格（米->像素）
+    // 建筑网格线与可建筑格
     if (buildColCount > 0 && buildRowCount > 0) {
-      const buildGridWidthM = mapData.buildGridWidth ?? mapData.gridWidth;
-      const buildGridHeightM = mapData.buildGridHeight ?? mapData.gridHeight;
-      const bw = buildGridWidthM * pxPerMeterX;
-      const bh = buildGridHeightM * pxPerMeterY;
-      const ox = (mapData.buildOffsetX ?? 0) * pxPerMeterX;
-      const oy = (mapData.buildOffsetY ?? 0) * pxPerMeterY;
+      const bw = mapData.buildGridWidth ?? mapData.gridWidth;
+      const bh = mapData.buildGridHeight ?? mapData.gridHeight;
+      const ox = mapData.buildOffsetX ?? 0;
+      const oy = mapData.buildOffsetY ?? 0;
+      
       const hasValidBuildGrid = Number.isFinite(bw) && bw > 0 && Number.isFinite(bh) && bh > 0;
       if (hasValidBuildGrid) {
         // 网格线（根据偏移的余数起始，保持列/行数只受格子尺寸影响）
         ctx.strokeStyle = 'rgba(34,197,94,0.25)';
         const startX = ((ox % bw) + bw) % bw;
         const startY = ((oy % bh) + bh) % bh;
-        for (let x = startX; x <= mapWidthPx; x += bw) {
+        for (let x = startX; x <= mapWidth; x += bw) {
           ctx.beginPath();
           ctx.moveTo(x, 0);
-          ctx.lineTo(x, mapHeightPx);
+          ctx.lineTo(x, mapHeight);
           ctx.stroke();
         }
-        for (let y = startY; y <= mapHeightPx; y += bh) {
+        for (let y = startY; y <= mapHeight; y += bh) {
           ctx.beginPath();
           ctx.moveTo(0, y);
-          ctx.lineTo(mapWidthPx, y);
+          ctx.lineTo(mapWidth, y);
           ctx.stroke();
         }
         // 可建筑格
@@ -384,76 +432,65 @@ const MapEditor = () => {
           const gy = Math.floor(idx / buildColCount);
           const px = ox + gx * bw;
           const py = oy + gy * bh;
-          if (px < mapWidthPx && py < mapHeightPx) {
+          if (px < mapWidth && py < mapHeight) {
             ctx.fillRect(px, py, bw, bh);
           }
         });
       }
     }
 
-    // 触发区域渲染（使用 worldToMapPixel 投影）
+    // 渲染 Grid 类型的 TriggerArea
+    if (mapData.triggerAreas) {
+       mapData.triggerAreas.forEach((area) => {
+         if (area.type === 'grid' && hasValidGridSize) {
+            ctx.fillStyle = 'rgba(234,179,8,0.35)';
+            area.gridIndices.forEach((idx) => {
+              const gx = idx % gridColCount;
+              const gy = Math.floor(idx / gridColCount);
+              ctx.fillRect(
+                gx * gridWidth,
+                gy * gridHeight,
+                gridWidth,
+                gridHeight
+              );
+            });
+         }
+       });
+    }
+
+    // 世界坐标在 canvas 中直接使用（已通过 ctx.scale 转换）
+    const worldToCanvas = (worldX, worldZ) => [worldX, worldZ];
+
+    // 触发区域渲染（Circle 和 Rectangle）
     if (mapData.triggerAreas) {
       mapData.triggerAreas.forEach((area) => {
         if (area.type === 'circle') {
           ctx.strokeStyle = 'rgba(59,130,246,0.8)';
           ctx.lineWidth = 2;
           ctx.beginPath();
-          // worldToMapPixel 参数顺序: (x, y, z) 标准游戏坐标
-          const [centerX, centerY] = worldToMapPixel(
-            area.center.x, 
-            area.center.y, 
-            area.center.z, 
-            pxPerMeterX, 
-            pxPerMeterY
-          );
-          // 半径直接乘以pxPerMeterX（假设圆形在地面上，水平半径）
-          ctx.arc(centerX, centerY, area.radius * pxPerMeterX, 0, Math.PI * 2);
+          const [centerX, centerY] = worldToCanvas(area.center.x, area.center.z);
+          ctx.arc(centerX, centerY, area.radius, 0, Math.PI * 2);
           ctx.stroke();
         } else if (area.type === 'rectangle') {
           ctx.strokeStyle = 'rgba(16,185,129,0.8)';
           ctx.lineWidth = 2;
-          // worldToMapPixel 参数顺序: (x, y, z) 标准游戏坐标
-          const [rectX, rectY] = worldToMapPixel(
-            area.x, 
-            area.y ?? 0, 
-            area.z ?? 0, 
-            pxPerMeterX, 
-            pxPerMeterY
-          );
-          // width和depth转换为屏幕像素
-          const rectWidth = area.width * pxPerMeterX;
-          const rectDepth = area.depth * pxPerMeterY;
-          ctx.strokeRect(rectX, rectY, rectWidth, rectDepth);
-        } else if (area.type === 'grid') {
-          if (hasValidGridSize) {
-            ctx.fillStyle = 'rgba(234,179,8,0.35)';
-            area.gridIndices.forEach((idx) => {
-              const gx = idx % gridColCount;
-              const gy = Math.floor(idx / gridColCount);
-              ctx.fillRect(
-                gx * gridWidthPx,
-                gy * gridHeightPx,
-                gridWidthPx,
-                gridHeightPx
-              );
-            });
-          }
+          const [rectX, rectY] = worldToCanvas(area.x, area.z ?? 0);
+          ctx.strokeRect(rectX, rectY, area.width, area.depth);
         }
       });
     }
 
-    // 路径渲染（使用 worldToMapPixel 投影）
+    // 路径渲染
     if (mapData.paths) {
       ctx.strokeStyle = 'rgba(59,130,246,0.9)';
       ctx.lineWidth = 2;
       mapData.paths.forEach((p) => {
         if (!p.points?.length) return;
         ctx.beginPath();
-        // worldToMapPixel 参数顺序: (x, y, z) 标准游戏坐标
-        const [firstX, firstY] = worldToMapPixel(p.points[0].x, p.points[0].y, p.points[0].z, pxPerMeterX, pxPerMeterY);
+        const [firstX, firstY] = worldToCanvas(p.points[0].x, p.points[0].z);
         ctx.moveTo(firstX, firstY);
         for (let i = 1; i < p.points.length; i++) {
-          const [px, py] = worldToMapPixel(p.points[i].x, p.points[i].y, p.points[i].z, pxPerMeterX, pxPerMeterY);
+          const [px, py] = worldToCanvas(p.points[i].x, p.points[i].z);
           ctx.lineTo(px, py);
         }
         if (p.closed) ctx.closePath();
@@ -461,18 +498,17 @@ const MapEditor = () => {
       });
     }
 
-    // 关键点渲染（使用 worldToMapPixel 投影）
+    // 关键点渲染
     if (mapData.points) {
       mapData.points.forEach((pt) => {
-        // worldToMapPixel 参数顺序: (x, y, z) 标准游戏坐标
-        const [screenX, screenY] = worldToMapPixel(pt.x, pt.y, pt.z, pxPerMeterX, pxPerMeterY);
+        const [canvasX, canvasY] = worldToCanvas(pt.x, pt.z);
         ctx.fillStyle = pt.id === selectedPointId ? '#fbbf24' : '#22c55e';
         ctx.beginPath();
-        ctx.arc(screenX, screenY, 6, 0, Math.PI * 2);
+        ctx.arc(canvasX, canvasY, 6, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#ffffff';
         ctx.font = '12px sans-serif';
-        ctx.fillText(pt.id ?? '', screenX + 8, screenY + 4);
+        ctx.fillText(pt.id ?? '', canvasX + 8, canvasY + 4);
       });
     }
 
@@ -497,6 +533,7 @@ const MapEditor = () => {
   };
 
   const handleCanvasDown = (evt) => {
+    console.log('[handleCanvasDown] 开始处理点击, tool=' + tool);
     if (!mapData) return;
     // 区分左右键：左键 button=0，右键 button=2
     const isLeftButton = evt.button === 0;
@@ -511,20 +548,60 @@ const MapEditor = () => {
       isRightMouseDownRef.current = true;
     }
     
-    const { x, y, z } = canvasToWorld(evt);
+    const { x, y, z } = screenToWorld(evt);
+    console.log(`[handleCanvasDown] tool=${tool}, click at (${x.toFixed(2)}, ${z.toFixed(2)})`);
+    
+    // 重置上次阻挡格索引记录（新的鼠标按下）
+    lastBlockIndexRef.current = null;
+    
+    // ===== 坐标转换验证（所有工具都执行） =====
+    const camera = previewRef.current?.camera;
+    const rect = evt.target?.getBoundingClientRect?.() || { left: 0, top: 0 };
+    const canvasX = evt.clientX - rect.left;
+    const canvasY = evt.clientY - rect.top;
+    
+    // Canvas 转 World 再转回 Canvas
+    let worldToCanvasX = NaN, worldToCanvasY = NaN;
+    if (camera && typeof camera.worldToCanvas === 'function') {
+      try {
+        const canvasPos = camera.worldToCanvas(x, y, z);
+        worldToCanvasX = canvasPos.x;
+        worldToCanvasY = canvasPos.y;
+      } catch (err) {
+        console.error('[ERROR] worldToCanvas 执行错误:', err);
+      }
+    }
+    
+    const canvasDev = {
+      x: Math.abs(canvasX - worldToCanvasX).toFixed(2),
+      y: Math.abs(canvasY - worldToCanvasY).toFixed(2)
+    };
+    
     if (tool === 'block') {
-      // 左键刷格子，右键在 contextmenu 中处理
+      // 左键添加阻挡，右键在 contextmenu 中处理删除
       if (!isLeftButton) return;
-      const cols = gridColCount;
-      const rows = gridRowCount;
-      if (!mapData.gridWidth || mapData.gridWidth <= 0 || !mapData.gridHeight || mapData.gridHeight <= 0) return;
-      if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols <= 0 || rows <= 0) return;
-      // 格子使用地面坐标 x 和 z
-      const gx = Math.floor(x / mapData.gridWidth);
-      const gz = Math.floor(z / mapData.gridHeight);
-      if (gx < 0 || gz < 0 || gx >= cols || gz >= rows) return;
-      const index = gz * cols + gx;
-      handleToggleCell(index);
+      
+      // 使用 Map 的网格转换工具函数
+      const gridInfo = worldToGrid(
+        x, z,
+        mapData
+      );
+      
+      if (!gridInfo) return;
+      
+      console.log('[grid] x=' + x.toFixed(4) + ' z=' + z.toFixed(4) + ' col=' + gridInfo.col + ' row=' + gridInfo.row + ' index=' + gridInfo.index);
+      lastBlockIndexRef.current = gridInfo.index; // 记录初始格子
+      
+      // 只添加，不删除
+      const index = gridInfo.index;
+      if (!mapData.gridCells?.includes(index)) {
+        setMapData((prev) => {
+          const next = structuredClone(prev);
+          const cells = next.gridCells ?? (next.gridCells = []);
+          cells.push(index);
+          return next;
+        });
+      }
     } else if (tool === 'build') {
       const bw = mapData.buildGridWidth ?? mapData.gridWidth;
       const bh = mapData.buildGridHeight ?? mapData.gridHeight;
@@ -551,17 +628,21 @@ const MapEditor = () => {
         return next;
       });
     } else if (tool === 'point') {
-      // 在地面平面 (x-z) 上检测点击，半径使用米单位（0.3m）
-      const hitRadius = 0.3;
-      const hit = (mapData.points ?? []).find((p) => {
-        const dx = p.x - x; const dz = p.z - z; return dx * dx + dz * dz <= hitRadius * hitRadius;
-      });
+      // 使用 camera 投影的像素命中，和显示一致
+      const hit = findNearestPointByScreen(mapData.points, evt, 10);
       if (hit) {
         setSelectedPointId(hit.id ?? null);
-        setDragPointId(hit.id ?? null);
+        dragRef.current = {
+          type: 'point',
+          itemId: hit.id,
+          startMouseX: x,
+          startMouseZ: z,
+          startX: hit.x,
+          startZ: hit.z,
+        };
       } else {
         const newId = nextId(mapData.points, 1);
-        // 新建点：使用 canvasToWorld 返回的坐标（y=0 为地面高度）
+        // 新建点：使用 screenToWorld 返回的坐标（y=0 为地面高度）
         const newPoint = { id: newId, x, y, z };
         setMapData((p) => ({ ...p, points: [...(p.points ?? []), newPoint] }));
         setSelectedPointId(newId);
@@ -580,28 +661,28 @@ const MapEditor = () => {
         return next;
       });
     } else if (tool === 'image') {
-      // 检测点击的图片节点（节点坐标存像素，这里换算成米比较）
-      const pxPerMeterX = mapData.pixelsPerMeterX && mapData.pixelsPerMeterX > 0 ? mapData.pixelsPerMeterX : 32;
-      const pxPerMeterY = mapData.pixelsPerMeterY && mapData.pixelsPerMeterY > 0 ? mapData.pixelsPerMeterY : 16;
-      // image 节点使用 x 和 z（地面坐标）
+      console.log(`[image-click] imageTree=${mapData.imageTree?.length ?? 0}`);
+      // 检测点击的图片节点（节点坐标表示左下角）
+      const mapWidth = mapData.mapWidth || 1;
+      const mapHeight = mapData.mapHeight || 1;
+      const mapPixelWidth = mapWidth;
+      const mapPixelHeight = mapHeight;
+      const pixelsPerMeterX = mapPixelWidth / mapWidth;
+      const pixelsPerMeterY = mapPixelHeight / mapHeight;
+      
       const findNodeAt = (nodes, xMeters, zMeters) => {
         if (!nodes) return null;
         for (let i = nodes.length - 1; i >= 0; i--) {
           const node = nodes[i];
           const img = node.path ? imageCacheRef.current.get(node.path) : null;
-          const w = node.width ?? img?.naturalWidth ?? 0;
-          const h = node.height ?? img?.naturalHeight ?? 0;
+          const w = node.width ?? (img?.naturalWidth ? img.naturalWidth / pixelsPerMeterX : 0);
+          const h = node.height ?? (img?.naturalHeight ? img.naturalHeight / pixelsPerMeterY : 0);
           const scale = node.scale ?? 1;
-          // ImageNode.x/y 是像素坐标，转成米坐标（地面 x-z 平面）
-          const nodeX = node.x / pxPerMeterX;
-          const nodeZ = node.y / pxPerMeterY;
-          const halfW = (w * scale) / 2 / pxPerMeterX;
-          const halfH = (h * scale) / 2 / pxPerMeterY;
-          const x1 = nodeX - halfW;
-          const x2 = nodeX + halfW;
-          const z1 = nodeZ - halfH;
-          const z2 = nodeZ + halfH;
-          if (xMeters >= x1 && xMeters <= x2 && zMeters >= z1 && zMeters <= z2) {
+          const nodeWidth = w * scale;
+          const nodeHeight = h * scale;
+          if (xMeters >= node.x && xMeters <= node.x + nodeWidth &&
+              zMeters >= node.y && zMeters <= node.y + nodeHeight) {
+            console.log(`[image-click] HIT node=${node.id}`);
             return node;
           }
           const found = findNodeAt(node.children, xMeters, zMeters);
@@ -611,95 +692,101 @@ const MapEditor = () => {
       };
       const hit = findNodeAt(mapData.imageTree, x, z);
       if (hit) {
+        console.log(`[image-click] HIT node=${hit.id}, setting dragRef for dragging`);
         setSelectedNodeId(hit.id);
-        setDragNodeId(hit.id);
+        dragRef.current = {
+          type: 'image',
+          itemId: hit.id,
+          startMouseX: x,
+          startMouseZ: z,
+          startX: hit.x,
+          startZ: hit.y,
+        };
+        console.log(`[image-click] dragRef set: ${JSON.stringify(dragRef.current)}`);
+      } else {
+        console.log(`[image-click] no hit on imageTree`);
       }
     }
   };
 
   const handleCanvasMove = (evt) => {
     if (!mapData) return;
-    if (!isMouseDownRef.current) return;
-    // 处理左键拖动刷格子
+    if (!isMouseDownRef.current) {
+      return;
+    }
+    
+    const { x, y, z } = screenToWorld(evt);
+    
+    // Point and image drag logic (priority over block tool)
+    if (dragRef.current) {
+      const dr = dragRef.current;
+      const deltaX = x - dr.startMouseX;
+      const deltaZ = z - dr.startMouseZ;
+      
+      if (dr.type === 'point') {
+        setMapData((p) => {
+          const next = structuredClone(p);
+          const target = next.points?.find((pt) => pt.id === dr.itemId);
+          if (target) {
+            target.x = dr.startX + deltaX;
+            target.z = dr.startZ + deltaZ;
+          }
+          return next;
+        });
+      } else if (dr.type === 'image') {
+        setMapData((p) => {
+          const next = structuredClone(p);
+          const updateNode = (nodes) => {
+            if (!nodes) return false;
+            for (const node of nodes) {
+              if (node.id === dr.itemId) {
+                node.x = dr.startX + deltaX;
+                node.y = dr.startZ + deltaZ;
+                return true;
+              }
+              if (updateNode(node.children)) return true;
+            }
+            return false;
+          };
+          updateNode(next.imageTree);
+          return next;
+        });
+      }
+      return;
+    }
+    
+    // Block tool drag logic (only when not dragging point/image)
     if (isLeftMouseDownRef.current && tool === 'block') {
-      // 拖动时持续刷格子
-      const { x, y, z } = canvasToWorld(evt);
-      const cols = gridColCount;
-      const rows = gridRowCount;
-      if (!mapData.gridWidth || mapData.gridWidth <= 0 || !mapData.gridHeight || mapData.gridHeight <= 0) return;
-      if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols <= 0 || rows <= 0) return;
-      const gx = Math.floor(x / mapData.gridWidth);
-      const gz = Math.floor(z / mapData.gridHeight);
-      if (gx < 0 || gz < 0 || gx >= cols || gz >= rows) return;
-      const index = gz * cols + gx;
-      // 检查该格子是否已经在列表中，只在新格子时添加/删除
+      const gridInfo = worldToGrid(x, z, mapData);
+      if (!gridInfo) return;
+      const index = gridInfo.index;
+      // 只在移动到新格子时才操作
+      if (lastBlockIndexRef.current === index) return;
+      lastBlockIndexRef.current = index;
+      
       setMapData((prev) => {
         const next = structuredClone(prev);
-        const arr = next.gridCells ?? (next.gridCells = []);
-        const pos = arr.indexOf(index);
-        if (pos >= 0) {
-          // 已选中，保持不变
-        } else {
-          // 未选中，添加
-          arr.push(index);
+        const cells = next.gridCells ?? (next.gridCells = []);
+        if (!cells.includes(index)) {
+          cells.push(index);
         }
         return next;
       });
     } else if (isRightMouseDownRef.current && tool === 'block') {
-      // 右键拖动批量取消格子
-      const { x, y, z } = canvasToWorld(evt);
-      const cols = gridColCount;
-      const rows = gridRowCount;
-      if (!mapData.gridWidth || mapData.gridWidth <= 0 || !mapData.gridHeight || mapData.gridHeight <= 0) return;
-      if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols <= 0 || rows <= 0) return;
-      const gx = Math.floor(x / mapData.gridWidth);
-      const gz = Math.floor(z / mapData.gridHeight);
-      if (gx < 0 || gz < 0 || gx >= cols || gz >= rows) return;
-      const index = gz * cols + gx;
-      // 批量取消格子
+      const gridInfo = worldToGrid(x, z, mapData);
+      if (!gridInfo) return;
+      const index = gridInfo.index;
+      // 只在移动到新格子时才操作
+      if (lastBlockIndexRef.current === index) return;
+      lastBlockIndexRef.current = index;
+      
       setMapData((prev) => {
         const next = structuredClone(prev);
-        const arr = next.gridCells ?? (next.gridCells = []);
-        const pos = arr.indexOf(index);
+        const cells = next.gridCells ?? [];
+        const pos = cells.indexOf(index);
         if (pos >= 0) {
-          // 已选中，移除
-          arr.splice(pos, 1);
+          cells.splice(pos, 1);
         }
-        return next;
-      });
-    } else if (tool === 'point' && dragPointId != null) {
-      const { x, y, z } = canvasToWorld(evt);
-      setMapData((p) => {
-        const next = structuredClone(p);
-        const target = next.points?.find((pt) => pt.id === dragPointId);
-        if (target) {
-          // 拖拽只更新地面坐标 x 和 z，保持高度 y 不变
-          target.x = x; 
-          target.z = z;
-          // target.y 保持不变（高度在侧边栏编辑）
-        }
-        return next;
-      });
-    } else if (tool === 'image' && dragNodeId != null) {
-      const { x, y, z } = canvasToWorld(evt); // 世界坐标（米）
-      const pxPerMeterX = mapData.pixelsPerMeterX && mapData.pixelsPerMeterX > 0 ? mapData.pixelsPerMeterX : 32;
-      const pxPerMeterY = mapData.pixelsPerMeterY && mapData.pixelsPerMeterY > 0 ? mapData.pixelsPerMeterY : 16;
-      const updateNodePos = (nodes, id, newXMeters, newZMeters) => {
-        if (!nodes) return false;
-        for (const node of nodes) {
-          if (node.id === id) {
-            // ImageNode 使用像素坐标
-            node.x = newXMeters * pxPerMeterX;
-            node.y = newZMeters * pxPerMeterY;
-            return true;
-          }
-          if (updateNodePos(node.children, id, newXMeters, newZMeters)) return true;
-        }
-        return false;
-      };
-      setMapData((p) => {
-        const next = structuredClone(p);
-        updateNodePos(next.imageTree, dragNodeId, x, z);
         return next;
       });
     }
@@ -709,15 +796,15 @@ const MapEditor = () => {
     isMouseDownRef.current = false;
     isLeftMouseDownRef.current = false;
     isRightMouseDownRef.current = false;
-    setDragPointId(null);
-    setDragNodeId(null);
+    dragRef.current = null;
+    lastBlockIndexRef.current = null; // 清空记录
   };
 
   const handleCanvasContextMenu = (evt) => {
     if (!mapData) return;
     evt.preventDefault();
     
-    const { x, y, z } = canvasToWorld(evt);
+    const { x, y, z } = screenToWorld(evt);
 
     // 右键单击（不拖动）处理取消逻辑
     if (tool === 'block') {
@@ -740,7 +827,7 @@ const MapEditor = () => {
         return next;
       });
     } else if (tool === 'point') {
-      const hit = findNearestPoint(mapData.points, x, z);
+      const hit = findNearestPointByScreen(mapData.points, evt, 10);
       if (hit) {
         setMapData((p) => ({ ...p, points: (p.points ?? []).filter((pt) => pt.id !== hit.id) }));
         if (selectedPointId === hit.id) setSelectedPointId(null);
@@ -751,7 +838,7 @@ const MapEditor = () => {
         const next = structuredClone(p);
         const path = next.paths?.find((pp) => pp.id === currentPathId);
         if (path && path.points) {
-          const hit = findNearestPoint(path.points, x, z);
+          const hit = findNearestPointByScreen(path.points, evt, 10);
           if (hit) {
             path.points = path.points.filter((pt) => pt !== hit);
             updated = true;
@@ -916,8 +1003,6 @@ const MapEditor = () => {
       gridHeight: 3.125, // 50px / 16
       colCount: 20,
       rowCount: 20,
-      pixelsPerMeterX: 32,
-      pixelsPerMeterY: 16,
       imageTree: [],
       points: [],
       paths: [],
@@ -1053,13 +1138,32 @@ const MapEditor = () => {
             <ImageTool mapData={mapData} setMapData={setMapData} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} />
           )}
           {tool === 'point' && (
-            <PointTool mapData={mapData} setMapData={setMapData} selectedPointId={selectedPointId} setSelectedPointId={setSelectedPointId} />
+            <PointTool
+              mapData={mapData}
+              setMapData={setMapData}
+              selectedPointId={selectedPointId}
+              setSelectedPointId={setSelectedPointId}
+              onClearAllPoints={() => {
+                if (!mapData) return;
+                setMapData((p) => ({ ...p, points: [] }));
+                setSelectedPointId(null);
+              }}
+            />
           )}
           {tool === 'path' && (
             <PathTool mapData={mapData} setMapData={setMapData} currentPathId={currentPathId} setCurrentPathId={setCurrentPathId} />
           )}
           {tool === 'block' && (
-            <BlockTool gridColCount={gridColCount} gridRowCount={gridRowCount} showBlockedCells={showBlockedCells} setShowBlockedCells={setShowBlockedCells} />
+            <BlockTool
+              gridColCount={gridColCount}
+              gridRowCount={gridRowCount}
+              showBlockedCells={showBlockedCells}
+              setShowBlockedCells={setShowBlockedCells}
+              onClearAllBlocked={() => {
+                if (!mapData) return;
+                setMapData((p) => ({ ...p, gridCells: [] }));
+              }}
+            />
           )}
           {tool === 'build' && (
             <BuildTool mapData={mapData} setMapData={setMapData} buildCols={buildColCount} buildRows={buildRowCount} />
@@ -1067,21 +1171,20 @@ const MapEditor = () => {
         </div>
       </div>
 
-      {/* 右侧画布 */}
+      {/* 右侧画布 - 使用 World 渲染地图 */}
       <div className="flex-1 relative">
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full"
-          onMouseDown={handleCanvasDown}
-          onMouseMove={handleCanvasMove}
-          onMouseUp={handleCanvasUp}
-          onMouseLeave={handleCanvasUp}
-          onContextMenu={handleCanvasContextMenu}
-        />
-        <div className="absolute top-4 left-4 bg-black/50 px-4 py-2 rounded-lg backdrop-blur-sm text-sm">
-          <div className="font-semibold">地图预览</div>
-          <div className="text-slate-300">模式：{tool === 'block' ? '阻挡刷子' : tool === 'build' ? '建筑刷子' : tool === 'point' ? '关键点' : '路径'} | 点击画布进行编辑</div>
-        </div>
+        {mapData && (
+          <MapEditorPreview
+            ref={previewRef}
+            mapData={mapData}
+            showBlockedCells={showBlockedCells}
+            tool={tool}
+            onMouseDown={handleCanvasDown}
+            onMouseMove={handleCanvasMove}
+            onMouseUp={handleCanvasUp}
+            onContextMenu={handleCanvasContextMenu}
+          />
+        )}
         
         {/* Toast 提示 */}
         {toast && (

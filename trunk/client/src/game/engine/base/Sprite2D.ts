@@ -1,31 +1,177 @@
+import * as THREE from 'three';
 import { Texture } from './Texture';
+import { Sprite } from './Sprite';
 import { Vector2 } from './Vector2';
-import { Vector3 } from './Vector3';
 
 /**
  * Sprite2D - 2D 精灵类
- * 位置使用3D坐标（x, y, z），但渲染方式是2D（投影到平面）
- * z坐标用于深度排序和视觉层次
+ * 使用 Three.js 进行渲染，持有自己的网格和材质
+ * 位置使用3D坐标（x, y, z），z坐标用于深度排序
  */
-export class Sprite2D {
-    protected _position: Vector3 = new Vector3(0, 0, 0);
-    protected _scale: Vector2 = new Vector2(1, 1);
-    protected _rotation = 0;
-    protected _anchor: Vector2 = new Vector2(0.5, 0.5);
-    protected _alpha = 1;
-    protected _visible = true;
-    protected _destroyed = false;
+export class Sprite2D extends Sprite {
     protected _texture: Texture | null = null;
     protected _tint: string | null = null;
+    protected _anchor: Vector2 = new Vector2(0.5, 0.5);  // 2D 特有的锚点
+    protected _rotation2D = 0;  // 2D 特有的旋转（单个角度，绕Z轴）
+    protected _width: number = 0;  // 精灵宽度（米）
+    protected _height: number = 0; // 精灵高度（米）
 
-    constructor(imageOrTexture?: HTMLImageElement | HTMLCanvasElement | Texture) {
+    // Three.js 渲染对象
+    private threeGeometry: THREE.PlaneGeometry | null = null;
+    private threeMaterial: THREE.MeshBasicMaterial | null = null;
+    private threeMesh: THREE.Mesh | null = null;
+    private threeTexture: THREE.Texture | null = null;
+
+    constructor(imageOrTexture?: HTMLImageElement | HTMLCanvasElement | Texture, width?: number, height?: number) {
+        super();
         if (imageOrTexture) {
             if (imageOrTexture instanceof Texture) {
                 this._texture = imageOrTexture;
             } else {
                 this._texture = new Texture(imageOrTexture);
             }
+
+            if (width === undefined || height === undefined) {
+                throw new Error('Sprite2D requires width and height in meters.');
+            }
+            if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+                throw new Error('Sprite2D requires positive width and height in meters.');
+            }
+            this._width = width;
+            this._height = height;
+            this.createThreeMesh();
         }
+    }
+
+    /**
+     * 创建 Three.js 网格
+     */
+    private createThreeMesh(): void {
+        if (!this._texture) return;
+
+        // 销毁旧的网格
+        this.destroyThreeMesh();
+
+        if (this._width <= 0 || this._height <= 0) {
+            throw new Error('Sprite2D requires width and height in meters before creating mesh.');
+        }
+        
+        // 创建几何体（使用米单位）
+        this.threeGeometry = new THREE.PlaneGeometry(this._width, this._height);
+        
+        // 创建纹理
+        const image = this._texture.getImage();
+    
+        // 对 HTMLImageElement 使用 Texture（CanvasTexture 更适合 HTMLCanvasElement）
+        this.threeTexture = image instanceof HTMLCanvasElement
+            ? new THREE.CanvasTexture(image)
+            : new THREE.Texture(image);
+        this.threeTexture.needsUpdate = true;
+        this.threeTexture.colorSpace = THREE.SRGBColorSpace;
+        this.threeTexture.magFilter = THREE.NearestFilter;
+        this.threeTexture.minFilter = THREE.NearestFilter;
+
+        // 创建材质
+        this.threeMaterial = new THREE.MeshBasicMaterial({
+            map: this.threeTexture,
+            transparent: true,
+            side: THREE.DoubleSide
+        });
+
+        // 创建网格
+        this.threeMesh = new THREE.Mesh(this.threeGeometry, this.threeMaterial);
+        // 设置旋转以匹配俯视角度（与地图网格相同）
+        this.threeMesh.rotation.x = Math.PI / 2;
+        // 赋值给 _threeObject
+        this._threeObject = this.threeMesh;
+        this.updateThreeMesh();
+    }
+
+    /**
+     * 更新 Three.js 网格的变换（实现基类的抽象方法）
+     */
+    protected onTransformChanged(): void {
+        this.updateThreeMesh();
+    }
+
+    /**
+     * 更新 Three.js 网格的变换
+     */
+    private updateThreeMesh(): void {
+        if (!this.threeMesh || !this._texture) return;
+
+        // 设置位置
+        // 坐标系：原点在左下角，X向右，Y向上（米单位）
+        // 锚点 (0, 0) = 左下角，(1, 1) = 右上角
+        // PlaneGeometry 中心在原点，需要根据锚点偏移
+        let offsetX = 0;
+        let offsetY = 0;
+        if (this._texture) {
+            // VERSION: anchor-fix-v2
+            // anchor.x: 0=左边(需要右移半宽), 0.5=中心(不偏移), 1=右边(需要左移半宽)
+            offsetX = (0.5 - this._anchor.x) * this._width;
+            // anchor.y: 0=底部(需要上移半高), 0.5=中心(不偏移), 1=顶部(需要下移半高)
+            offsetY = (0.5 - this._anchor.y) * this._height;
+        }
+        const finalX = this._position.x + offsetX;
+        const finalY = this._position.y + offsetY;
+        const finalZ = this._position.z;
+        
+        this.threeMesh.position.x = finalX;
+        this.threeMesh.position.y = finalY;
+        this.threeMesh.position.z = finalZ;
+
+        // 设置缩放（3个轴都设置）
+        this.threeMesh.scale.set(this._scale.x, this._scale.y, this._scale.z);
+
+        // 设置旋转
+        this.threeMesh.rotation.z = this._rotation2D;
+
+        // 设置透明度
+        if (this.threeMaterial) {
+            this.threeMaterial.opacity = this._alpha;
+        }
+
+        // 设置可见性
+        this.threeMesh.visible = this._visible;
+
+        // 锚点偏移已通过 mesh.position 处理，避免几何体重复平移
+    }
+
+    /**
+     * 清理资源
+     */
+    dispose(): void {
+        this.destroyThreeMesh();
+    }
+
+    /**
+     * 销毁 Three.js 网格
+     */
+    private destroyThreeMesh(): void {
+        if (this.threeGeometry) {
+            this.threeGeometry.dispose();
+            this.threeGeometry = null;
+        }
+        if (this.threeMaterial) {
+            this.threeMaterial.dispose();
+            this.threeMaterial = null;
+        }
+        if (this.threeTexture) {
+            this.threeTexture.dispose();
+            this.threeTexture = null;
+        }
+        this.threeMesh = null;
+        this._threeObject = null;
+    }
+
+    /**
+    * 设置精灵尺寸（米单位）
+     */
+    setSize(width: number, height: number): void {
+        this._width = width;
+        this._height = height;
+        this.createThreeMesh(); // 重新创建网格以应用新尺寸
     }
 
     /**
@@ -37,6 +183,7 @@ export class Sprite2D {
         } else {
             this._texture = new Texture(imageOrTexture);
         }
+        this.createThreeMesh();
     }
 
     /**
@@ -44,6 +191,7 @@ export class Sprite2D {
      */
     setTexture(texture: Texture): void {
         this._texture = texture;
+        this.createThreeMesh();
     }
 
     /**
@@ -54,92 +202,15 @@ export class Sprite2D {
     }
 
     /**
-     * 位置（3D坐标）
+     * 设置位置（覆盖基类方法以添加日志）
      */
-    get position(): Vector3 {
-        return this._position;
-    }
-
-    set position(value: Vector3) {
-        this._position = value.clone();
-    }
-
     setPosition(x: number, y: number, z: number = 0): void {
-        this._position.x = x;
-        this._position.y = y;
-        this._position.z = z;
-    }
-
-    getPosition(): Vector3 {
-        return this._position;
+        super.setPosition(x, y, z);
     }
 
     /**
-     * 仅获取/设置 x 坐标
-     */
-    get x(): number {
-        return this._position.x;
-    }
-
-    set x(value: number) {
-        this._position.x = value;
-    }
-
-    /**
-     * 仅获取/设置 y 坐标
-     */
-    get y(): number {
-        return this._position.y;
-    }
-
-    set y(value: number) {
-        this._position.y = value;
-    }
-
-    /**
-     * 仅获取/设置 z 坐标（深度）
-     */
-    get z(): number {
-        return this._position.z;
-    }
-
-    set z(value: number) {
-        this._position.z = value;
-    }
-
-    /**
-     * 缩放
-     */
-    get scale(): Vector2 {
-        return this._scale;
-    }
-
-    set scale(value: Vector2) {
-        this._scale = value.clone();
-    }
-
-    setScale(x: number, y: number): void {
-        this._scale.x = x;
-        this._scale.y = y;
-    }
-
-    getScale(): Vector2 {
-        return this._scale;
-    }
-
-    /**
-     * 旋转
-     */
-    get rotation(): number {
-        return this._rotation;
-    }
-
-    set rotation(value: number) {
-        this._rotation = value * (Math.PI / 180);
-    }
-
-    /**
-     * 锚点 (0-1)
+     * 锚点 (0-1) - 2D 特有属性
+     * (0, 0) = 左下角, (0.5, 0.5) = 中心, (1, 1) = 右上角
      */
     get anchor(): Vector2 {
         return this._anchor;
@@ -147,11 +218,13 @@ export class Sprite2D {
 
     set anchor(value: Vector2) {
         this._anchor = value.clone();
+        this.updateThreeMesh();
     }
 
     setAnchor(x: number, y: number): void {
         this._anchor.x = x;
         this._anchor.y = y;
+        this.updateThreeMesh();
     }
 
     getAnchor(): Vector2 {
@@ -159,38 +232,27 @@ export class Sprite2D {
     }
 
     /**
-     * 透明度
+     * 旋转Z轴 - 2D 特有属性（角度，自动转换为弧度）
      */
-    get alpha(): number {
-        return this._alpha;
+    get rotationZ(): number {
+        return this._rotation2D;
     }
 
-    set alpha(value: number) {
-        this._alpha = Math.max(0, Math.min(1, value));
+    set rotationZ(value: number) {
+        this._rotation2D = value * (Math.PI / 180);
+        this.updateThreeMesh();
     }
+
 
     /**
-     * 可见性
-     */
-    get visible(): boolean {
-        return this._visible;
-    }
-
-    set visible(value: boolean) {
-        this._visible = value;
-    }
-
-    /**
-     * 尺寸
+    * 尺寸（米单位）
      */
     get width(): number {
-        if (!this._texture) return 0;
-        return this._texture.width * this._scale.x;
+        return this._width * this._scale.x;
     }
 
     get height(): number {
-        if (!this._texture) return 0;
-        return this._texture.height * this._scale.y;
+        return this._height * this._scale.y;
     }
 
     /**
@@ -198,92 +260,17 @@ export class Sprite2D {
      */
     setTint(color: string): void {
         this._tint = color;
+        if (this.threeMaterial) {
+            const rgb = this.parseColor(color);
+            this.threeMaterial.color.setRGB(rgb.r / 255, rgb.g / 255, rgb.b / 255);
+        }
     }
 
     /**
-     * 渲染到 WebGL
+     * 获取 Three.js 网格
      */
-    render(gl: WebGL2RenderingContext): void {
-        if (!this._visible || !this._texture || this._alpha <= 0) {
-            return;
-        }
-
-        this.renderWebGL(gl);
-    }
-
-    /**
-     * WebGL 渲染
-     */
-    private renderWebGL(gl: WebGL2RenderingContext): void {
-        if (!this._texture) return;
-
-        // 获取纹理对象
-        const glTexture = this._texture.getGLTexture(gl);
-        gl.bindTexture(gl.TEXTURE_2D, glTexture);
-
-        // 创建模型矩阵
-        const modelMatrix = this.createModelMatrix();
-        const modelLoc = gl.getUniformLocation(gl.getParameter(gl.CURRENT_PROGRAM), 'model');
-        const tintLoc = gl.getUniformLocation(gl.getParameter(gl.CURRENT_PROGRAM), 'tint');
-        const textureLoc = gl.getUniformLocation(gl.getParameter(gl.CURRENT_PROGRAM), 'uTexture');
-
-        gl.uniformMatrix4fv(modelLoc, false, modelMatrix);
-
-        // 设置色调
-        if (this._tint) {
-            const rgb = this.parseColor(this._tint);
-            gl.uniform4f(tintLoc, rgb.r / 255, rgb.g / 255, rgb.b / 255, this._alpha);
-        } else {
-            gl.uniform4f(tintLoc, 1, 1, 1, this._alpha);
-        }
-
-        gl.uniform1i(textureLoc, 0);
-
-        // 绘制
-        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-    }
-
-    /**
-     * 创建模型矩阵
-     */
-    private createModelMatrix(): Float32Array {
-        if (!this._texture) {
-            const identity = new Float32Array(16);
-            identity[0] = identity[5] = identity[10] = identity[15] = 1;
-            return identity;
-        }
-
-        const matrix = new Float32Array(16);
-
-        // 初始化为单位矩阵
-        matrix[0] = 1;
-        matrix[5] = 1;
-        matrix[10] = 1;
-        matrix[15] = 1;
-
-        // 计算实际宽高和缩放
-        const width = this._texture.width * this._scale.x;
-        const height = this._texture.height * this._scale.y;
-
-        // 计算锚点偏移
-        const offsetX = width * this._anchor.x;
-        const offsetY = height * this._anchor.y;
-
-        // 旋转角度
-        const cos = Math.cos(this._rotation);
-        const sin = Math.sin(this._rotation);
-
-        // 设置缩放和旋转（列主序）
-        matrix[0] = cos * width;
-        matrix[1] = sin * width;
-        matrix[4] = -sin * height;
-        matrix[5] = cos * height;
-
-        // 设置平移
-        matrix[12] = this._position.x - offsetX * cos - offsetY * (-sin);
-        matrix[13] = this._position.y - offsetX * sin - offsetY * cos;
-
-        return matrix;
+    getThreeMesh(): THREE.Mesh | null {
+        return this.threeMesh;
     }
 
     /**
@@ -306,12 +293,47 @@ export class Sprite2D {
      */
     destroy(): void {
         if (!this._destroyed) {
+            this.destroyThreeMesh();
             this._texture = null;
             this._destroyed = true;
         }
     }
 
-    get destroyed(): boolean {
-        return this._destroyed;
+    /**
+     * 静态方法：从 JSON 配置文件加载 2D 图片精灵
+     * @param jsonPath 配置文件路径（/unit/{modelId}.json）
+     * @returns 创建的 Sprite2D 实例
+     */
+    static async create(jsonPath: string): Promise<Sprite2D> {
+        try {
+            const response = await fetch(jsonPath);
+            if (!response.ok) {
+                throw new Error(`Failed to load ${jsonPath}: ${response.statusText}`);
+            }
+            const config = await response.json();
+
+            // 从配置中提取基本信息
+            const imagePath = config.image || config.texture;
+            if (!imagePath) {
+                throw new Error(`No image/texture property found in ${jsonPath}`);
+            }
+
+            const width = config.width ?? 1;
+            const height = config.height ?? 1;
+
+            // 加载图片
+            const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => resolve(image);
+                image.onerror = () => reject(new Error(`Failed to load image: ${imagePath}`));
+                image.src = imagePath;
+            });
+
+            // 创建 Sprite2D 实例
+            const sprite = new Sprite2D(img, width, height);
+            return sprite;
+        } catch (error) {
+            throw new Error(`Failed to create Sprite2D from ${jsonPath}: ${error}`);
+        }
     }
 }

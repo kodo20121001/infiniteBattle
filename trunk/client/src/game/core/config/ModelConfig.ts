@@ -4,9 +4,11 @@ import { Configs } from "../../common/Configs";
  * 模型类型枚举
  */
 export enum ModelType {
-    Sprite2D = '2d',           // 2D序列帧
-    Spine = 'spine',           // Spine动画
-    Model3D = '3d'             // 3D模型
+    None = 'none',             // 无实体模型（仅用于插件创建的特效等）
+    Image2D = '2d_image',      // 2D图片
+    Sequence2D = '2d_sequence',// 2D序列帧
+    Spine2D = '2d_spine',      // 2D Spine
+    Fbx3D = '3d_fbx'           // 3D FBX
 }
 
 /**
@@ -16,7 +18,9 @@ export interface ModelConfig {
     id: string;                // 模型ID
     name: string;              // 模型名称
     type: ModelType;           // 模型类型
+    path?: string;             // 资源文件完整路径（如 /unit/monkey.json、/effect/fire_ball.json），默认为 /unit/{id}.json
     scale?: number;            // 默认缩放
+    rotation?: { x?: number; y?: number; z?: number };  // 初始旋转（弧度），绕 X/Y/Z 轴
     defaultAction?: string;    // 默认动作
     hp?: number;               // 生命值
     speed?: number;            // 移动速度

@@ -1,32 +1,30 @@
-import { Sprite2D } from '../base/Sprite2D';
+import { Sprite } from '../base/Sprite';
 
 /**
  * SpriteManager - 精灵管理器
  * 统一管理所有精灵的创建、更新、渲染和销毁
  */
 export class SpriteManager {
-    private sprites: Map<string, Sprite2D> = new Map();
-    private spriteList: Sprite2D[] = [];
-    private renderOrder: Sprite2D[] = [];
+    private sprites: Map<string, Sprite> = new Map();
+    private spriteList: Sprite[] = [];
     private _destroyed = false;
 
     /**
      * 添加精灵
      */
-    add(id: string, sprite: Sprite2D): void {
+    add(id: string, sprite: Sprite): void {
         if (this.sprites.has(id)) {
             console.warn(`Sprite with id "${id}" already exists`);
             return;
         }
         this.sprites.set(id, sprite);
         this.spriteList.push(sprite);
-        this.renderOrder.push(sprite);
     }
 
     /**
      * 获取精灵
      */
-    get(id: string): Sprite2D | undefined {
+    get(id: string): Sprite | undefined {
         return this.sprites.get(id);
     }
 
@@ -44,11 +42,6 @@ export class SpriteManager {
             this.spriteList.splice(listIndex, 1);
         }
 
-        const renderIndex = this.renderOrder.indexOf(sprite);
-        if (renderIndex !== -1) {
-            this.renderOrder.splice(renderIndex, 1);
-        }
-
         return true;
     }
 
@@ -62,37 +55,15 @@ export class SpriteManager {
     /**
      * 获取所有精灵
      */
-    getAll(): Sprite2D[] {
+    getAll(): Sprite[] {
         return [...this.spriteList];
     }
 
     /**
      * 按 Z 轴排序渲染顺序
      */
-    sortByZIndex(getZIndex: (sprite: Sprite2D) => number): void {
-        this.renderOrder.sort((a, b) => getZIndex(a) - getZIndex(b));
-    }
-
-    /**
-     * 更新所有精灵
-     */
-    update(): void {
-        for (const sprite of this.spriteList) {
-            if (!sprite.destroyed && typeof sprite.update === 'function') {
-                sprite.update();
-            }
-        }
-    }
-
-    /**
-     * 渲染所有精灵（支持 WebGL）
-     */
-    render(gl: WebGL2RenderingContext): void {
-        for (const sprite of this.renderOrder) {
-            if (sprite.visible && !sprite.destroyed) {
-                sprite.render(gl);
-            }
-        }
+    sortByZIndex(getZIndex: (sprite: Sprite) => number): void {
+        this.spriteList.sort((a, b) => getZIndex(a) - getZIndex(b));
     }
 
     /**
@@ -104,7 +75,6 @@ export class SpriteManager {
         }
         this.sprites.clear();
         this.spriteList = [];
-        this.renderOrder = [];
     }
 
     /**

@@ -1,4 +1,4 @@
-import { Camera2D } from '../base/Camera2D';
+import { Camera } from '../base/Camera';
 import { Renderer } from './Renderer';
 import { SpriteManager } from './SpriteManager';
 import { Time } from './Time';
@@ -11,7 +11,7 @@ import { Time } from './Time';
 export class World {
     readonly spriteManager: SpriteManager;
     readonly renderer: Renderer;
-    readonly camera: Camera2D;
+    readonly camera: Camera;
 
     private _isRunning = false;
     private _isPaused = false;
@@ -30,6 +30,7 @@ export class World {
     private _updateCallback: ((deltaTime: number) => void) | null = null;
     private _renderCallback: ((deltaTime: number) => void) | null = null;
     private _fixedUpdateCallback: ((fixedDeltaTime: number) => void) | null = null;
+    private _renderCallbacks: Array<(deltaTime: number) => void> = [];
 
     constructor(
         canvas: HTMLCanvasElement,
@@ -37,10 +38,11 @@ export class World {
         height: number = 600,
         targetFps: number = 60
     ) {
-        this.camera = new Camera2D(width, height);
+        this.camera = new Camera(width, height);
         this.spriteManager = new SpriteManager();
         this.renderer = new Renderer(canvas, this.camera, this.spriteManager);
         this.setTargetFps(targetFps);
+
     }
 
     setTargetFps(fps: number): void {
@@ -58,6 +60,7 @@ export class World {
 
     onRender(callback: (deltaTime: number) => void): void {
         this._renderCallback = callback;
+        this._renderCallbacks.push(callback);
     }
 
     onFixedUpdate(callback: (fixedDeltaTime: number) => void): void {
@@ -128,8 +131,14 @@ export class World {
             this._updateCallback(this._deltaTime);
         }
         // 渲染
-        if (this._renderCallback) {
-            this._renderCallback(this._deltaTime);
+        if (this._renderCallbacks.length > 0) {
+            try {
+                for (const callback of this._renderCallbacks) {
+                    callback(this._deltaTime);
+                }
+            } catch (err) {
+                console.error('[World] Render callback error:', err);
+            }
         }
         this._updateFps(currentTime);
     }
@@ -161,7 +170,6 @@ export class World {
 
     // 兼容旧接口：每帧手动调用
     update(): void {
-        this.spriteManager.update();
         this.renderer.render();
     }
 
@@ -176,7 +184,7 @@ export class World {
         this.renderer.resize(width, height);
     }
 
-    getCamera(): Camera2D {
+    getCamera(): Camera {
         return this.camera;
     }
     getSpriteManager(): SpriteManager {

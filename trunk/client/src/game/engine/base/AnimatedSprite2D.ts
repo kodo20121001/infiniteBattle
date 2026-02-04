@@ -43,6 +43,17 @@ export class AnimatedSprite2D extends Sprite2D {
   private frameTime = 0;
   private isPlaying = false;
   private isLooping = true;
+  private initialWidth: number = 0;  // 初始宽度（米），保持不变
+  private initialHeight: number = 0; // 初始高度（米），保持不变
+
+  private static getTextureSize(texture: Texture): { width: number; height: number } {
+    return { width: texture.width, height: texture.height };
+  }
+
+  private applyFrameTexture(texture: Texture): void {
+    // 只改变纹理，不改变几何体尺寸（保持初始尺寸）
+    this.setTexture(texture);
+  }
 
   constructor(clips: AnimationClip | AnimationClip[]) {
     let clipsArray: AnimationClip[];
@@ -59,10 +70,23 @@ export class AnimatedSprite2D extends Sprite2D {
     
     // 设置第一个 clip 为当前 clip 并调用 super
     const firstClip = clipsArray[0];
-    super(firstClip.frames[0]);
+    const firstTexture = firstClip.frames[0];
+    const { width, height } = AnimatedSprite2D.getTextureSize(firstTexture);
+    // 基准高度，宽度根据纹理宽高比自动计算，乘以缩放因子调整
+    const baseHeight = height / 10;
+    const aspectRatio = width / height;
+    const widthScaleFactor = 0.72;  // 宽度缩放因子，可根据需要调整
+    const widthMeters = baseHeight * aspectRatio * widthScaleFactor;
+    const heightMeters = baseHeight;
+    super(firstTexture, widthMeters, heightMeters);
     
     // 调用 super 之后才能使用 this
+    this.initialWidth = widthMeters;
+    this.initialHeight = heightMeters;
     this.currentClip = firstClip;
+    
+    // 设置锚点为中心（确保图片居中）
+    this.setAnchor(0.5, 0.5);
     
     // 注册所有 clips
     clipsArray.forEach(clip => {
@@ -117,7 +141,7 @@ export class AnimatedSprite2D extends Sprite2D {
     this.currentClip = clip;
     this.currentFrameIndex = 0;
     this.frameTime = 0;
-    this.setTexture(clip.frames[0]);
+    this.applyFrameTexture(clip.frames[0]);
     this.isPlaying = true;
     this.isLooping = loop;
     return true;
@@ -260,6 +284,7 @@ export class AnimatedSprite2D extends Sprite2D {
       this.isLooping = loop;
       this.frameTime = 0;
       this.currentFrameIndex = 0;
+      this.applyFrameTexture(this.currentClip.frames[0]);
     }
     return true;
   }
@@ -278,7 +303,7 @@ export class AnimatedSprite2D extends Sprite2D {
     this.isPlaying = false;
     this.frameTime = 0;
     this.currentFrameIndex = 0;
-    this.setTexture(this.currentClip.frames[0]);
+    this.applyFrameTexture(this.currentClip.frames[0]);
   }
 
   /**
@@ -318,7 +343,7 @@ export class AnimatedSprite2D extends Sprite2D {
     const index = Math.max(0, Math.min(frameIndex, this.currentClip.frames.length - 1));
     this.currentFrameIndex = index;
     this.frameTime = 0;
-    this.setTexture(this.currentClip.frames[index]);
+    this.applyFrameTexture(this.currentClip.frames[index]);
   }
 
   /**
@@ -346,7 +371,7 @@ export class AnimatedSprite2D extends Sprite2D {
         }
       }
 
-      this.setTexture(this.currentClip.frames[this.currentFrameIndex]);
+      this.applyFrameTexture(this.currentClip.frames[this.currentFrameIndex]);
     }
   }
 }

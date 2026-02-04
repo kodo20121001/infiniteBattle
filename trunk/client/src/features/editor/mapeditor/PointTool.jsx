@@ -1,6 +1,6 @@
 import React from 'react';
 
-const PointTool = ({ mapData, setMapData, selectedPointId, setSelectedPointId }) => {
+const PointTool = ({ mapData, setMapData, selectedPointId, setSelectedPointId, onClearAllPoints }) => {
   const selectedPoint = mapData?.points?.find((p) => p.id === selectedPointId);
 
   const handleCoordChange = (field, value) => {
@@ -67,6 +67,12 @@ const PointTool = ({ mapData, setMapData, selectedPointId, setSelectedPointId })
         className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 rounded border border-red-500 text-sm font-semibold"
       >
         删除点
+      </button>
+      <button
+        onClick={onClearAllPoints}
+        className="w-full px-3 py-2 bg-red-700 hover:bg-red-800 rounded border border-red-600 text-sm font-semibold"
+      >
+        清除所有关键点
       </button>
     </div>
   );

@@ -3,8 +3,10 @@
  * 负责加载和管理地图配置、背景图像和地图元素
  */
 
+import * as THREE from 'three';
 import { Sprite2D } from '../../engine/base/Sprite2D';
 import { SpriteManager } from '../../engine/common/SpriteManager';
+import type { Camera } from '../../engine/base/Camera';
 
 export interface MapPoint {
     id: string | number;
@@ -19,6 +21,10 @@ export interface MapImageNode {
     x: number;
     y: number;
     path: string;
+    width?: number;  // 图片宽度（米）
+    height?: number; // 图片高度（米）
+    children?: MapImageNode[]; // 子节点
+    scale?: number;  // 缩放比例
 }
 
 export interface MapConfig {
@@ -30,13 +36,6 @@ export interface MapConfig {
     gridHeight?: number;      // 格子高度（米）
     colCount?: number;        // 网格列数（预计算）
     rowCount?: number;        // 网格行数（预计算）
-    pixelsPerMeterX?: number;  // 横轴：1米对应多少像素（默认32）
-    pixelsPerMeterY?: number;  // 纵轴：1米对应多少像素（默认16，斜45度俯视）
-    viewportWidth?: number;    // 视口宽度（像素，默认800）
-    viewportHeight?: number;   // 视口高度（像素，默认600）
-    cameraX?: number;          // 相机初始X位置（世界坐标，米）
-    cameraY?: number;          // 相机初始Y位置（世界坐标，米）
-    cameraZ?: number;          // 相机初始Z位置（世界坐标，米）
     imageTree?: MapImageNode[];
     points?: MapPoint[];
     paths?: any[];
@@ -49,68 +48,159 @@ export interface MapConfig {
  */
 export class GameMap {
     private _config: MapConfig;
-    private _backgroundSprites: globalThis.Map<string, Sprite2D> = new globalThis.Map();
     private _spriteManager: SpriteManager;
-    private _loadedImages: globalThis.Map<string, HTMLImageElement> = new globalThis.Map();
     private _blockedCells: Set<number> = new Set();
+    private _camera?: Camera;
 
-    constructor(config: MapConfig, spriteManager: SpriteManager) {
+    constructor(config: MapConfig, spriteManager: SpriteManager, camera?: Camera) {
         this._config = config;
         this._spriteManager = spriteManager;
+        this._camera = camera;
 
-        // 预计算列/行数，若配置中未提供则按尺寸与格子大小推算并写回配置
+        // 预计算列/行数
         const gw = config.gridWidth || 0;
         const gh = config.gridHeight || 0;
         if (gw > 0 && gh > 0 && config.mapWidth && config.mapHeight) {
-            const colCount = config.colCount ?? Math.floor(config.mapWidth / gw);
-            const rowCount = config.rowCount ?? Math.floor(config.mapHeight / gh);
-            this._config.colCount = colCount;
-            this._config.rowCount = rowCount;
+            this._config.colCount = config.colCount ?? Math.floor(config.mapWidth / gw);
+            this._config.rowCount = config.rowCount ?? Math.floor(config.mapHeight / gh);
         }
 
-        if (config.gridCells && Array.isArray(config.gridCells)) {
+        // 初始化阻挡格
+        if (config.gridCells) {
             config.gridCells.forEach((idx) => {
                 if (typeof idx === 'number' && idx >= 0) this._blockedCells.add(idx);
             });
         }
+
+        // 根据地图尺寸初始化相机（如果提供）
+        if (this._camera) {
+            const mapWidth = config.mapWidth || 1;
+            const mapHeight = config.mapHeight || 1;
+            this._camera.setOrthoHeight(mapHeight);
+            this._camera.setPosition(mapWidth / 2, 50, mapHeight / 2);
+            this._camera.setZoom(1);
+        }
     }
 
     /**
-     * 加载地图背景图像
+     * 应用精灵变换（位置、尺寸、旋转）
      */
-    async loadBackgrounds(): Promise<void> {
-        if (!this._config.imageTree || this._config.imageTree.length === 0) {
-            console.log('No background images to load');
+    private applySpriteTransform(sprite: Sprite2D, imageNode: MapImageNode, img: HTMLImageElement): void {
+        const widthMeters = imageNode.width ?? img.width;
+        const heightMeters = imageNode.height ?? img.height;
+        
+        sprite.setSize(widthMeters, heightMeters);
+        sprite.setAnchor(0.5, 0.5);
+        sprite.setPosition(
+            imageNode.x + widthMeters / 2,
+            0,
+            imageNode.y + heightMeters / 2
+        );
+        
+        const mesh = sprite.getThreeMesh();
+        if (mesh) {
+            mesh.rotation.x = -Math.PI / 2;
+            const mat = mesh.material;
+            const tex = Array.isArray(mat)
+                ? (mat[0] as THREE.MeshBasicMaterial)?.map
+                : (mat as THREE.MeshBasicMaterial)?.map;
+            if (tex) {
+                tex.flipY = false;
+                tex.needsUpdate = true;
+            }
+        }
+    }
+
+    /**
+     * 加载单个图片节点
+     */
+    private loadImageNode(imageNode: MapImageNode, spriteId: string): Promise<void> {
+        return new Promise<void>((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const sprite = new Sprite2D(img, 1, 1);
+                this.applySpriteTransform(sprite, imageNode, img);
+                this._spriteManager.add(spriteId, sprite);
+                resolve();
+            };
+            img.onerror = () => {
+                console.warn(`✗ Failed: ${imageNode.path}`);
+                resolve();
+            };
+            img.crossOrigin = 'anonymous';
+            img.src = imageNode.path;
+        });
+    }
+
+    /**
+     * 更新已存在的sprite
+     */
+    private updateExistingSprite(sprite: Sprite2D, imageNode: MapImageNode, spriteId: string): Promise<void> {
+        return new Promise<void>((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                this.applySpriteTransform(sprite, imageNode, img);
+                resolve();
+            };
+            img.onerror = () => resolve();
+            img.crossOrigin = 'anonymous';
+            img.src = imageNode.path;
+        });
+    }
+
+    /**
+     * 加载地图图片
+     */
+    async loadImages(): Promise<void> {
+        if (!this._config.imageTree?.length) {
+            console.log('No images to load');
             return;
         }
 
-        console.log(`Loading ${this._config.imageTree.length} background images...`);
-        const loadPromises = this._config.imageTree.map((imageNode) => {
-            return new Promise<void>((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => {
-                    console.log(`✓ Loaded image: ${imageNode.path}`);
-                    const sprite = new Sprite2D(img);
-                    sprite.setAnchor(0, 0);
-                    sprite.setPosition(imageNode.x || 0, imageNode.y || 0, -100);
-                    const spriteId = `bg_${imageNode.id}`;
-                    this._spriteManager.add(spriteId, sprite);
-                    this._backgroundSprites.set(spriteId, sprite);
-                    this._loadedImages.set(spriteId, img);
-                    resolve();
-                };
-                img.onerror = () => {
-                    console.warn(`✗ Failed to load map image: ${imageNode.path}`);
-                    resolve(); // 继续加载其他图像
-                };
-                img.crossOrigin = 'anonymous';
-                img.src = imageNode.path;
-                console.log(`Loading image: ${imageNode.path}`);
-            });
-        });
+        console.log(`Loading ${this._config.imageTree.length} images...`);
+        const promises: Promise<void>[] = [];
+        
+        const processTree = (nodes: MapImageNode[]) => {
+            for (const node of nodes) {
+                const spriteId = `bg_${node.id}`;
+                promises.push(this.loadImageNode(node, spriteId));
+                if (node.children?.length) {
+                    processTree(node.children);
+                }
+            }
+        };
 
-        await Promise.all(loadPromises);
-        console.log('All background images loaded');
+        processTree(this._config.imageTree);
+        await Promise.all(promises);
+    }
+
+    /**
+     * 更新图片显示（尺寸/位置/新增/删除）
+     */
+    async updateImages(imageTree?: MapImageNode[]): Promise<void> {
+        if (!imageTree) return;
+        
+        const promises: Promise<void>[] = [];
+
+        const processTree = (nodes: MapImageNode[]) => {
+            for (const node of nodes) {
+                const spriteId = `bg_${node.id}`;
+                const existingSprite = this._spriteManager.get(spriteId) as Sprite2D | undefined;
+                
+                promises.push(
+                    existingSprite
+                        ? this.updateExistingSprite(existingSprite, node, spriteId)
+                        : this.loadImageNode(node, spriteId)
+                );
+                
+                if (node.children?.length) {
+                    processTree(node.children);
+                }
+            }
+        };
+
+        processTree(imageTree);
+        await Promise.all(promises);
     }
 
     /**
@@ -136,27 +226,17 @@ export class GameMap {
 
     /**
      * 将世界坐标转换为网格索引
-     * @returns { col, row, index } 或 null（越界或配置缺失）
+     * 调用导出函数避免代码重复（世界 X/Z）
      */
-    worldToGrid(x: number, y: number): { col: number; row: number; index: number } | null {
-        const gw = this._config.gridWidth!;
-        const gh = this._config.gridHeight!;
-        const colCount = this._config.colCount!;
-        const rowCount = this._config.rowCount!;
-
-        const col = Math.floor(x / gw);
-        const row = Math.floor(y / gh);
-        if (col < 0 || row < 0 || col >= colCount || row >= rowCount) return null;
-
-        const index = row * colCount + col;
-        return { col, row, index };
+    worldToGrid(x: number, z: number): { col: number; row: number; index: number } | null {
+        return worldToGrid(x, z, this._config);
     }
 
     /**
      * 判断指定世界坐标是否可行走
      */
-    isWalkable(x: number, y: number): boolean {
-        const grid = this.worldToGrid(x, y);
+    isWalkable(x: number, z: number): boolean {
+        const grid = this.worldToGrid(x, z);
         if (!grid) return false; // 越界或配置不完整
         return !this._blockedCells.has(grid.index);
     }
@@ -179,11 +259,142 @@ export class GameMap {
      * 清理地图资源
      */
     dispose(): void {
-        // 移除背景 sprite
-        for (const spriteId of this._backgroundSprites.keys()) {
-            // 这里可以调用 spriteManager.remove(spriteId) 如果有此方法
-        }
-        this._backgroundSprites.clear();
-        this._loadedImages.clear();
+        // 不需要做什么，sprite由spriteManager管理
     }
 }
+
+/**
+ * 世界坐标转网格坐标（工具函数）
+ * 左下角为原点：世界 X 向右，世界 Z 向上
+ * @param worldX 世界坐标 X
+ * @param worldZ 世界坐标 Z（对应深度）
+ * @param config 地图配置
+ * @returns { col, row, index } 或 null（越界或配置缺失）
+ */
+export const worldToGrid = (
+    worldX: number,
+    worldZ: number,
+    config: MapConfig
+): { col: number; row: number; index: number } | null => {
+    if (!config.gridWidth || !config.gridHeight || !config.colCount || !config.rowCount || !config.mapHeight) {
+        return null;
+    }
+
+    const col = Math.floor(worldX / config.gridWidth);
+    const row = Math.floor(worldZ / config.gridHeight);
+    
+    if (col < 0 || row < 0 || col >= config.colCount || row >= config.rowCount) {
+        return null;
+    }
+
+    const index = row * config.colCount + col;
+    return { col, row, index };
+};
+
+/**
+ * 网格坐标转世界坐标（工具函数，格子中心点）
+ * 左下角为原点：世界 X 向右，世界 Z 向上
+ * @param col 格子列号
+ * @param row 格子行号
+ * @param config 地图配置
+ * @returns { x, z } 世界坐标（格子中心点）或 null（越界或配置缺失）
+ */
+export const gridToWorld = (
+    col: number,
+    row: number,
+    config: MapConfig
+): { x: number; z: number } | null => {
+    if (!config.gridWidth || !config.gridHeight || !config.colCount || !config.rowCount || !config.mapHeight) {
+        return null;
+    }
+
+    if (col < 0 || row < 0 || col >= config.colCount || row >= config.rowCount) {
+        return null;
+    }
+
+    // 返回格子中心点
+    const x = (col + 0.5) * config.gridWidth;
+    const z = (row + 0.5) * config.gridHeight;
+
+    return { x, z };
+};
+
+/**
+ * 网格索引转世界坐标（工具函数）
+ * @param index 格子索引
+ * @param config 地图配置
+ * @returns { x, z } 世界坐标或 null（越界或配置缺失）
+ */
+export const gridIndexToWorld = (
+    index: number,
+    config: MapConfig
+): { x: number; z: number } | null => {
+    if (!config.colCount || !config.rowCount) {
+        return null;
+    }
+
+    if (index < 0 || index >= config.colCount * config.rowCount) {
+        return null;
+    }
+
+    const col = index % config.colCount;
+    const row = Math.floor(index / config.colCount);
+
+    return gridToWorld(col, row, config);
+};
+
+/**
+ * 判断指定世界坐标是否被阻挡（工具函数）
+ * @param worldX 世界坐标 X
+ * @param worldY 世界坐标 Y（对应 Z 深度）
+ * @param config 地图配置
+ * @returns true 表示可行走，false 表示被阻挡或越界
+ */
+export const isGridWalkable = (
+    worldX: number,
+    worldY: number,
+    config: MapConfig
+): boolean => {
+    const grid = worldToGrid(worldX, worldY, config);
+    if (!grid) return false;
+    
+    const blockedCells = config.gridCells || [];
+    return !blockedCells.includes(grid.index);
+};
+/**
+ * 计算世界坐标所属的格子 ID（0.5 x 0.5 格子）
+ * @param worldX 世界坐标 X
+ * @param worldZ 世界坐标 Z
+ * @param mapWidth 地图宽度
+ * @param gridCellSize 格子大小（默认0.5）
+ * @returns 格子信息 {gridX, gridZ, gridId}
+ */
+export const calculateGridId = (
+    worldX: number,
+    worldZ: number,
+    mapWidth: number,
+    gridCellSize: number = 0.5
+): { gridX: number; gridZ: number; gridId: number } => {
+    const gridX = Math.floor(worldX / gridCellSize);
+    const gridZ = Math.floor(worldZ / gridCellSize);
+    const gridId = gridZ * Math.ceil(mapWidth / gridCellSize) + gridX;
+    return { gridX, gridZ, gridId };
+};
+
+/**
+ * 从格子 ID 还原为格子坐标（0.5 x 0.5 格子）
+ * @param gridId 格子 ID
+ * @param mapWidth 地图宽度
+ * @param gridCellSize 格子大小（默认0.5）
+ * @returns 格子坐标 {gridX, gridZ}
+ */
+export const getGridCoordinates = (
+    gridId: number,
+    mapWidth: number,
+    gridCellSize: number = 0.5
+): { gridX: number; gridZ: number } => {
+    const colCount = Math.ceil(mapWidth / gridCellSize);
+    const gridZ = Math.floor(gridId / colCount);
+    const gridX = gridId % colCount;
+    return { gridX, gridZ };
+};

@@ -11,18 +11,18 @@
  * 
  * - Canvas 原点：左上角；x 向右为正，y 向下为正。
  * - 世界坐标：x（水平方向）、z（屏幕向下方向，越近越大）、y（高度，越高越上）。
- * - 投影采用正交俯视：将 (x, z) 投到屏幕，y 仅作为向上的偏移量。
+ * - 投影采用正交俯视（now handled by three.js）：将 (x, z) 投到屏幕，y 仅作为向上的偏移量。
  * 
- * 映射公式（详见 core/base/WorldProjection.ts）：
- *   screenX = x * pixelsPerMeterX
- *   screenY = z * pixelsPerMeterY - y * HEIGHT_FACTOR * pixelsPerMeterY
+ * 由于已移迁到 three.js 渲染，世界坐标直接映射到渲染坐标（无需额外投影）：
+ *   screenX = x
+ *   screenY = z
  * 
  * 设计分辨率：
- * - 地图显示尺寸 = (mapWidth * pixelsPerMeterX, mapHeight * pixelsPerMeterY)。
- * - 背景图需按该尺寸等比缩放，并使用左上角像素坐标放置，以保证与格子/点位对齐。
+ * - 地图显示尺寸 = (mapWidth, mapHeight)（已使用世界坐标，无需pixelsPerMeter转换）。
+ * - 背景图需按该尺寸等比缩放，并使用左上角世界坐标放置，以保证与格子/点位对齐。
  * 
  * 备注：
- * - 若未来需要“左下为原点”的显示效果，可在渲染层做纵轴翻转：
+ * - 若未来需要"左下为原点"的显示效果，可在 Camera 层做纵轴翻转：
  *   screenY = (mapHeight - z) * pixelsPerMeterY - y * HEIGHT_FACTOR * pixelsPerMeterY。
  *   此为展示层变更，数据无需修改。
  */

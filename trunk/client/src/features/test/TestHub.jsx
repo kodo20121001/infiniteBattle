@@ -3,8 +3,16 @@ import React, { useState, lazy, Suspense } from 'react';
 const PathfindingTester = lazy(() => import('./PathfindingTester.jsx'));
 const GroupMovementTester = lazy(() => import('./GroupMovementTester.jsx'));
 const EncircleTester = lazy(() => import('./EncircleTester.jsx'));
+const CoordinateTester = lazy(() => import('./CoordinateTester.jsx'));
 
 const tests = [
+  {
+    id: 'coordinate',
+    title: '坐标测试',
+    description: '俯视角点击获取 Canvas、NDC、World 坐标',
+    icon: '📍',
+    color: 'from-cyan-600 to-blue-600'
+  },
   {
     id: 'pathfinding',
     title: '寻路测试',
@@ -38,6 +46,19 @@ const Loading = () => (
 const TestHub = ({ onBack }) => {
   const [current, setCurrent] = useState(null);
 
+  const handleGoToEditor = () => {
+    localStorage.setItem('startupMode', 'editor');
+    const basePath = window.location.pathname || '/';
+    window.location.href = `${basePath}?mode=editor`;
+  };
+
+  if (current === 'coordinate') {
+    return (
+      <Suspense fallback={<Loading />}> 
+        <CoordinateTester onBack={() => setCurrent(null)} />
+      </Suspense>
+    );
+  }
   if (current === 'pathfinding') {
     return (
       <Suspense fallback={<Loading />}> 
@@ -65,10 +86,16 @@ const TestHub = ({ onBack }) => {
       <div className="w-[420px] border-r border-slate-800 p-6 flex flex-col gap-4 bg-slate-900/70">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">测试中心</h1>
-          <button
-            onClick={onBack}
-            className="px-3 py-1 text-xs rounded bg-slate-700 hover:bg-slate-600"
-          >返回主界面</button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleGoToEditor}
+              className="px-3 py-1 text-xs rounded bg-emerald-700 hover:bg-emerald-600"
+            >去编辑器</button>
+            <button
+              onClick={onBack}
+              className="px-3 py-1 text-xs rounded bg-slate-700 hover:bg-slate-600"
+            >返回主界面</button>
+          </div>
         </div>
         <p className="text-slate-400 text-sm">选择一个测试场景，快速验证核心功能。</p>
         <div className="grid grid-cols-1 gap-3">

@@ -1,9 +1,9 @@
 [
   {
     "id": 1,
-    "name": "子弹",
-    "description": "",
-    "modelId": 1,
+    "name": "火球子弹",
+    "description": "火球特效子弹",
+    "modelId": "fire_ball",
     "segments": [
       {
         "id": 1,
@@ -17,7 +17,7 @@
               {
                 "type": "bulletFlyToTarget",
                 "params": {
-                  "speed": 0.1
+                  "speed": 20
                 }
               }
             ]

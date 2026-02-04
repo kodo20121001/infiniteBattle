@@ -1,6 +1,6 @@
 import React from 'react';
 
-const BlockTool = ({ gridColCount, gridRowCount, showBlockedCells, setShowBlockedCells }) => {
+const BlockTool = ({ gridColCount, gridRowCount, showBlockedCells, setShowBlockedCells, onClearAllBlocked }) => {
   return (
     <div className="space-y-3 text-sm bg-slate-800/60 rounded-lg p-3 border border-slate-700">
       <div className="font-semibold text-slate-200">阻挡刷子</div>
@@ -16,6 +16,12 @@ const BlockTool = ({ gridColCount, gridRowCount, showBlockedCells, setShowBlocke
           />
           <span className="text-slate-300">显示阻挡格子</span>
         </label>
+        <button
+          onClick={onClearAllBlocked}
+          className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 rounded border border-red-500 text-sm font-semibold"
+        >
+          清除所有阻挡
+        </button>
       </div>
     </div>
   );

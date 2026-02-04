@@ -1,0 +1,12 @@
+{
+  "type": "3d_fbx",
+  "model": "zombie_idle.fbx",
+  "animations": {
+    "idle": "zombie_idle.fbx",
+    "die": "zombie_die.fbx",
+    "attack": "zombie_attack.fbx",
+    "move": "zombie_move.fbx"
+  },
+  "defaultAction": "idle",
+  "scale": 1.0
+}

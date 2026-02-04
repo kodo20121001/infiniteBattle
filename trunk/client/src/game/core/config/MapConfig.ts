@@ -128,17 +128,6 @@ export class MapConfig {
     // 阻挡格列表
     gridCells: GridCell[];     // 阻挡格索引列表
 
-    // 像素密度（米→像素，可选，不影响图片尺寸，仅用于坐标换算）
-    pixelsPerMeterX?: number;  // 横向密度（默认32）
-    pixelsPerMeterY?: number;  // 纵向密度（默认16/20）
-
-    // 视口与相机（可选）
-    viewportWidth?: number;    // 视口宽（像素）
-    viewportHeight?: number;   // 视口高（像素）
-    cameraX?: number;          // 相机初始X（世界坐标，像素系）
-    cameraY?: number;          // 相机初始Y（世界坐标，像素系）
-    cameraZ?: number;          // 相机初始Z（保留）
-
     // 建筑区域格子配置（米为单位，可选）
     buildGridWidth?: number;    // 建筑格子宽度（米）
     buildGridHeight?: number;   // 建筑格子高度（米）
@@ -152,10 +141,7 @@ export class MapConfig {
                 triggerAreas?: TriggerArea[],
                 buildGridWidth?: number, buildGridHeight?: number,
                 buildOffsetX?: number, buildOffsetY?: number,
-                buildGridCells?: GridCell[],
-                pixelsPerMeterX?: number, pixelsPerMeterY?: number,
-                viewportWidth?: number, viewportHeight?: number,
-                cameraX?: number, cameraY?: number, cameraZ?: number) {
+                buildGridCells?: GridCell[]) {
         this.id = id;
         this.name = name;
         this.mapWidth = mapWidth;
@@ -175,16 +161,6 @@ export class MapConfig {
         this.buildOffsetY = buildOffsetY;
         this.buildGridCells = buildGridCells;
 
-        // 像素密度（可选）
-        this.pixelsPerMeterX = pixelsPerMeterX;
-        this.pixelsPerMeterY = pixelsPerMeterY;
-
-        // 视口与相机（可选）
-        this.viewportWidth = viewportWidth;
-        this.viewportHeight = viewportHeight;
-        this.cameraX = cameraX;
-        this.cameraY = cameraY;
-        this.cameraZ = cameraZ;
     }
 }
 

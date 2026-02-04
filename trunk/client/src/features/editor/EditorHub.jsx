@@ -4,6 +4,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 const SkillBehaviorEditor = lazy(() => import('./SkillBehaviorEditor.jsx'));
 const MapEditor = lazy(() => import('./MapEditor.jsx'));
 const BuildingModelEditor = lazy(() => import('./BuildingModelEditor.jsx'));
+const ModelEditor = lazy(() => import('./ModelEditor.jsx'));
 const LevelEditor = lazy(() => import('./LevelEditor.tsx'));
 const BulletEditor = lazy(() => import('./BulletEditor.tsx'));
 
@@ -64,6 +65,15 @@ const EditorHub = ({ onBack }) => {
       disabled: false
     },
     {
+      id: 'model-editor',
+      title: '模型编辑器',
+      description: '编辑模型配置与预览（2D/3D）',
+      icon: '🧩',
+      color: 'from-indigo-600 to-violet-600',
+      route: 'model-editor',
+      disabled: false
+    },
+    {
       id: 'level-editor',
       title: '关卡编辑器',
       description: '编辑关卡属性、阵营、单位、关系、触发器等',
@@ -92,6 +102,12 @@ const EditorHub = ({ onBack }) => {
     setCurrentEditor(null);
   };
 
+  const handleGoToTest = () => {
+    localStorage.setItem('startupMode', 'test');
+    const basePath = window.location.pathname || '/';
+    window.location.href = `${basePath}?mode=test`;
+  };
+
   // 加载提示组件
   const LoadingFallback = () => (
     <div className="w-full h-screen bg-gray-900 flex items-center justify-center">
@@ -115,6 +131,12 @@ const EditorHub = ({ onBack }) => {
               className="px-3 py-1 text-xs rounded bg-gray-600 hover:bg-gray-700 text-white"
             >
               返回编辑器中心
+            </button>
+            <button 
+              onClick={handleGoToTest}
+              className="px-3 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              去测试中心
             </button>
             <button 
               onClick={onBack}
@@ -141,6 +163,12 @@ const EditorHub = ({ onBack }) => {
               返回编辑器中心
             </button>
             <button 
+              onClick={handleGoToTest}
+              className="px-3 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              去测试中心
+            </button>
+            <button 
               onClick={onBack}
               className="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 text-white"
             >
@@ -163,6 +191,42 @@ const EditorHub = ({ onBack }) => {
               className="px-3 py-1 text-xs rounded bg-gray-600 hover:bg-gray-700 text-white"
             >
               返回编辑器中心
+            </button>
+            <button 
+              onClick={handleGoToTest}
+              className="px-3 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              去测试中心
+            </button>
+            <button 
+              onClick={onBack}
+              className="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              返回主界面
+            </button>
+          </div>
+        </div>
+      </Suspense>
+    );
+  }
+
+  if (currentEditor === 'model-editor') {
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <div className="relative w-full h-screen">
+          <ModelEditor />
+          <div className="absolute top-4 right-4 flex gap-2 bg-black/50 p-2 rounded-lg backdrop-blur-sm z-10">
+            <button 
+              onClick={handleBackToHub}
+              className="px-3 py-1 text-xs rounded bg-gray-600 hover:bg-gray-700 text-white"
+            >
+              返回编辑器中心
+            </button>
+            <button 
+              onClick={handleGoToTest}
+              className="px-3 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              去测试中心
             </button>
             <button 
               onClick={onBack}
@@ -189,6 +253,12 @@ const EditorHub = ({ onBack }) => {
               返回编辑器中心
             </button>
             <button 
+              onClick={handleGoToTest}
+              className="px-3 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              去测试中心
+            </button>
+            <button 
               onClick={onBack}
               className="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 text-white"
             >
@@ -211,6 +281,12 @@ const EditorHub = ({ onBack }) => {
               className="px-3 py-1 text-xs rounded bg-gray-600 hover:bg-gray-700 text-white"
             >
               返回编辑器中心
+            </button>
+            <button 
+              onClick={handleGoToTest}
+              className="px-3 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              去测试中心
             </button>
             <button 
               onClick={onBack}
