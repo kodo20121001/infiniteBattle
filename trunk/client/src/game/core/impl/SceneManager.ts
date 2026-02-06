@@ -37,15 +37,18 @@ export class SceneManager {
 
         // 清理旧场景
         this._clearScene();
-
         // 初始化游戏状态
         this._game.init();
 
         // 创建初始单位
         if (levelConfig.startUnits) {
+            console.log(`[SceneManager] Creating ${levelConfig.startUnits.length} start units`);
             for (const levelUnitConfig of levelConfig.startUnits) {
+                console.log(`[SceneManager] Creating unit: unitId=${levelUnitConfig.unitId}, positionName=${levelUnitConfig.positionName}, campId=${levelUnitConfig.campId}`);
                 this._createUnit(levelUnitConfig, levelConfig);
             }
+        } else {
+            console.log(`[SceneManager] No startUnits in level config`);
         }
 
         // 配置单位的初始命令和自动技能（如果有）

@@ -53,5 +53,31 @@
         ]
       }
     ]
+  },
+  {
+    "id": 9001,
+    "segments": [
+      {
+        "id": 1,
+        "name": "施法准备",
+        "triggers": [
+          {
+            "eventType": "skillStart",
+            "params": {},
+            "conditions": [],
+            "actions": [
+              {
+                "type": "createBullet",
+                "params": {
+                  "bulletId": 2,
+                  "fromCaster": true,
+                  "toTarget": true
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 ]

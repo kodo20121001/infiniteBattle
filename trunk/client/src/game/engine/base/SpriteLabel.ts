@@ -21,8 +21,8 @@ export class SpriteLabel extends Sprite2D {
     private _isDirty: boolean = true;
     private _canvasBuffer: HTMLCanvasElement | null = null;
 
-    constructor(text: string = '') {
-        super();
+    constructor(text: string = '', blackboard: Record<string, any> = {}) {
+        super(undefined, undefined, undefined, blackboard);
         this._text = text;
         this.updateTexture();
     }

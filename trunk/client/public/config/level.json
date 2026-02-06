@@ -51,6 +51,26 @@
     ],
     "winCondition": "",
     "loseCondition": "",
-    "triggers": []
+    "triggers": [
+      {
+        "id": 1,
+        "name": "定时发射闪电子弹",
+        "eventType": "intervalTimer",
+        "params": {
+          "intervalSec": 2
+        },
+        "conditions": [],
+        "actions": [
+          {
+            "type": "castSkill",
+            "params": {
+              "casterId": 101,
+              "skillId": 9001,
+              "targetId": 102
+            }
+          }
+        ]
+      }
+    ]
   }
 ]

@@ -25,5 +25,25 @@
         ]
       }
     ]
+  },
+  {
+    "id": 2,
+    "name": "闪电子弹",
+    "description": "闪电特效子弹，不移动",
+    "modelId": "lightning",
+    "segments": [
+      {
+        "id": 1,
+        "name": "分段-1",
+        "triggers": [
+          {
+            "eventType": "bulletStart",
+            "params": {},
+            "conditions": [],
+            "actions": []
+          }
+        ]
+      }
+    ]
   }
 ]

@@ -17,7 +17,7 @@
               {
                 "type": "createBullet",
                 "params": {
-                  "bulletId": 1,
+                  "bulletId": 2,
                   "fromCaster": true,
                   "toTarget": true
                 }

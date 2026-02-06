@@ -24,8 +24,8 @@ export class Sprite3D extends Sprite {
     private currentAnimationAction: THREE.AnimationAction | null = null;
     private modelUrl: string = '';
 
-    constructor() {
-        super();
+    constructor(blackboard: Record<string, any> = {}) {
+        super(blackboard);
         // 创建 Group 来容纳 3D 模型
         this.threeGroup = new THREE.Group();
         this.threeGroup.position.set(0, 0, 0);
@@ -57,13 +57,15 @@ export class Sprite3D extends Sprite {
 
     /**
      * 从 JSON 配置创建 Sprite3D
+     * @param jsonPath JSON 文件路径
+     * @param blackboard 黑板对象
      */
-    static async create(jsonPath: string): Promise<Sprite3D> {
+    static async create(jsonPath: string, blackboard: Record<string, any> = {}): Promise<Sprite3D> {
         const data = await assets.getJson<Sprite3DFbxConfig>(jsonPath);
         const lastSlashIndex = jsonPath.lastIndexOf('/');
         const basePath = lastSlashIndex >= 0 ? jsonPath.substring(0, lastSlashIndex) : '';
 
-        const sprite = new Sprite3D();
+        const sprite = new Sprite3D(blackboard);
         await sprite.loadFromFbxConfig(data, basePath);
         return sprite;
     }
@@ -301,6 +303,13 @@ export class Sprite3D extends Sprite {
     protected onTransformChanged(): void {
         // 更新 Group 的位置
         this.threeGroup.position.set(this._position.x, this._position.y, this._position.z);
+        
+        // 更新 Group 的旋转（加上初始旋转）
+        this.threeGroup.rotation.set(
+            this._initialRotation.x + this._rotation.x,
+            this._initialRotation.y + this._rotation.y,
+            this._initialRotation.z + this._rotation.z
+        );
         
         // 更新 Group 的缩放（3D缩放）
         this.threeGroup.scale.set(this._scale.x, this._scale.y, this._scale.z);

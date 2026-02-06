@@ -62,7 +62,7 @@ export const BulletDemoPreview: React.FC<Props> = ({ bulletConfig, isOpen, onClo
         const levelConfigs = Configs.Get('level') || {};
         const mapConfigs = Configs.Get('map') || {};
         const levelConfig = levelConfigs[9901];
-        const mapConfig = mapConfigs[1];
+        const mapConfig = mapConfigs[2];
         
         gameRunnerRef.current = gameRunner;
         levelManagerRef.current = { 

@@ -16,6 +16,8 @@ const ModelEditor = () => {
   const [cameraMode, setCameraMode] = useState('game');
   const [selectedAction, setSelectedAction] = useState(null);
   const [availableActions, setAvailableActions] = useState([]);
+  const [dirHandle, setDirHandle] = useState(null);
+  const [savePathName, setSavePathName] = useState('');
 
   useEffect(() => {
     fetchModelConfigs()
@@ -39,7 +41,7 @@ const ModelEditor = () => {
         setStatus('ready');
       })
       .catch((err) => {
-        console.error(err);
+        console.error(err);7
         setStatus('error');
       });
   }, []);
@@ -54,10 +56,59 @@ const ModelEditor = () => {
     setModelData((prev) => ({ ...prev, [key]: value }));
   };
 
-  const applyToList = () => {
-    setModels((prev) => prev.map((m) => (m.id === modelData.id ? structuredClone(modelData) : m)));
-    setToast('已应用到列表');
-    setTimeout(() => setToast(''), 1200);
+  const updateRotation = (axis, value) => {
+    setModelData((prev) => ({
+      ...prev,
+      rotation: {
+        ...(prev?.rotation ?? {}),
+        [axis]: value,
+      },
+    }));
+  };
+
+  const updateBlackboard = (key, field, value) => {
+    setModelData((prev) => ({
+      ...prev,
+      blackboard: {
+        ...(prev?.blackboard ?? {}),
+        [key]: {
+          ...(prev?.blackboard?.[key] ?? {}),
+          [field]: Number(value)
+        }
+      }
+    }));
+  };
+
+  const addBlackboardField = (fieldName, fieldType) => {
+    if (!fieldName) return;
+    let initialValue = {};
+    
+    if (fieldType === 'number') {
+      initialValue = 0;
+    } else if (fieldType === 'vector3') {
+      initialValue = { x: 0, y: 0, z: 0 };
+    } else if (fieldType === 'string') {
+      initialValue = '';
+    }
+    
+    setModelData((prev) => ({
+      ...prev,
+      blackboard: {
+        ...(prev?.blackboard ?? {}),
+        [fieldName]: initialValue
+      }
+    }));
+  };
+
+  const removeBlackboardField = (fieldName) => {
+    setModelData((prev) => {
+      const newBlackboard = { ...(prev?.blackboard ?? {}) };
+      delete newBlackboard[fieldName];
+      return {
+        ...prev,
+        blackboard: newBlackboard
+      };
+    });
   };
 
   const addModel = () => {
@@ -67,7 +118,8 @@ const ModelEditor = () => {
       name: '新模型',
       type: '2d_sequence',
       scale: 1,
-      defaultAction: 'idle'
+      defaultAction: 'idle',
+      rotation: { x: 0, y: 0, z: 0 }
     };
     setModels((prev) => [...prev, base]);
     setSelectedId(newId);
@@ -95,6 +147,73 @@ const ModelEditor = () => {
     a.download = 'model.json';
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const selectSavePath = async () => {
+    try {
+      const handle = await window.showDirectoryPicker();
+      setDirHandle(handle);
+      let fullPath = '';
+      try {
+        const pathArray = await handle.getFullPath();
+        fullPath = '/' + pathArray.join('/');
+      } catch (e) {
+        fullPath = handle.name;
+      }
+      setSavePathName(fullPath);
+    } catch (err) {
+      if (err?.name === 'AbortError' || err?.name === 'NotAllowedError') return;
+      setToast('✗ 选择路径失败: ' + err.message);
+      setTimeout(() => setToast(''), 2000);
+    }
+  };
+
+  const saveConfigs = async () => {
+    if (!modelData) return;
+    let list = [...models];
+    const idx = list.findIndex((m) => m.id === modelData.id);
+    if (idx >= 0) list[idx] = structuredClone(modelData);
+    else list.push(structuredClone(modelData));
+
+    try {
+      let handle = dirHandle;
+      if (handle) {
+        const perm = await handle.queryPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') {
+          const req = await handle.requestPermission({ mode: 'readwrite' });
+          if (req !== 'granted') {
+            handle = null;
+            setDirHandle(null);
+            setSavePathName('');
+          }
+        }
+      }
+      if (!handle) {
+        handle = await window.showDirectoryPicker();
+        setDirHandle(handle);
+        let fullPath = '';
+        try {
+          const pathArray = await handle.getFullPath();
+          fullPath = '/' + pathArray.join('/');
+        } catch (e) {
+          fullPath = handle.name;
+        }
+        setSavePathName(fullPath);
+      }
+
+      const fileHandle = await handle.getFileHandle('model.json', { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(list, null, 2));
+      await writable.close();
+
+      setModels(list);
+      setToast('✓ 已保存 model.json');
+      setTimeout(() => setToast(''), 1500);
+    } catch (err) {
+      console.error(err);
+      setToast('✗ 保存失败: ' + err.message);
+      setTimeout(() => setToast(''), 2500);
+    }
   };
 
 
@@ -128,6 +247,21 @@ const ModelEditor = () => {
             <option key={m.id} value={m.id}>{m.name} ({m.id})</option>
           ))}
         </select>
+
+        <button
+          onClick={selectSavePath}
+          className="w-full mb-4 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded text-sm text-left border border-gray-700 truncate"
+          title={savePathName ? `当前路径: ${savePathName}` : '选择保存路径'}
+        >
+          {savePathName ? `📁 ${savePathName}` : '📁 选择保存路径'}
+        </button>
+
+        <button
+          onClick={saveConfigs}
+          className="w-full mb-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-semibold"
+        >
+          保存 model.json
+        </button>
 
         {modelData && (
           <div className="space-y-3">
@@ -181,6 +315,35 @@ const ModelEditor = () => {
               />
             </div>
             <div>
+              <label className="text-xs text-gray-400">初始旋转（角度）</label>
+              <div className="mt-1 grid grid-cols-3 gap-2">
+                <input
+                  type="number"
+                  step="1"
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1"
+                  value={modelData.rotation?.x ?? 0}
+                  onChange={(e) => updateRotation('x', Number(e.target.value))}
+                  placeholder="X"
+                />
+                <input
+                  type="number"
+                  step="1"
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1"
+                  value={modelData.rotation?.y ?? 0}
+                  onChange={(e) => updateRotation('y', Number(e.target.value))}
+                  placeholder="Y"
+                />
+                <input
+                  type="number"
+                  step="1"
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1"
+                  value={modelData.rotation?.z ?? 0}
+                  onChange={(e) => updateRotation('z', Number(e.target.value))}
+                  placeholder="Z"
+                />
+              </div>
+            </div>
+            <div>
               <label className="text-xs text-gray-400">默认动作</label>
               <input
                 className="w-full mt-1 bg-gray-800 border border-gray-700 rounded px-2 py-1"
@@ -198,10 +361,111 @@ const ModelEditor = () => {
                 onChange={(e) => updateField('radius', Number(e.target.value))}
               />
             </div>
-            <div className="flex gap-2 pt-2">
-              <button className="flex-1 px-3 py-2 bg-blue-600 rounded" onClick={applyToList}>应用</button>
-              <button className="px-3 py-2 bg-red-600 rounded" onClick={removeModel}>删除</button>
+            <div>
+              <label className="text-xs text-gray-400 block mb-2">黑板数据</label>
+              <div className="space-y-2 bg-gray-800/50 p-2 rounded">
+                {modelData.blackboard && Object.entries(modelData.blackboard).map(([fieldName, fieldValue]) => (
+                  <div key={fieldName}>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs text-gray-500">{fieldName}</label>
+                      <button
+                        onClick={() => removeBlackboardField(fieldName)}
+                        className="text-xs px-1 py-0.5 bg-red-700 hover:bg-red-600 rounded"
+                      >
+                        删除
+                      </button>
+                    </div>
+                    {typeof fieldValue === 'object' && fieldValue !== null && 'x' in fieldValue ? (
+                      <div className="grid grid-cols-3 gap-1">
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="bg-gray-700 border border-gray-600 rounded px-1 py-1 text-xs"
+                          value={fieldValue.x ?? 0}
+                          onChange={(e) => updateBlackboard(fieldName, 'x', e.target.value)}
+                          placeholder="X"
+                        />
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="bg-gray-700 border border-gray-600 rounded px-1 py-1 text-xs"
+                          value={fieldValue.y ?? 0}
+                          onChange={(e) => updateBlackboard(fieldName, 'y', e.target.value)}
+                          placeholder="Y"
+                        />
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="bg-gray-700 border border-gray-600 rounded px-1 py-1 text-xs"
+                          value={fieldValue.z ?? 0}
+                          onChange={(e) => updateBlackboard(fieldName, 'z', e.target.value)}
+                          placeholder="Z"
+                        />
+                      </div>
+                    ) : typeof fieldValue === 'number' ? (
+                      <input
+                        type="number"
+                        step="0.1"
+                        className="w-full bg-gray-700 border border-gray-600 rounded px-1 py-1 text-xs"
+                        value={fieldValue}
+                        onChange={(e) => setModelData((prev) => ({
+                          ...prev,
+                          blackboard: { ...prev.blackboard, [fieldName]: Number(e.target.value) }
+                        }))}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        className="w-full bg-gray-700 border border-gray-600 rounded px-1 py-1 text-xs"
+                        value={fieldValue || ''}
+                        onChange={(e) => setModelData((prev) => ({
+                          ...prev,
+                          blackboard: { ...prev.blackboard, [fieldName]: e.target.value }
+                        }))}
+                      />
+                    )}
+                  </div>
+                ))}
+                
+                {/* 新建字段 */}
+                <div className={modelData.blackboard && Object.keys(modelData.blackboard).length > 0 ? "pt-2 border-t border-gray-700" : ""}>
+                  <label className="text-xs text-gray-500 block mb-1">新建字段</label>
+                  <div className="space-y-1">
+                    <input
+                      id="newFieldName"
+                      type="text"
+                      className="w-full bg-gray-700 border border-gray-600 rounded px-1 py-1 text-xs"
+                      placeholder="字段名"
+                    />
+                    <div className="flex gap-1">
+                      <select
+                        id="newFieldType"
+                        className="flex-1 bg-gray-700 border border-gray-600 rounded px-1 py-1 text-xs"
+                        defaultValue="vector3"
+                      >
+                        <option value="vector3">Vector3</option>
+                        <option value="number">Number</option>
+                        <option value="string">String</option>
+                      </select>
+                      <button
+                        onClick={() => {
+                          const name = document.getElementById('newFieldName').value;
+                          const type = document.getElementById('newFieldType').value;
+                          if (name && !modelData.blackboard?.[name]) {
+                            addBlackboardField(name, type);
+                            document.getElementById('newFieldName').value = '';
+                          }
+                        }}
+                        className="px-2 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 rounded"
+                      >
+                        新建
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+            <div className="pt-2" />
           </div>
         )}
 
@@ -227,6 +491,9 @@ const ModelEditor = () => {
         )}
 
         {toast && <div className="mt-3 text-xs text-emerald-400">{toast}</div>}
+        <div className="mt-6 pt-4 border-t border-gray-700">
+          <button className="w-full px-3 py-2 bg-red-600 rounded" onClick={removeModel}>删除</button>
+        </div>
       </div>
 
       {/* 右侧预览 */}

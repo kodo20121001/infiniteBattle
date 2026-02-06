@@ -56,6 +56,7 @@ export class Bullet extends Actor {
         this.setActive(true);
         this._runEventTriggers('bulletStart', ctx);
         this._emit('bulletStarted', { bulletId: this.actorNo });
+        super.start();
     }
 
     /**
@@ -76,6 +77,20 @@ export class Bullet extends Actor {
         if (this._flightController?.isActive()) {
             this._updateFlight(deltaTime);
         }
+    }
+
+    /**
+     * 获取当前目标位置（用于渲染系统访问）
+     */
+    getTargetPosition(): VectorLike | null {
+        return this._resolveTargetPosition({}, this._runtimeCtx);
+    }
+
+    /**
+     * 获取运行时上下文（用于渲染系统访问）
+     */
+    getRuntimeContext(): BulletRuntimeContext | undefined {
+        return this._runtimeCtx;
     }
 
     on(eventType: BulletEventType, listener: (data: any) => void): () => void {
@@ -177,6 +192,14 @@ export class Bullet extends Actor {
                 this.end('hit');
             }
             return;
+        }
+
+        // 根据移动方向更新朝向（俯视角：X-Z 平面）
+        if (Math.abs(moveVec.dx) > 0.0001 || Math.abs(moveVec.dz) > 0.0001) {
+            // 反向 X 轴以匹配游戏坐标系的镜像
+            const angleRad = Math.atan2(moveVec.dz, -moveVec.dx);
+            const angleDeg = angleRad * (180 / Math.PI);
+            this.setRotation(angleDeg);
         }
 
         this.move(moveVec.dx, moveVec.dy, moveVec.dz);

@@ -89,8 +89,11 @@ const ModelEditorPreview = ({ modelData, cameraMode = 'game', selectedAction, on
           modelConfig = modelData;
         }
         
+        // 创建黑板数据（用于特效插件）
+        const blackboard = modelData.blackboard || {};
+        
         // 使用配置创建（支持插件）
-        sprite = await createSpriteByModel(modelData.id, modelConfig);
+        sprite = await createSpriteByModel(modelData.id, modelConfig, blackboard);
         sprite.setPosition(0, 0, 0);
         if (typeof modelData.scale === 'number') {
           sprite.setScale(modelData.scale, modelData.scale, modelData.scale);

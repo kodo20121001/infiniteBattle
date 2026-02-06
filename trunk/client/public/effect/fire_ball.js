@@ -265,6 +265,5 @@ const fireballPlugin = {
     }
 };
 
-// 不使用 ES 模块 export，直接声明插件对象供外部使用
-// 通过 Function 构造器加载时会返回此对象
-fireballPlugin;
+// 返回插件对象供外部使用
+return fireballPlugin;

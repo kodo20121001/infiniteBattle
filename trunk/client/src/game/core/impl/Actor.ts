@@ -92,6 +92,16 @@ export class Actor {
     }
 
     /**
+     * 启动角色（在初始化完成后调用一次）
+     */
+    start(): void {
+        if (!this._isActive) return;
+
+        // 首次更新，让子类可以初始化状态
+        this.update(0);
+    }
+
+    /**
      * 每帧更新
      */
     update(deltaTime: number): void {

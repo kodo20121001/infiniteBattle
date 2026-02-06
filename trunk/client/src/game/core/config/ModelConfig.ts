@@ -20,7 +20,7 @@ export interface ModelConfig {
     type: ModelType;           // 模型类型
     path?: string;             // 资源文件完整路径（如 /unit/monkey.json、/effect/fire_ball.json），默认为 /unit/{id}.json
     scale?: number;            // 默认缩放
-    rotation?: { x?: number; y?: number; z?: number };  // 初始旋转（弧度），绕 X/Y/Z 轴
+    rotation?: { x?: number; y?: number; z?: number };  // 初始旋转（角度），绕 X/Y/Z 轴
     defaultAction?: string;    // 默认动作
     hp?: number;               // 生命值
     speed?: number;            // 移动速度

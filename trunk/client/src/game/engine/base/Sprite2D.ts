@@ -22,8 +22,8 @@ export class Sprite2D extends Sprite {
     private threeMesh: THREE.Mesh | null = null;
     private threeTexture: THREE.Texture | null = null;
 
-    constructor(imageOrTexture?: HTMLImageElement | HTMLCanvasElement | Texture, width?: number, height?: number) {
-        super();
+    constructor(imageOrTexture?: HTMLImageElement | HTMLCanvasElement | Texture, width?: number, height?: number, blackboard: Record<string, any> = {}) {
+        super(blackboard);
         if (imageOrTexture) {
             if (imageOrTexture instanceof Texture) {
                 this._texture = imageOrTexture;
@@ -124,8 +124,8 @@ export class Sprite2D extends Sprite {
         // 设置缩放（3个轴都设置）
         this.threeMesh.scale.set(this._scale.x, this._scale.y, this._scale.z);
 
-        // 设置旋转
-        this.threeMesh.rotation.z = this._rotation2D;
+        // 设置旋转（加上初始旋转，反向 Z 轴旋转以匹配游戏坐标系）
+        this.threeMesh.rotation.z = -(this._rotation2D + this._initialRotation.z);
 
         // 设置透明度
         if (this.threeMaterial) {
@@ -302,9 +302,10 @@ export class Sprite2D extends Sprite {
     /**
      * 静态方法：从 JSON 配置文件加载 2D 图片精灵
      * @param jsonPath 配置文件路径（/unit/{modelId}.json）
+     * @param blackboard 黑板对象
      * @returns 创建的 Sprite2D 实例
      */
-    static async create(jsonPath: string): Promise<Sprite2D> {
+    static async create(jsonPath: string, blackboard: Record<string, any> = {}): Promise<Sprite2D> {
         try {
             const response = await fetch(jsonPath);
             if (!response.ok) {
@@ -330,7 +331,7 @@ export class Sprite2D extends Sprite {
             });
 
             // 创建 Sprite2D 实例
-            const sprite = new Sprite2D(img, width, height);
+            const sprite = new Sprite2D(img, width, height, blackboard);
             return sprite;
         } catch (error) {
             throw new Error(`Failed to create Sprite2D from ${jsonPath}: ${error}`);

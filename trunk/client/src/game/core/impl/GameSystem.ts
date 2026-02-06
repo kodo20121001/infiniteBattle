@@ -312,6 +312,17 @@ export class Game {
     removeActor(actorId: string): void {
         const actor = this._actors.get(actorId);
         if (actor) {
+            // 移除对应的sprite
+            const spriteId = actor.getSpriteId();
+            if (spriteId && this._world) {
+                const spriteManager = this._world.getSpriteManager();
+                const sprite = spriteManager.get(spriteId);
+                if (sprite) {
+                    sprite.destroy();
+                    spriteManager.remove(spriteId);
+                }
+            }
+            
             actor.destroy();
             this._actors.delete(actorId);
         }

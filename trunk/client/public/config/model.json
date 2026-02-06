@@ -14,7 +14,7 @@
     "type": "3d_fbx",
     "path": "/unit/zombie.json",
     "radius": 0.6,
-    "scale": 0.015, 
+    "scale": 0.015,
     "defaultAction": "idle"
   },
   {
@@ -23,9 +23,28 @@
     "type": "none",
     "path": "/effect/fire_ball.json",
     "radius": 0.5,
-    "scale": 1.0,
+    "scale": 1,
     "rotation": {
-      "x": -90
+      "z": 270,
+      "y": 0,
+      "x": 0
+    }
+  },
+  {
+    "id": "lightning",
+    "name": "闪电特效",
+    "type": "none",
+    "path": "/effect/lightning.json",
+    "radius": 0.5,
+    "scale": 1,
+    "rotation": {
+      "z": 0,
+      "y": 0,
+      "x": 0
+    },
+    "blackboard": {
+      "startPosition": { "x": 0, "y": 0, "z": 0 },
+      "targetPosition": { "x": 5, "y": 0, "z": 5 }
     }
   }
 ]

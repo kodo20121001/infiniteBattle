@@ -55,7 +55,7 @@ export class AnimatedSprite2D extends Sprite2D {
     this.setTexture(texture);
   }
 
-  constructor(clips: AnimationClip | AnimationClip[]) {
+  constructor(clips: AnimationClip | AnimationClip[], blackboard: Record<string, any> = {}) {
     let clipsArray: AnimationClip[];
     
     if (Array.isArray(clips)) {
@@ -78,7 +78,7 @@ export class AnimatedSprite2D extends Sprite2D {
     const widthScaleFactor = 0.72;  // 宽度缩放因子，可根据需要调整
     const widthMeters = baseHeight * aspectRatio * widthScaleFactor;
     const heightMeters = baseHeight;
-    super(firstTexture, widthMeters, heightMeters);
+    super(firstTexture, widthMeters, heightMeters, blackboard);
     
     // 调用 super 之后才能使用 this
     this.initialWidth = widthMeters;
@@ -150,9 +150,10 @@ export class AnimatedSprite2D extends Sprite2D {
   /**
    * 从 video_to_spritesheet 生成的 JSON 创建动画精灵
    * @param jsonPath JSON 文件路径（如 '/unit/monkey.json'）
+   * @param blackboard 黑板对象
    * @returns Promise<AnimatedSprite2D>
    */
-  static async create(jsonPath: string): Promise<AnimatedSprite2D> {
+  static async create(jsonPath: string, blackboard: Record<string, any> = {}): Promise<AnimatedSprite2D> {
     // 1. 加载 JSON 数据
     const data = await assets.getJson<SpriteSheetData>(jsonPath);
     
@@ -264,7 +265,7 @@ export class AnimatedSprite2D extends Sprite2D {
     }
     
     // 6. 创建并返回 AnimatedSprite2D 实例
-    return new AnimatedSprite2D(clips);
+    return new AnimatedSprite2D(clips, blackboard);
   }
 
   /**

@@ -52,11 +52,65 @@ export class ClientGameRunner {
                     // actor 可能已被移除
                     if (!this._game.getActor(actor.actorNo)) return;
                     
-                    const sprite = await createSpriteByModel(modelId, modelConfig);
+                    // 准备 blackboard 数据
+                    const blackboard: Record<string, any> = {
+                        actorNo: actor.actorNo,
+                        actorType: actor.actorType,
+                        campId: actor.campId,
+                    };
+                    
+                    // 如果是 Bullet，添加子弹特有数据
+                    if (actor.actorType === 'bullet') {
+                        const bullet = actor as any; // Bullet 类型
+                            const pos = actor.getPosition();
+                            blackboard.startPosition = { x: pos.x, y: pos.y, z: pos.z };
+                            blackboard.currentPosition = { x: pos.x, y: pos.y, z: pos.z };
+                        
+                        // 获取目标位置（通过 Bullet 的公开方法）
+                        if (typeof bullet.getTargetPosition === 'function') {
+                            const targetPos = bullet.getTargetPosition();
+                            if (targetPos) {
+                                    blackboard.targetPosition = { 
+                                        x: targetPos.x, 
+                                        y: targetPos.y || 0, 
+                                        z: targetPos.z || 0 
+                                    };
+                            }
+                        }
+                        
+                        // 如果没有获取到目标位置，设置默认值（当前位置前方）
+                        if (!blackboard.targetPosition) {
+                            blackboard.targetPosition = {
+                                x: pos.x,
+                                y: pos.y,
+                                z: pos.z + 5
+                            };
+                        }
+                        
+                        console.log('[GameRunner] Creating Bullet sprite with blackboard:', {
+                            start: blackboard.startPosition,
+                            target: blackboard.targetPosition,
+                            dx: (blackboard.targetPosition.x - pos.x).toFixed(2),
+                            dz: (blackboard.targetPosition.z - pos.z).toFixed(2)
+                        });
+                    }
+                    
+                    const sprite = await createSpriteByModel(modelId, modelConfig, blackboard);
                     
                     // 设置初始位置
                     const pos = actor.getPosition();
                     sprite.setPosition(pos.x, pos.y, pos.z);
+                    
+                    // 设置初始旋转（对 Bullet 尤其重要）
+                    if (actor.actorType === 'bullet') {
+                        const rotationDeg = actor.getRotation();
+                        if (sprite instanceof Sprite2D) {
+                            sprite.rotationZ = rotationDeg;
+                        } else {
+                            const rotationRad = rotationDeg * (Math.PI / 180);
+                            sprite.setRotation(0, rotationRad, 0);
+                        }
+                    }
                     
                     // Unit 需要应用动画
                     if (actor instanceof Unit) {
@@ -210,12 +264,6 @@ export class ClientGameRunner {
                         actor.setSpriteId(spriteId);
                     } catch (err) {
                         console.warn(`Failed to load animated sprite for actor ${actor.actorNo}:`, err);
-                        // 降级使用占位符
-                        const sprite = this._createPlaceholderSprite(actor.campId);
-                        const pos = actor.getPosition();
-                        sprite.setPosition(pos.x, pos.y, pos.z);
-                        spriteManager.add(spriteId, sprite);
-                        actor.setSpriteId(spriteId);
                     }
                 })();
                 
@@ -320,8 +368,6 @@ export class ClientGameRunner {
         // 第一步：遍历 actor，设置对应 sprite 的位置和可见性
         for (const actor of actors) {
             const spriteId = actor.getSpriteId();
-            
-            // 如果 actor 没有 sprite，尝试加载
             if (!spriteId) {
                 this._loadActorSprite(actor);
                 continue;
@@ -333,6 +379,17 @@ export class ClientGameRunner {
             const pos = actor.getPosition();
             sprite.setPosition(pos.x, Math.max(0.5, pos.y), pos.z);
             sprite.visible = actor.isVisible();
+
+            // 同步 Bullet 朝向到 sprite（初始旋转在 sprite 中自动处理）
+            if (actor.actorType === 'bullet') {
+                const rotationDeg = actor.getRotation();
+                if (sprite instanceof Sprite2D) {
+                    sprite.rotationZ = rotationDeg;
+                } else {
+                    const rotationRad = rotationDeg * (Math.PI / 180);
+                    sprite.setRotation(0, rotationRad, 0);
+                }
+            }
             
             // 更新 Unit 动画状态
             if (sprite instanceof AnimatedSprite2D || sprite instanceof Sprite3D) {

@@ -55,7 +55,7 @@ export class DemoConfigManager extends ConfigManager {
                 {
                     unitId: 9101,
                     campId: 1,
-                    positionName: 1,
+                    positionName: 101,
                     level: 1,
                     command: {
                         type: 'AttackMove',
@@ -65,7 +65,7 @@ export class DemoConfigManager extends ConfigManager {
                 {
                     unitId: 9102,
                     campId: 2,
-                    positionName: 2,
+                    positionName: 102,
                     level: 1,
                     command: {
                         type: 'HoldPosition',
@@ -101,7 +101,7 @@ export class DemoConfigManager extends ConfigManager {
                             type: 'bullet',
                             time: 0,
                             data: {
-                                bulletId: 1,
+                                bulletId: 2,
                                 fromCaster: true,
                                 toTarget: true
                             }

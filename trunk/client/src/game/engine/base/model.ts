@@ -16,11 +16,13 @@ import * as THREE from 'three';
  * 工厂函数：统一处理不同类型模型的加载，并支持插件扩展
  * @param modelId 模型ID
  * @param modelConfig 模型配置
+ * @param blackboard 黑板对象，用于存储任意数据
  * @returns 创建的精灵实例
  */
 export async function createSpriteByModel(
     modelId: string,
-    modelConfig: ModelConfig
+    modelConfig: ModelConfig,
+    blackboard: Record<string, any> = {}
 ): Promise<Sprite> {
     // 1. 根据type创建基础sprite
     let sprite: Sprite;
@@ -31,22 +33,22 @@ export async function createSpriteByModel(
     switch (modelConfig.type) {
         case ModelTypeEnum.None:
             // 无实体模型，创建空的基础 Sprite（通常配合插件使用）
-            sprite = new Sprite();
+            sprite = new Sprite(blackboard);
             break;
 
         case ModelTypeEnum.Sequence2D:
             // 2D 序列帧动画
-            sprite = await AnimatedSprite2D.create(resourcePath);
+            sprite = await AnimatedSprite2D.create(resourcePath, blackboard);
             break;
 
         case ModelTypeEnum.Fbx3D:
             // 3D FBX 模型
-            sprite = await Sprite3D.create(resourcePath);
+            sprite = await Sprite3D.create(resourcePath, blackboard);
             break;
 
         case ModelTypeEnum.Image2D:
             // 2D 静态图片
-            sprite = await Sprite2D.create(resourcePath);
+            sprite = await Sprite2D.create(resourcePath, blackboard);
             break;
 
         case ModelTypeEnum.Spine2D:
@@ -57,14 +59,13 @@ export async function createSpriteByModel(
             throw new Error(`Unknown model type: ${modelConfig.type}`);
     }
 
-    // 应用初始旋转 (配置中的角度转换为弧度)
+    // 应用初始旋转（配置为角度，内部使用弧度）
     if (modelConfig.rotation) {
         const toRadians = (degrees: number) => degrees * (Math.PI / 180);
-        sprite.setRotation(
-            toRadians(modelConfig.rotation.x ?? 0),
-            toRadians(modelConfig.rotation.y ?? 0),
-            toRadians(modelConfig.rotation.z ?? 0)
-        );
+        const rx = toRadians(modelConfig.rotation.x ?? 0);
+        const ry = toRadians(modelConfig.rotation.y ?? 0);
+        const rz = toRadians(modelConfig.rotation.z ?? 0);
+        sprite.setInitialRotation(rx, ry, rz);
     }
 
     // 2. 尝试从资源配置文件中读取 scriptPath
@@ -83,15 +84,15 @@ export async function createSpriteByModel(
                     const scriptCode = await scriptResponse.text();
                     
                     // 使用 Function 构造器执行脚本并获取返回值
-                    // 脚本应该返回插件对象
-                    const pluginFactory = new Function('THREE', scriptCode + '\nreturn fireballPlugin;');
+                    // 脚本最后的表达式会自动作为返回值
+                    const pluginFactory = new Function('THREE', scriptCode);
                     const plugin = pluginFactory(THREE) as SpritePlugin;
 
                     if (!plugin || typeof plugin.onAttach !== 'function') {
                         throw new Error(`Invalid plugin at ${resourceConfig.scriptPath}: must have onAttach() method`);
                     }
 
-                    sprite.addPlugin(plugin, THREE);
+                    sprite.addPlugin(plugin, THREE, blackboard);
                     console.log('[Model] Plugin attached to sprite');
                 }
             } else {

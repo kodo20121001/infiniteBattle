@@ -35,15 +35,18 @@ export class Sprite {
     protected _id: number;
     protected _position: Vector3 = new Vector3(0, 0, 0);
     protected _rotation: Vector3 = new Vector3(0, 0, 0);  // 旋转（弧度）
+    protected _initialRotation: Vector3 = new Vector3(0, 0, 0);  // 初始旋转（弧度），来自模型配置
     protected _scale: Vector3 = new Vector3(1, 1, 1);
     protected _alpha = 1;
     protected _visible = true;
     protected _destroyed = false;
     protected _plugins: SpritePlugin[] = [];
     protected _threeObject: any = null;  // Three.js对象（Mesh、Group等）
+    public blackboard: Record<string, any>;  // 黑板：用于存储任意数据
 
-    constructor() {
+    constructor(blackboard: Record<string, any> = {}) {
         this._id = ++_spriteIdCounter;
+        this.blackboard = blackboard;
         // 为 none 类型创建一个空的 Group 容器
         this._threeObject = new THREE.Group();
     }
@@ -99,6 +102,24 @@ export class Sprite {
 
     getRotation(): Vector3 {
         return this._rotation;
+    }
+
+    /**
+     * 设置初始旋转（来自模型配置）
+     */
+    setInitialRotation(x: number, y: number, z: number = 0): void {
+        this._initialRotation.x = x;
+        this._initialRotation.y = y;
+        this._initialRotation.z = z;
+        // 初始旋转设置后，重新计算实际旋转
+        this.onTransformChanged();
+    }
+
+    /**
+     * 获取初始旋转
+     */
+    getInitialRotation(): Vector3 {
+        return this._initialRotation;
     }
 
     /**
@@ -214,7 +235,12 @@ export class Sprite {
         // 基类默认实现：同步位置、旋转和缩放到 Three.js 对象
         if (this._threeObject) {
             this._threeObject.position.set(this._position.x, this._position.y, this._position.z);
-            this._threeObject.rotation.set(this._rotation.x, this._rotation.y, this._rotation.z);
+            // 旋转 = 初始旋转 + 当前旋转
+            this._threeObject.rotation.set(
+                this._initialRotation.x + this._rotation.x,
+                this._initialRotation.y + this._rotation.y,
+                this._initialRotation.z + this._rotation.z
+            );
             this._threeObject.scale.set(this._scale.x, this._scale.y, this._scale.z);
         }
     }
