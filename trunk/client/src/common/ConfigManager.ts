@@ -10,6 +10,27 @@ export class ConfigManager {
         return this.configCache.get(key);
     }
 
+    /**
+     * 注入临时配置（单条），用于演示或运行时覆盖
+     */
+    setTempConfig(key: string, id: number, value: any): void {
+        const config = this.Get(key) || {};
+        config[id] = value;
+        this.configCache.set(key, config);
+    }
+
+    /**
+     * 注入临时配置（多条），用于演示或运行时覆盖
+     */
+    setTempConfigs(key: string, entries: Record<number, any>): void {
+        const config = this.Get(key) || {};
+        Object.keys(entries).forEach(rawId => {
+            const id = Number(rawId);
+            config[id] = entries[id];
+        });
+        this.configCache.set(key, config);
+    }
+
     // 加载配置的实现
     private loadConfig(key: string): any {
         try {

@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ClientGameRunner } from '@/game/core/impl';
 import { World } from '@/game/engine/common/World';
 import { Configs } from '@/game/common/Configs';
-import { DemoConfigManager } from '@/common/DemoConfigManager';
+import { ConfigManager } from '@/common/ConfigManager';
 import type { BulletConfig } from '@/game/core/config/BulletConfig';
 
 interface Props {
@@ -44,9 +44,116 @@ export const BulletDemoPreview: React.FC<Props> = ({ bulletConfig, isOpen, onClo
         if (!canvasRef.current) throw new Error('Canvas not found');
 
         // 初始化配置管理器并加载表
-        const configManager = new DemoConfigManager();
+        const configManager = new ConfigManager();
         Configs.init(configManager);
-        console.log('[BulletDemo] Configs initialized with DemoConfigManager');
+
+        const demoBulletId = bulletConfig?.id ?? 2;
+
+        // 注入演示用临时配置（子弹演示关卡 + 技能/行为 + 单位）
+        configManager.setTempConfigs('unit', {
+          9101: {
+            id: 9101,
+            name: '演示攻击者',
+            modelId: 'monkey',
+            skillIds: [9001],
+            attackSkillId: 9001,
+            hitY: 1.2,
+            sightRange: 10,
+            moveSpeed: 5,
+            obstacleCheckDistance: 3
+          },
+          9102: {
+            id: 9102,
+            name: '演示目标',
+            modelId: 'monkey',
+            skillIds: [],
+            attackSkillId: 1,
+            hitY: 1.0,
+            sightRange: 10,
+            moveSpeed: 5,
+            obstacleCheckDistance: 3
+          }
+        });
+
+        configManager.setTempConfig('level', 9901, {
+          id: 9901,
+          name: '子弹演示关卡',
+          mapId: 2,
+          description: '子弹系统演示：直线/抛物线/导弹追踪',
+          camps: [
+            { id: 1, name: '玩家', playerControlled: true },
+            { id: 2, name: '敌人' }
+          ],
+          alliances: [
+            { sourceCampId: 1, targetCampId: 2, relation: 'enemy', shareVision: false }
+          ],
+          initialResources: {},
+          startUnits: [
+            {
+              unitId: 9101,
+              campId: 1,
+              positionName: 101,
+              level: 1,
+              command: {
+                type: 'AttackMove',
+                targetPos: { x: 15, y: 30 }
+              }
+            },
+            {
+              unitId: 9102,
+              campId: 2,
+              positionName: 102,
+              level: 1,
+              command: {
+                type: 'HoldPosition',
+                guardPos: { x: 15, y: 30 }
+              }
+            }
+          ],
+          winCondition: '',
+          loseCondition: '',
+          triggers: []
+        });
+
+        configManager.setTempConfig('skill', 9001, {
+          id: 9001,
+          name: '子弹发射技能',
+          description: '演示子弹发射',
+          skillBehaviorId: 9001,
+          castRange: 10,
+          table: {}
+        });
+
+        configManager.setTempConfig('skill_behavior', 9001, {
+          id: 9001,
+          segments: [
+            {
+              id: 1,
+              name: '施法',
+              events: [
+                {
+                  id: 1,
+                  type: 'bullet',
+                  time: 0,
+                  data: {
+                    bulletId: demoBulletId,
+                    fromCaster: true,
+                    toTarget: true
+                  }
+                }
+              ]
+            }
+          ]
+        });
+
+        if (bulletConfig) {
+          configManager.setTempConfig('bullet', demoBulletId, {
+            ...bulletConfig,
+            id: demoBulletId
+          });
+        }
+
+        console.log('[BulletDemo] Configs initialized with ConfigManager + temp demo configs');
 
         // 创建世界
         const world = new World(canvasRef.current, 800, 600, 60);

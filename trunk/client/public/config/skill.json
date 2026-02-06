@@ -4,11 +4,5 @@
     "skillBehaviorId": 1,
     "castRange": 0.7,
     "table": {}
-  },
-  {
-    "id": 9001,
-    "skillBehaviorId": 9001,
-    "castRange": 100,
-    "table": {}
   }
 ]
