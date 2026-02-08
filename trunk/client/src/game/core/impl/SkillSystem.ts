@@ -304,10 +304,18 @@ export class SkillSystem extends GameSystem {
                 const actor = this.game.getActor(String(actorNo));
                 return actor ? actor.getPosition() : null;
             },
+            causeDamage: (attackerId: string, targetId: string, damage: number) => {
+                // 通过DamageSystem造成伤害
+                const damageSystem = this.game.getSystem('damage') as any;
+                if (damageSystem?.causeDamage) {
+                    return damageSystem.causeDamage(attackerId, targetId, damage);
+                }
+                console.warn('[SkillSystem] DamageSystem not available');
+                return false;
+            },
             defaultTargetActorNo: targetActorNo,
             defaultTargetPosition: targetPosition,
             onBulletEnd: (data: any) => {
-                console.log('[SkillSystem] Bullet ended:', data);
                 // 移除子弹
                 (this.game as any).removeActor?.(bullet.actorNo);
             }

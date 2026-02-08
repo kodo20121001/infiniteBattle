@@ -10,7 +10,10 @@ export { GameState, GameStateEnum, type GameSnapshot } from './GameState';
 export { Actor, ActorType, ActorState } from './Actor';
 
 // 游戏单位实现
-export { Unit, Building } from './Unit';
+export { Unit } from './Unit';
+
+// 建筑实现
+export { Building } from './Building';
 
 // 子弹实现
 export { Bullet, type BulletRuntimeContext, type BulletEventType } from './Bullet';
@@ -21,6 +24,7 @@ export {
     MovementSystem,
     DamageSystem,
     EventSystem,
+    DeathSystem,
     Game,
 } from './GameSystem';
 

@@ -6,9 +6,11 @@
 import { Game } from './GameSystem';
 import { Actor, ActorType } from './Actor';
 import { Unit } from './Unit';
+import { Building } from './Building';
+import { Configs } from '../../common/Configs';
 import type { StatusSystem } from './StatusSystem';
 import { FixedVector3 } from '../base/fixed/FixedVector3';
-import type { LevelConfig, LevelUnitConfig } from '../config/LevelConfig';
+import type { LevelConfig, LevelActorConfig } from '../config/LevelConfig';
 import type { UnitConfig } from '../config/UnitConfig';
 import type { ModelConfig } from '../config/ModelConfig';
 import { getUnitConfig } from '../config/UnitConfig';
@@ -40,12 +42,12 @@ export class SceneManager {
         // 初始化游戏状态
         this._game.init();
 
-        // 创建初始单位
+        // 创建初始 Actor（单位和建筑）
         if (levelConfig.startUnits) {
-            console.log(`[SceneManager] Creating ${levelConfig.startUnits.length} start units`);
-            for (const levelUnitConfig of levelConfig.startUnits) {
-                console.log(`[SceneManager] Creating unit: unitId=${levelUnitConfig.unitId}, positionName=${levelUnitConfig.positionName}, campId=${levelUnitConfig.campId}`);
-                this._createUnit(levelUnitConfig, levelConfig);
+            console.log(`[SceneManager] Creating ${levelConfig.startUnits.length} start actors`);
+            for (const levelActorConfig of levelConfig.startUnits) {
+                console.log(`[SceneManager] Creating actor: type=${levelActorConfig.actorType}, positionName=${levelActorConfig.positionName}, campId=${levelActorConfig.campId}`, levelActorConfig);
+                this._createActor(levelActorConfig, levelConfig);
             }
         } else {
             console.log(`[SceneManager] No startUnits in level config`);
@@ -58,12 +60,27 @@ export class SceneManager {
     }
 
     /**
+     * 创建 Actor（单位或建筑）
+     */
+    private _createActor(levelActorConfig: LevelActorConfig, levelConfig: LevelConfig): void {
+        if (levelActorConfig.actorType === 'unit') {
+            this._createUnit(levelActorConfig, levelConfig);
+        } else if (levelActorConfig.actorType === 'building') {
+            this._createBuilding(levelActorConfig, levelConfig);
+        }
+    }
+
+    /**
      * 创建单位
      */
-    private _createUnit(levelUnitConfig: LevelUnitConfig, levelConfig: LevelConfig): void {
-        const unitConfig = getUnitConfig(levelUnitConfig.unitId);
+    private _createUnit(levelActorConfig: LevelActorConfig, levelConfig: LevelConfig): void {
+        if (!levelActorConfig.unitId) {
+            console.warn(`Unit ID is required for actor type 'unit'`);
+            return;
+        }
+        const unitConfig = getUnitConfig(levelActorConfig.unitId);
         if (!unitConfig) {
-            console.warn(`Unit config not found: ${levelUnitConfig.unitId}`);
+            console.warn(`Unit config not found: ${levelActorConfig.unitId}`);
             return;
         }
 
@@ -77,7 +94,7 @@ export class SceneManager {
         // 获取单位位置（从地图配置中查找）
         let x = 0, y = 0, z = 0;
         if (this._mapConfig && this._mapConfig.points) {
-            const point = this._mapConfig.points.find((p: any) => p.id === levelUnitConfig.positionName);
+            const point = this._mapConfig.points.find((p: any) => p.id === levelActorConfig.positionName);
             if (point) {
                 x = point.x;
                 y = point.y ?? 0;
@@ -86,20 +103,20 @@ export class SceneManager {
         }
 
         // 可选的相对偏移（测试用，便于群体生成）
-        if ((levelUnitConfig as any).offset) {
-            const off = (levelUnitConfig as any).offset;
+        if (levelActorConfig.offset) {
+            const off = levelActorConfig.offset;
             if (typeof off.x === 'number') x += off.x;
             if (typeof off.z === 'number') z += off.z;
         }
 
         // 创建角色
-        const actorId = `${levelUnitConfig.campId}_${levelUnitConfig.unitId}_${Date.now()}_${Math.random()}`;
+        const actorId = `${levelActorConfig.campId}_${levelActorConfig.unitId}_${Date.now()}_${Math.random()}`;
         const position = new FixedVector3(x, y, z);
         const unit = new Unit(
             actorId,
             unitConfig.modelId,
-            levelUnitConfig.unitId,  // 单位类型（对应 unit.json 的 id）
-            levelUnitConfig.campId,
+            levelActorConfig.unitId,  // 单位类型（对应 unit.json 的 id）
+            levelActorConfig.campId,
             position
         );
 
@@ -112,6 +129,70 @@ export class SceneManager {
         // 初始化状态（避免动画系统无状态导致无法选择 clip）
         const statusSystem = this._game.getSystem<StatusSystem>('status');
         statusSystem?.setIdle(unit.actorNo);
+    }
+
+    /**
+     * 创建建筑
+     */
+    private _createBuilding(levelActorConfig: LevelActorConfig, levelConfig: LevelConfig): void {
+        if (!levelActorConfig.buildingId) {
+            console.warn(`Building ID is required for actor type 'building'`);
+            return;
+        }
+
+        // 获取建筑配置
+        const buildingConfigs = Configs.Get('building') || {};
+        const buildingConfig = buildingConfigs[levelActorConfig.buildingId];
+        if (!buildingConfig) {
+            console.warn(`Building config not found: ${levelActorConfig.buildingId}`);
+            return;
+        }
+
+        // 从地图配置中查找位置
+        let x = 0, y = 0, z = 0;
+        if (this._mapConfig && this._mapConfig.points) {
+            const point = this._mapConfig.points.find((p: any) => p.id === levelActorConfig.positionName);
+            if (point) {
+                x = point.x;
+                y = point.y ?? 0;
+                z = point.z ?? 0;
+            } else {
+                console.warn(`Point not found: ${levelActorConfig.positionName}`);
+            }
+        }
+
+        // 创建建筑
+        const actorId = `${levelActorConfig.campId}_building_${levelActorConfig.buildingId}_${Date.now()}_${Math.random()}`;
+        const position = new FixedVector3(x, y, z);
+        const building = new Building(
+            actorId,
+            buildingConfig.modelId || 'default_building_model',
+            0,  // buildingId (numeric)
+            levelActorConfig.campId,
+            position
+        );
+
+        // 初始化生产队列（如果存在）
+        if (buildingConfig.abilities) {
+            const productionAbility = buildingConfig.abilities.find((a: any) => a.type === 'ProductionQueue');
+            if (productionAbility && productionAbility.config.queue) {
+                building.initProductionQueue(productionAbility.config.queue);
+            }
+
+            const turretAbility = buildingConfig.abilities.find((a: any) => a.type === 'TurretAttack');
+            if (turretAbility && turretAbility.config && turretAbility.config.attackSkillId !== undefined) {
+                const attackSkillId = Number(turretAbility.config.attackSkillId);
+                if (!Number.isNaN(attackSkillId)) {
+                    building.setAttackSkillId(attackSkillId);
+                }
+            }
+            if (turretAbility && turretAbility.config) {
+                building.setTurretAttackConfig(turretAbility.config);
+            }
+        }
+
+        // 添加到游戏
+        this._game.addActor(building);
     }
 
     /**

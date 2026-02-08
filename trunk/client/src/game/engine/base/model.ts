@@ -24,11 +24,17 @@ export async function createSpriteByModel(
     modelConfig: ModelConfig,
     blackboard: Record<string, any> = {}
 ): Promise<Sprite> {
+    const isImagePath = (path?: string): boolean => !!path && /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(path);
+    const isJsonPath = (path?: string): boolean => !!path && /\.json$/i.test(path);
+
     // 1. 根据type创建基础sprite
     let sprite: Sprite;
 
     // 使用配置中的完整路径，默认为 /unit/{modelId}.json
-    const resourcePath = modelConfig.path || `/unit/${modelId}.json`;
+    const defaultPath = modelConfig.type === ModelTypeEnum.Image2D
+        ? `/unit/${modelId}.png`
+        : `/unit/${modelId}.json`;
+    const resourcePath = modelConfig.path || defaultPath;
 
     switch (modelConfig.type) {
         case ModelTypeEnum.None:
@@ -59,6 +65,11 @@ export async function createSpriteByModel(
             throw new Error(`Unknown model type: ${modelConfig.type}`);
     }
 
+    // 应用初始缩放
+    if (modelConfig.scale) {
+        sprite.setScale(modelConfig.scale, modelConfig.scale, modelConfig.scale);
+    }
+
     // 应用初始旋转（配置为角度，内部使用弧度）
     if (modelConfig.rotation) {
         const toRadians = (degrees: number) => degrees * (Math.PI / 180);
@@ -69,7 +80,7 @@ export async function createSpriteByModel(
     }
 
     // 2. 尝试从资源配置文件中读取 scriptPath
-    if (resourcePath) {
+    if (resourcePath && isJsonPath(resourcePath)) {
         try {
             const response = await fetch(resourcePath);
             if (response.ok) {
@@ -93,7 +104,6 @@ export async function createSpriteByModel(
                     }
 
                     sprite.addPlugin(plugin, THREE, blackboard);
-                    console.log('[Model] Plugin attached to sprite');
                 }
             } else {
                 console.warn('[Model] Failed to fetch resource config:', response.status);

@@ -6,6 +6,7 @@
 import { Game } from './GameSystem';
 import { SceneManager } from './SceneManager';
 import { LevelManager } from './LevelManager';
+import { ProductionSystem } from './ProductionSystem';
 import { GameMap } from './Map';
 import type { MapConfig } from '../config/MapConfig';
 import { MovementSystem } from './MovementSystem';
@@ -17,12 +18,15 @@ import { Sprite3D } from '../../engine/base/Sprite3D';
 import { getModelConfig } from '../config/ModelConfig';
 import { createSpriteByModel } from '../../engine/base/model';
 import { getUnitConfig } from '../config/UnitConfig';
+import { getBuildingAbilityDef, getDefaultAbilityConfig } from '../config/BuildingAbilityConfig';
+import { Configs } from '../../common/Configs';
 
 import type { Actor } from './Actor';
-import { Unit, Building } from './Unit';
+import { ActorType } from './Actor';
+import { Unit } from './Unit';
+import { Building } from './Building';
 import { Bullet } from './Bullet';
 import type { AnimationSystem } from './AnimationSystem';
-import { getBuildGridIndex, getBuildGridCenter } from '../config/MapConfig';
 
 /**
  * 客户端游戏运行器
@@ -47,7 +51,17 @@ export class ClientGameRunner {
                 try {
                     const modelId = actor.modelId;
                     const modelConfig = getModelConfig(modelId);
-                    if (!modelConfig) throw new Error(`Model config not found for model id: ${modelId}`);
+                    if (!modelConfig) {
+                        if (actor.actorType === ActorType.Building) {
+                            const placeholder = this._createPlaceholderSprite(actor.campId);
+                            const pos = actor.getPosition();
+                            placeholder.setPosition(pos.x, pos.y, pos.z);
+                            spriteManager.add(spriteId, placeholder);
+                            actor.setSpriteId(spriteId);
+                            return;
+                        }
+                        throw new Error(`Model config not found for model id: ${modelId}`);
+                    }
                     
                     // actor 可能已被移除
                     if (!this._game.getActor(actor.actorNo)) return;
@@ -60,7 +74,7 @@ export class ClientGameRunner {
                     };
                     
                     // 如果是 Bullet，添加子弹特有数据
-                    if (actor.actorType === 'bullet') {
+                    if (actor.actorType === ActorType.Bullet) {
                         const bullet = actor as any; // Bullet 类型
                             const pos = actor.getPosition();
                             blackboard.startPosition = { x: pos.x, y: pos.y, z: pos.z };
@@ -86,13 +100,6 @@ export class ClientGameRunner {
                                 z: pos.z + 5
                             };
                         }
-                        
-                        console.log('[GameRunner] Creating Bullet sprite with blackboard:', {
-                            start: blackboard.startPosition,
-                            target: blackboard.targetPosition,
-                            dx: (blackboard.targetPosition.x - pos.x).toFixed(2),
-                            dz: (blackboard.targetPosition.z - pos.z).toFixed(2)
-                        });
                     }
                     
                     const sprite = await createSpriteByModel(modelId, modelConfig, blackboard);
@@ -101,8 +108,16 @@ export class ClientGameRunner {
                     const pos = actor.getPosition();
                     sprite.setPosition(pos.x, pos.y, pos.z);
                     
+                    // 设置缩放：直接从 modelConfig 读取，确保一致性
+                    const scale = modelConfig.scale || actor.getScale() || 1;
+                    if (sprite instanceof AnimatedSprite2D || sprite instanceof Sprite2D) {
+                        sprite.setScale(scale, scale, 1);
+                    } else {
+                        sprite.setScale(scale, scale, scale);
+                    }
+                    
                     // 设置初始旋转（对 Bullet 尤其重要）
-                    if (actor.actorType === 'bullet') {
+                    if (actor.actorType === ActorType.Bullet) {
                         const rotationDeg = actor.getRotation();
                         if (sprite instanceof Sprite2D) {
                             sprite.rotationZ = rotationDeg;
@@ -130,6 +145,7 @@ export class ClientGameRunner {
     private _world: World;
     private _sceneManager: SceneManager;
     private _levelManager: LevelManager;
+    private _productionSystem: ProductionSystem;
     private _map: GameMap | null = null;
     private _frameTime: number = 1 / 30; // 30 FPS 帧同步（秒）
     private _isRunning: boolean = false;
@@ -138,8 +154,7 @@ export class ClientGameRunner {
     private _debugShowBuildCells: boolean = false; // 调试：显示可建筑格子
     private _debugBuildCellSprites: Map<number, Sprite2D> = new Map(); // 可建筑格子的精灵
     private _debugBuildCellSignature: string = '';
-    private _buildingPreviewSprite: Sprite2D | null = null; // 建筑预览精灵
-    private _buildingPreviewData: any = null; // 当前预览的建筑数据
+    private _debugRenderLogged: boolean = false;
 
     constructor(world: World) {
         this._world = world;
@@ -147,6 +162,7 @@ export class ClientGameRunner {
         this._game.setWorld(world);
         this._sceneManager = new SceneManager(this._game);
         this._levelManager = new LevelManager(this._game, this._sceneManager);
+        this._productionSystem = new ProductionSystem(this._game);
         this._game.setLevelManager(this._levelManager);
     }
 
@@ -354,6 +370,10 @@ export class ClientGameRunner {
      */
     private _onUpdate(deltaTime: number): void {
         this._game.update(deltaTime);
+        // 更新关卡（处理定时器和触发器）
+        this._levelManager.update(deltaTime);
+        // 更新建筑的生产队列
+        this._productionSystem.update(deltaTime);
     }
 
     /**
@@ -364,6 +384,19 @@ export class ClientGameRunner {
         const spriteManager = this._world.getSpriteManager();
         const actors = this._game.getActors();
         const mapConfig = this._map?.getConfig();
+
+        if (!this._debugRenderLogged) {
+            this._debugRenderLogged = true;
+            console.log('[Render] actors:', actors.length, 'sprites:', spriteManager.getAll().length);
+            if (actors.length > 0) {
+                const first = actors[0] as any;
+                console.log('[Render] first actor:', {
+                    actorNo: first.actorNo,
+                    type: first.actorType,
+                    modelId: first.modelId
+                });
+            }
+        }
         
         // 第一步：遍历 actor，设置对应 sprite 的位置和可见性
         for (const actor of actors) {
@@ -381,7 +414,7 @@ export class ClientGameRunner {
             sprite.visible = actor.isVisible();
 
             // 同步 Bullet 朝向到 sprite（初始旋转在 sprite 中自动处理）
-            if (actor.actorType === 'bullet') {
+            if (actor.actorType === ActorType.Bullet) {
                 const rotationDeg = actor.getRotation();
                 if (sprite instanceof Sprite2D) {
                     sprite.rotationZ = rotationDeg;
@@ -421,10 +454,6 @@ export class ClientGameRunner {
             this._renderDebugBuildCells(mapConfig as any);
         }
 
-        // 渲染建筑预览
-        if (this._buildingPreviewSprite && mapConfig) {
-            this._updateBuildingPreviewSprite(mapConfig as any);
-        }
     }
 
     /**
@@ -613,9 +642,6 @@ export class ClientGameRunner {
         this._debugBuildCellSprites.clear();
         this._debugBuildCellSignature = '';
         
-        // 清理建筑预览
-        this._clearBuildingPreview();
-        
         this.stop();
         this._sceneManager.destroy();
         this._game.destroy();
@@ -672,183 +698,56 @@ export class ClientGameRunner {
     }
 
     /**
-     * 设置建筑预览
-     */
-    setBuildingPreview(building: any, screenX: number, screenY: number): void {
-        if (!building || !this._map) {
-            this._clearBuildingPreview();
-            return;
-        }
-
-        this._buildingPreviewData = {
-            building,
-            screenX,
-            screenY
-        };
-
-        // 如果预览精灵不存在，创建一个
-        if (!this._buildingPreviewSprite) {
-            // 根据网格大小创建预览
-            const mapConfig = this._map.getConfig();
-            const buildGridWidth = mapConfig?.buildGridWidth ?? mapConfig?.gridWidth ?? 32;
-            const buildGridHeight = mapConfig?.buildGridHeight ?? mapConfig?.gridHeight ?? 32;
-            
-            const canvasWidth = Math.ceil(buildGridWidth);
-            const canvasHeight = Math.ceil(buildGridHeight);
-            
-            const canvas = document.createElement('canvas');
-            canvas.width = Math.max(canvasWidth, 32);
-            canvas.height = Math.max(canvasHeight, 32);
-            
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                // 根据建筑类型绘制不同的颜色
-                let fillColor = 'rgba(34, 197, 94, 0.5)'; // 默认绿色
-                let strokeColor = 'rgba(34, 197, 94, 1)';
-                
-                if (building.id === 'barracks') {
-                    fillColor = 'rgba(59, 130, 246, 0.5)'; // 蓝色
-                    strokeColor = 'rgba(59, 130, 246, 1)';
-                } else if (building.id === 'barrier') {
-                    fillColor = 'rgba(239, 68, 68, 0.5)'; // 红色
-                    strokeColor = 'rgba(239, 68, 68, 1)';
-                }
-                
-                ctx.fillStyle = fillColor;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.strokeStyle = strokeColor;
-                ctx.lineWidth = 2;
-                ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
-            }
-
-            this._buildingPreviewSprite = new Sprite2D(canvas, buildGridWidth, buildGridHeight);
-            this._buildingPreviewSprite.setAnchor(0.5, 0.5);
-            this._buildingPreviewSprite.position.z = 100; // 在最上层
-            this._world.getSpriteManager().add('building_preview', this._buildingPreviewSprite);
-        }
-    }
-
-    /**
-     * 更新建筑预览精灵位置
-     */
-    private _updateBuildingPreviewSprite(mapConfig: MapConfig): void {
-        if (!this._buildingPreviewSprite || !this._buildingPreviewData) return;
-
-        const camera = this._world.getCamera();
-        const { screenX, screenY } = this._buildingPreviewData;
-
-        // Canvas 坐标转世界坐标
-        const worldPos = camera.canvasToWorld(screenX, screenY, 0);
-        const worldX = worldPos.x;
-        const worldY = worldPos.y;
-        const worldZ = worldPos.z;
-        
-        // 检查是否在有效建筑格子上（使用 x, z 坐标，z是深度方向对应地图Y）
-        const gridIndex = getBuildGridIndex(worldX, worldZ, mapConfig);
-        const buildGridCells = mapConfig.buildGridCells ?? [];
-        const isValid = gridIndex >= 0 && buildGridCells.includes(gridIndex);
-
-        // 如果在有效格子上，吸附到格子中心
-        if (isValid) {
-            const center = getBuildGridCenter(gridIndex, mapConfig);
-            this._buildingPreviewSprite.setPosition(center.x, center.z ?? 0);
-            
-            // 更改颜色为绿色（可以放置）
-            const texture = this._buildingPreviewSprite.getTexture();
-            if (texture && texture instanceof HTMLCanvasElement) {
-                const ctx = texture.getContext('2d');
-                if (ctx) {
-                    ctx.clearRect(0, 0, texture.width, texture.height);
-                    ctx.fillStyle = 'rgba(34, 197, 94, 0.6)';
-                    ctx.fillRect(0, 0, 64, 64);
-                    ctx.strokeStyle = 'rgba(34, 197, 94, 1)';
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(2, 2, 60, 60);
-                }
-            }
-        } else {
-            // 跟随鼠标，显示红色（无法放置）
-            // 直接使用渲染坐标
-            this._buildingPreviewSprite.setPosition(renderPos.x, renderPos.y);
-            
-            const texture = this._buildingPreviewSprite.getTexture();
-            if (texture && texture instanceof HTMLCanvasElement) {
-                const ctx = texture.getContext('2d');
-                if (ctx) {
-                    ctx.clearRect(0, 0, texture.width, texture.height);
-                    ctx.fillStyle = 'rgba(239, 68, 68, 0.5)';
-                    ctx.fillRect(0, 0, 64, 64);
-                    ctx.strokeStyle = 'rgba(239, 68, 68, 1)';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(2, 2, 60, 60);
-                }
-            }
-        }
-
-        this._buildingPreviewSprite.visible = true;
-    }
-
-    /**
-     * 清除建筑预览
-     */
-    private _clearBuildingPreview(): void {
-        if (this._buildingPreviewSprite) {
-            this._world.getSpriteManager().remove('building_preview');
-            this._buildingPreviewSprite.destroy();
-            this._buildingPreviewSprite = null;
-        }
-        this._buildingPreviewData = null;
-    }
-
-    /**
      * 尝试放置建筑
      */
     tryPlaceBuilding(building: any, screenX: number, screenY: number): { success: boolean; reason?: string; building?: Building } {
+        console.log('[GameRunner] tryPlaceBuilding called:', { building: building?.id, hasMap: !!this._map, screenX, screenY });
         if (!this._map) {
             return { success: false, reason: '地图未加载' };
         }
 
-        const mapConfig = this._levelManager['_currentMapConfig'] as MapConfig;
-        if (!mapConfig) {
-            return { success: false, reason: '地图配置未找到' };
-        }
-
         const camera = this._world.getCamera();
         const worldPos = camera.canvasToWorld(screenX, screenY, 0);
         const worldX = worldPos.x;
         const worldY = worldPos.y;
         const worldZ = worldPos.z;
-
-        // 检查是否在有效建筑格子上
-        const gridIndex = getBuildGridIndex(worldX, worldZ, mapConfig);
-        const buildGridCells = mapConfig.buildGridCells ?? [];
-        
-        if (gridIndex < 0 || !buildGridCells.includes(gridIndex)) {
-            return { success: false, reason: '不在可建筑区域' };
-        }
-
-        // 获取格子中心坐标
-        const center = getBuildGridCenter(gridIndex, mapConfig);
 
         // 创建建筑实例 - 使用统一的actor编号生成方式
         const buildingActorNo = `1_building_${building.id}_${Date.now()}_${Math.random()}`;
         const buildingInstance = new Building(
             buildingActorNo,
-            'default_building_model', // TODO: 使用实际的模型ID
-            building.id === 'tower' ? 1 : building.id === 'barracks' ? 2 : 3, // 临时映射
+            building?.modelId || 'default_building_model',
+            typeof building?.id === 'number' ? building.id : 0,
             1 // 玩家阵营
         );
 
         // 设置位置（x, y=0, z）
-        buildingInstance.getPosition().x = center.x;
+        buildingInstance.getPosition().x = worldX;
         buildingInstance.getPosition().y = 0;
-        buildingInstance.getPosition().z = center.y;
+        buildingInstance.getPosition().z = worldZ;
+        
+        // 初始化生产队列（如果存在）
+        if (building.abilities) {
+            const productionAbility = building.abilities.find((a: any) => a.type === 'ProductionQueue');
+            if (productionAbility && productionAbility.config.queue) {
+                console.log('[GameRunner] tryPlaceBuilding - initializing production queue:', { buildingId: building.id, queue: productionAbility.config.queue });
+                buildingInstance.initProductionQueue(productionAbility.config.queue);
+            }
+
+            const turretAbility = building.abilities.find((a: any) => a.type === 'TurretAttack');
+            if (turretAbility && turretAbility.config && turretAbility.config.attackSkillId !== undefined) {
+                const attackSkillId = Number(turretAbility.config.attackSkillId);
+                if (!Number.isNaN(attackSkillId)) {
+                    buildingInstance.setAttackSkillId(attackSkillId);
+                }
+            }
+            if (turretAbility && turretAbility.config) {
+                buildingInstance.setTurretAttackConfig(turretAbility.config);
+            }
+        }
         
         // 添加到游戏中
         this._game.addActor(buildingInstance);
-
-        // 清除预览
-        this._clearBuildingPreview();
 
         return { success: true, building: buildingInstance };
     }

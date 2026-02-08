@@ -15,8 +15,8 @@ export type UnitCommandType = 'Idle' | 'Stop' | 'MoveTo' | 'AttackMove' | 'HoldP
 
 export interface UnitCommand {
     type: UnitCommandType;
-    targetPos?: { x: number; y: number }; // 俯视平面坐标（x, z=y）
-    guardPos?: { x: number; y: number };  // 守卫原点
+    targetPos?: { x: number; z: number }; // 目标位置
+    guardPos?: { x: number; z: number };  // 守卫原点
     visionRadius?: number;                // 视野半径
 }
 
@@ -137,7 +137,7 @@ export class UnitCommandSystem extends GameSystem {
                     movement.moveTo({
                         actorId: actor.actorNo,
                         targetX: cmd.targetPos.x,
-                        targetZ: cmd.targetPos.y,
+                        targetZ: cmd.targetPos.z,
                         speed,
                     });
                     state.hasIssuedMove = true;
@@ -150,13 +150,13 @@ export class UnitCommandSystem extends GameSystem {
                 if (guardPos) {
                     const pos = actor.getPosition();
                     const dx = guardPos.x - pos.x;
-                    const dz = guardPos.y - pos.z;
+                    const dz = guardPos.z - pos.z;
                     const dist = Math.sqrt(dx * dx + dz * dz);
                     if (dist > 1) {
                         movement.moveTo({
                             actorId: actor.actorNo,
                             targetX: guardPos.x,
-                            targetZ: guardPos.y,
+                            targetZ: guardPos.z,
                             speed: actor.getSpeed(),
                         });
                     }

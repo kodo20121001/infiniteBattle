@@ -13,20 +13,21 @@ export class ConfigManager {
     /**
      * 注入临时配置（单条），用于演示或运行时覆盖
      */
-    setTempConfig(key: string, id: number, value: any): void {
+    setTempConfig(key: string, id: number | string, value: any): void {
         const config = this.Get(key) || {};
-        config[id] = value;
+        const idKey = String(id);
+        config[idKey] = value;
         this.configCache.set(key, config);
     }
 
     /**
      * 注入临时配置（多条），用于演示或运行时覆盖
      */
-    setTempConfigs(key: string, entries: Record<number, any>): void {
+    setTempConfigs(key: string, entries: Record<string, any>): void {
         const config = this.Get(key) || {};
         Object.keys(entries).forEach(rawId => {
-            const id = Number(rawId);
-            config[id] = entries[id];
+            const idKey = String(rawId);
+            config[idKey] = entries[rawId];
         });
         this.configCache.set(key, config);
     }

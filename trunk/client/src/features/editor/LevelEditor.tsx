@@ -3,7 +3,7 @@ import type {
   LevelConfig,
   LevelCampConfig,
   LevelAllianceConfig,
-  LevelUnitConfig,
+  LevelActorConfig,
   LevelTriggerConfig,
   LevelConditionConfig,
   LevelActionConfig,

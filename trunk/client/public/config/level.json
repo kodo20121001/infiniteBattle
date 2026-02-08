@@ -4,13 +4,54 @@
     "name": "关卡1",
     "description": "",
     "mapId": 1,
-    "camps": [],
-    "alliances": [],
+    "camps": [
+      { "id": 1, "name": "玩家", "playerControlled": true },
+      { "id": 2, "name": "敌人" }
+    ],
+    "alliances": [
+      { "sourceCampId": 1, "targetCampId": 2, "relation": "enemy", "shareVision": false }
+    ],
     "initialResources": {},
     "startUnits": [],
     "winCondition": "",
     "loseCondition": "",
-    "triggers": []
+    "triggers": [
+      {
+        "id": 1,
+        "name": "定时生成敌人",
+        "eventType": "intervalTimer",
+        "params": {
+          "intervalSec": 3
+        },
+        "conditions": [],
+        "actions": [
+          {
+            "type": "createUnit",
+            "params": {
+              "unitId": "101",
+              "campId": 2,
+              "positionName": "3"
+            }
+          },
+          {
+            "type": "createUnit",
+            "params": {
+              "unitId": "101",
+              "campId": 2,
+              "positionName": "4"
+            }
+          },
+          {
+            "type": "createUnit",
+            "params": {
+              "unitId": "101",
+              "campId": 2,
+              "positionName": "5"
+            }
+          }
+        ]
+      }
+    ]
   },
   {
     "id": 9999,

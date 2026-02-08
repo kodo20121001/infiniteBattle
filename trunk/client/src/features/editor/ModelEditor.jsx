@@ -11,6 +11,7 @@ const ModelEditor = () => {
   const [models, setModels] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [modelData, setModelData] = useState(null);
+  const [originalId, setOriginalId] = useState(null); // 追踪原始ID，用于检测ID变更
   const [status, setStatus] = useState('loading');
   const [toast, setToast] = useState('');
   const [cameraMode, setCameraMode] = useState('game');
@@ -19,12 +20,17 @@ const ModelEditor = () => {
   const [dirHandle, setDirHandle] = useState(null);
   const [savePathName, setSavePathName] = useState('');
 
+  const pathPlaceholder = modelData?.type === '2d_image'
+    ? '/unit/xxx.png 或 /map/xxx.png'
+    : '/unit/model.json 或 /effect/fire_ball.json';
+
   useEffect(() => {
     fetchModelConfigs()
       .then((data) => {
         if (data && data.length > 0) {
           setModels(data);
           setSelectedId(data[0].id);
+          setOriginalId(data[0].id);
           setModelData(structuredClone(data[0]));
         } else {
           const base = {
@@ -36,6 +42,7 @@ const ModelEditor = () => {
           };
           setModels([base]);
           setSelectedId(base.id);
+          setOriginalId(base.id);
           setModelData(structuredClone(base));
         }
         setStatus('ready');
@@ -49,7 +56,10 @@ const ModelEditor = () => {
   useEffect(() => {
     if (!selectedId) return;
     const found = models.find((m) => m.id === selectedId);
-    if (found) setModelData(structuredClone(found));
+    if (found) {
+      setOriginalId(selectedId);
+      setModelData(structuredClone(found));
+    }
   }, [selectedId, models]);
 
   const updateField = (key, value) => {
@@ -171,9 +181,19 @@ const ModelEditor = () => {
   const saveConfigs = async () => {
     if (!modelData) return;
     let list = [...models];
+    
+    // 如果ID改变了，需要删除旧的ID对应的数据
+    if (originalId && originalId !== modelData.id) {
+      list = list.filter((m) => m.id !== originalId);
+    }
+    
+    // 更新或添加新的数据
     const idx = list.findIndex((m) => m.id === modelData.id);
     if (idx >= 0) list[idx] = structuredClone(modelData);
     else list.push(structuredClone(modelData));
+    
+    // 更新originalId以反映新的ID
+    setOriginalId(modelData.id);
 
     try {
       let handle = dirHandle;
@@ -296,10 +316,12 @@ const ModelEditor = () => {
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-400">资源路径</label>
+              <label className="text-xs text-gray-400">
+                资源路径{modelData?.type === '2d_image' ? '（2D 图片可直接填图片路径）' : ''}
+              </label>
               <input
                 className="w-full mt-1 bg-gray-800 border border-gray-700 rounded px-2 py-1"
-                placeholder="/unit/model.json 或 /effect/fire_ball.json"
+                placeholder={pathPlaceholder}
                 value={modelData.path ?? ''}
                 onChange={(e) => updateField('path', e.target.value)}
               />
@@ -343,14 +365,16 @@ const ModelEditor = () => {
                 />
               </div>
             </div>
-            <div>
-              <label className="text-xs text-gray-400">默认动作</label>
-              <input
-                className="w-full mt-1 bg-gray-800 border border-gray-700 rounded px-2 py-1"
-                value={modelData.defaultAction ?? ''}
-                onChange={(e) => updateField('defaultAction', e.target.value)}
-              />
-            </div>
+            {modelData?.type !== '2d_image' && (
+              <div>
+                <label className="text-xs text-gray-400">默认动作</label>
+                <input
+                  className="w-full mt-1 bg-gray-800 border border-gray-700 rounded px-2 py-1"
+                  value={modelData.defaultAction ?? ''}
+                  onChange={(e) => updateField('defaultAction', e.target.value)}
+                />
+              </div>
+            )}
             <div>
               <label className="text-xs text-gray-400">碰撞半径</label>
               <input

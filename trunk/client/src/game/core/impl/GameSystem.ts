@@ -13,6 +13,8 @@ import { LevelManager } from './LevelManager';
 import { MovementSystem } from './MovementSystem';
 import { AnimationSystem } from './AnimationSystem';
 import { StatusSystem } from './StatusSystem';
+import { DeathSystem } from './DeathSystem';
+import { TurretAttackSystem } from './TurretAttackSystem';
 
 /**
  * 游戏系统基类
@@ -23,6 +25,11 @@ export { GameSystem } from './GameSystemBase';
  * 导出移动系统（从独立文件）
  */
 export { MovementSystem } from './MovementSystem';
+
+/**
+ * 导出死亡系统（从独立文件）
+ */
+export { DeathSystem } from './DeathSystem';
 
 /**
  * 伤害系统
@@ -41,11 +48,16 @@ export class DamageSystem extends GameSystem {
         const attacker = this.game.getActor(attackerId);
         const target = this.game.getActor(targetId);
 
+        console.log(`[DamageSystem] causeDamage called: attacker=${attackerId}, target=${targetId}, damage=${damage}`);
+
         if (!attacker || !target || target.isDead()) {
+            console.log(`[DamageSystem] causeDamage failed: attacker=${!!attacker}, target=${!!target}, isDead=${target?.isDead()}`);
             return false;
         }
 
+        console.log(`[DamageSystem] Applying ${damage} damage to ${targetId}, current HP: ${target.getHp()}`);
         target.takeDamage(damage);
+        console.log(`[DamageSystem] After damage, ${targetId} HP: ${target.getHp()}`);
         return true;
     }
 
@@ -178,9 +190,11 @@ export class Game {
         this.registerSystem('movement', new MovementSystem(this));
         this.registerSystem('moveBy', new MoveBySystem(this));
         this.registerSystem('damage', new DamageSystem(this));
+        this.registerSystem('death', new DeathSystem(this));
         this.registerSystem('event', new EventSystem(this));
         this.registerSystem('skill', new SkillSystem(this));
         this.registerSystem('unitCommand', new UnitCommandSystem(this));
+        this.registerSystem('turretAttack', new TurretAttackSystem(this));
     }
 
     /**

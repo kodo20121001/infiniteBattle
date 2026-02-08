@@ -4,5 +4,11 @@
     "skillBehaviorId": 1,
     "castRange": 0.7,
     "table": {}
+  },
+  {
+    "id": 2,
+    "skillBehaviorId": 2,
+    "castRange": 10,
+    "table": {}
   }
 ]

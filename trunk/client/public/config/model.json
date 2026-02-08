@@ -43,8 +43,58 @@
       "x": 0
     },
     "blackboard": {
-      "startPosition": { "x": 0, "y": 0, "z": 0 },
-      "targetPosition": { "x": 5, "y": 0, "z": 5 }
+      "startPosition": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "targetPosition": {
+        "x": 5,
+        "y": 0,
+        "z": 5
+      }
     }
+  },
+  {
+    "id": "base",
+    "name": "基地",
+    "type": "2d_image",
+    "scale": 0.1,
+    "defaultAction": "idle",
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "path": "/building/base.png",
+    "radius": 0.5
+  },
+  {
+    "id": "fire_tower",
+    "name": "火球塔",
+    "type": "2d_image",
+    "scale": 0.1,
+    "defaultAction": "idle",
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "path": "/building/fire_tower.png",
+    "radius": 0.5
+  },
+  {
+    "id": "barracks",
+    "name": "兵营",
+    "type": "2d_image",
+    "scale": 0.1,
+    "defaultAction": "idle",
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "path": "/building/barracks.png",
+    "radius": 0.5
   }
 ]

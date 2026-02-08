@@ -47,7 +47,8 @@ export interface BulletTriggerConfig {
  */
 export type BulletTriggerEventType =
     | 'bulletStart' // 子弹开始（生成）
-    | 'bulletEnd';  // 子弹结束（销毁或命中）
+    | 'bulletEnd'   // 子弹结束（销毁或命中）
+    | 'bulletHit';  // 子弹击中目标
 
 // bulletStart 事件数据
 export interface BulletTriggerEventBulletStart {
@@ -63,12 +64,21 @@ export interface BulletTriggerEventBulletEnd {
     reason?: string;
 }
 
+// bulletHit 事件数据
+export interface BulletTriggerEventBulletHit {
+    /** 对应子弹ID，便于匹配 */
+    bulletId?: number;
+    /** 击中的目标单位ID */
+    targetActorNo?: number | string;
+}
+
 /**
  * 触发事件类型与数据结构映射。
  */
 export type BulletTriggerEventDataMap = {
     bulletStart: BulletTriggerEventBulletStart;
     bulletEnd: BulletTriggerEventBulletEnd;
+    bulletHit: BulletTriggerEventBulletHit;
 };
 
 /**
@@ -136,6 +146,7 @@ export interface BulletActionConfig {
  */
 export type BulletActionType =
     | 'bulletFlyToTarget' // 子弹飞向目标
+    | 'bulletDamage'      // 子弹造成伤害
     | 'customAction';     // 自定义行为
 
 // 子弹飞向目标行为
@@ -158,6 +169,36 @@ export interface BulletActionFlyToTarget {
     stopOnHit?: boolean;
 }
 
+// 子弹造成伤害行为
+export interface BulletActionDamage {
+    /** 伤害值 */
+    damageValue?: number;
+    /** 伤害值key（从表格读取） */
+    damageKey?: string;
+    /** 伤害比例 */
+    damageRatio?: number;
+    /** 伤害比例key（从表格读取） */
+    damageRatioKey?: string;
+    /** 触发类型：目标(target)或范围(range) */
+    triggerType?: 'target' | 'range';
+    /** 目标类型：最大距离值 */
+    maxDistanceValue?: number;
+    /** 目标类型：最大距离key */
+    maxDistanceKey?: string;
+    /** 范围类型：圆形(circle)或矩形(rect) */
+    rangeType?: 'circle' | 'rect';
+    /** 范围类型-圆形：半径 */
+    radius?: number;
+    /** 范围类型-矩形：长度 */
+    length?: number;
+    /** 范围类型-矩形：宽度 */
+    width?: number;
+    /** 范围类型：前方角度 */
+    frontAngle?: number;
+    /** 范围类型：前方距离 */
+    frontDistance?: number;
+}
+
 // 自定义行为
 export interface BulletActionCustom {
     actionName: string;
@@ -169,5 +210,6 @@ export interface BulletActionCustom {
  */
 export type BulletActionDataMap = {
     bulletFlyToTarget: BulletActionFlyToTarget;
+    bulletDamage: BulletActionDamage;
     customAction: BulletActionCustom;
 };

@@ -169,6 +169,13 @@ export class Actor {
     }
 
     /**
+     * 设置基础攻击技能ID
+     */
+    setAttackSkillId(attackSkillId: number): void {
+        this._attackSkillId = Math.max(0, attackSkillId || 0);
+    }
+
+    /**
      * 获取单位配置
      */
     getUnitConfig(): UnitConfig | null {
@@ -256,8 +263,10 @@ export class Actor {
      * 造成伤害
      */
     takeDamage(damage: number): void {
+        console.log(`[Actor] ${this.actorNo} takeDamage: ${damage}, HP: ${this._hp} -> ${Math.max(0, this._hp - damage)}`);
         this._hp = Math.max(0, this._hp - damage);
         if (this._hp === 0) {
+            console.log(`[Actor] ${this.actorNo} died!`);
             this.die();
         }
     }

@@ -21,6 +21,20 @@
                 }
               }
             ]
+          },
+          {
+            "eventType": "bulletHit",
+            "params": {},
+            "conditions": [],
+            "actions": [
+              {
+                "type": "bulletDamage",
+                "params": {
+                  "damageValue": 10,
+                  "maxDistanceValue": 1
+                }
+              }
+            ]
           }
         ]
       }

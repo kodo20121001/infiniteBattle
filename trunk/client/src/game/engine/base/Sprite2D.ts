@@ -306,6 +306,20 @@ export class Sprite2D extends Sprite {
      * @returns 创建的 Sprite2D 实例
      */
     static async create(jsonPath: string, blackboard: Record<string, any> = {}): Promise<Sprite2D> {
+        const isImagePath = /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(jsonPath);
+        if (isImagePath) {
+            const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => resolve(image);
+                image.onerror = () => reject(new Error(`Failed to load image: ${jsonPath}`));
+                image.src = jsonPath;
+            });
+
+            const width = img.width / 10;
+            const height = img.height / 10;
+            return new Sprite2D(img, width, height, blackboard);
+        }
+
         try {
             const response = await fetch(jsonPath);
             if (!response.ok) {

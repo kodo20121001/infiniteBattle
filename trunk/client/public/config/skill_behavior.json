@@ -55,26 +55,27 @@
     ]
   },
   {
-    "id": 9001,
+    "id": 2,
     "segments": [
       {
         "id": 1,
-        "name": "施法准备",
-        "triggers": [
+        "name": "分段-1",
+        "events": [
           {
-            "eventType": "skillStart",
-            "params": {},
-            "conditions": [],
-            "actions": [
-              {
-                "type": "createBullet",
-                "params": {
-                  "bulletId": 2,
-                  "fromCaster": true,
-                  "toTarget": true
-                }
-              }
-            ]
+            "id": 1,
+            "type": "bullet",
+            "time": 1.0,
+            "data": {
+              "bulletId": 1,
+              "fromCaster": true,
+              "toTarget": true
+            }
+          },
+          {
+            "id": 2,
+            "type": "end",
+            "time": 2.0,
+            "data": {}
           }
         ]
       }

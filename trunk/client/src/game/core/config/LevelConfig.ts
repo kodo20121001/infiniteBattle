@@ -20,8 +20,8 @@ export interface LevelConfig {
     alliances?: LevelAllianceConfig[];
     /** 初始资源 */
     initialResources?: Record<string, number>;
-    /** 初始单位列表 */
-    startUnits?: LevelUnitConfig[];
+    /** 初始角色列表（单位和建筑） */
+    startUnits?: LevelActorConfig[];
     /** 胜利条件描述 */
     winCondition: string;
     /** 失败条件描述 */
@@ -61,15 +61,19 @@ export interface LevelCampConfig {
 }
 
 /**
- * 关卡单位配置
+ * 关卡角色配置（单位或建筑）
  */
-export interface LevelUnitConfig {
-    /** 单位ID */
-    unitId: number;
+export interface LevelActorConfig {
+    /** Actor 类型 */
+    actorType: 'unit' | 'building';
     /** 所属阵营ID */
     campId: number;
-    /** 位置名（地图点名，实际坐标由地图查找） */
-    positionName: string;
+    /** 位置名（地图点ID，实际坐标由地图查找） */
+    positionName: string | number;
+    /** 单位ID（当 actorType='unit' 时） */
+    unitId?: number;
+    /** 建筑ID（当 actorType='building' 时） */
+    buildingId?: string;
     /** 单位等级 */
     level?: number;
     /** 关卡内自定义属性 */

@@ -49,11 +49,12 @@ const makeDefaultBullet = (id = 1): BulletConfig => ({
 
 // ==================== 类型定义 ====================
 
-const bulletTriggerEventTypes: BulletTriggerEventType[] = ['bulletStart', 'bulletEnd'];
+const bulletTriggerEventTypes: BulletTriggerEventType[] = ['bulletStart', 'bulletEnd', 'bulletHit'];
 
 const bulletTriggerEventLabels: Record<BulletTriggerEventType, string> = {
   'bulletStart': '子弹开始',
-  'bulletEnd': '子弹结束'
+  'bulletEnd': '子弹结束',
+  'bulletHit': '击中目标'
 };
 
 const bulletConditionTypes: BulletConditionType[] = [
@@ -68,10 +69,11 @@ const bulletConditionLabels: Record<BulletConditionType, string> = {
   'customCondition': '自定义条件'
 };
 
-const bulletActionTypes: BulletActionType[] = ['bulletFlyToTarget', 'customAction'];
+const bulletActionTypes: BulletActionType[] = ['bulletFlyToTarget', 'bulletDamage', 'customAction'];
 
 const bulletActionLabels: Record<BulletActionType, string> = {
   'bulletFlyToTarget': '飞向目标',
+  'bulletDamage': '造成伤害',
   'customAction': '自定义行为'
 };
 
@@ -511,182 +513,187 @@ const BulletEditor = () => {
               <div className="text-2xl font-bold">{currentSegment.name}</div>
             </div>
 
-            {/* 触发器编辑 */}
-            <div className="bg-slate-800/70 border border-slate-700 rounded-lg p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-lg font-semibold">触发器</div>
-                <button
-                  onClick={() => addTrigger(selectedSegmentIdx)}
-                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 rounded text-xs font-semibold"
-                >
-                  新增
-                </button>
-              </div>
-
-              {currentSegment.triggers.length === 0 ? (
-                <div className="text-xs text-slate-400 py-2">暂无触发器</div>
-              ) : (
-                <div className="space-y-2">
-                  {currentSegment.triggers.map((trigger, trigIdx) => (
-                    <div
-                      key={trigIdx}
-                      onClick={() => setSelectedTriggerIdx(trigIdx)}
-                      className={`p-3 border rounded cursor-pointer transition-all ${
-                        selectedTriggerIdx === trigIdx
-                          ? 'bg-slate-700/50 border-slate-500'
-                          : 'bg-slate-800/40 border-slate-700 hover:bg-slate-800/60'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm font-semibold">{bulletTriggerEventLabels[trigger.eventType]}</div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeTrigger(selectedSegmentIdx, trigIdx);
-                          }}
-                          className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
-                        >
-                          删除
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 选中触发器的详细编辑 */}
-            {currentTrigger && (
-              <div key={triggerKey} className="bg-slate-800/70 border border-slate-700 rounded-lg p-4 space-y-3">
-                <div className="text-lg font-semibold">触发器详情</div>
-                <div className="space-y-2">
-                  <label className="block text-xs text-slate-400">事件类型</label>
-                  <select
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-2 text-sm"
-                    value={currentTrigger.eventType}
-                    onChange={(e) => {
-                      const newType = e.target.value as BulletTriggerEventType;
-                      updateTrigger(selectedSegmentIdx, selectedTriggerIdx, {
-                        eventType: newType,
-                        params: {}
-                      });
-                    }}
+            {/* 触发器编辑（统一框） */}
+            <div className="bg-slate-800/70 border border-slate-700 rounded-lg p-4 space-y-4">
+              {/* 触发器列表 */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-lg font-semibold">触发器</div>
+                  <button
+                    onClick={() => addTrigger(selectedSegmentIdx)}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 rounded text-xs font-semibold"
                   >
-                    {bulletTriggerEventTypes.map(t => (
-                      <option key={t} value={t}>{bulletTriggerEventLabels[t]}</option>
+                    新增
+                  </button>
+                </div>
+
+                {currentSegment.triggers.length === 0 ? (
+                  <div className="text-xs text-slate-400 py-2">暂无触发器</div>
+                ) : (
+                  <div className="space-y-2">
+                    {currentSegment.triggers.map((trigger, trigIdx) => (
+                      <div
+                        key={trigIdx}
+                        onClick={() => setSelectedTriggerIdx(trigIdx)}
+                        className={`p-3 border rounded cursor-pointer transition-all ${
+                          selectedTriggerIdx === trigIdx
+                            ? 'bg-slate-700/50 border-slate-500'
+                            : 'bg-slate-800/40 border-slate-700 hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-semibold">{bulletTriggerEventLabels[trigger.eventType]}</div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeTrigger(selectedSegmentIdx, trigIdx);
+                            }}
+                            className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
+                          >
+                            删除
+                          </button>
+                        </div>
+                      </div>
                     ))}
-                  </select>
-                </div>
-
-                <BulletTriggerEventFields
-                  trigger={currentTrigger}
-                  onUpdate={(patch) => updateTrigger(selectedSegmentIdx, selectedTriggerIdx, patch)}
-                />
-              </div>
-            )}
-
-            {/* 条件编辑 */}
-            <div className="bg-slate-800/70 border border-slate-700 rounded-lg p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-lg font-semibold">条件</div>
-                <button
-                  onClick={() => addCondition(selectedSegmentIdx, selectedTriggerIdx)}
-                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 rounded text-xs font-semibold"
-                >
-                  新增
-                </button>
+                  </div>
+                )}
               </div>
 
-              {!currentTrigger?.conditions || currentTrigger.conditions.length === 0 ? (
-                <div className="text-xs text-slate-400 py-2">暂无条件</div>
-              ) : (
-                <div className="space-y-3">
-                  {currentTrigger.conditions.map((cond, condIdx) => (
-                    <div key={condIdx} className="bg-slate-900/50 border border-slate-700 rounded p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs text-slate-400">条件类型</label>
-                        <button
-                          onClick={() => removeCondition(selectedSegmentIdx, selectedTriggerIdx, condIdx)}
-                          className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
-                        >
-                          删除
-                        </button>
-                      </div>
+              {/* 选中触发器的详细编辑 */}
+              {currentTrigger && (
+                <div key={triggerKey} className="space-y-4 pt-4 border-t border-slate-700">
+                  <div className="space-y-3">
+                    <div className="text-base font-semibold text-slate-300">触发器详情</div>
+                    <div className="space-y-2">
+                      <label className="block text-xs text-slate-400">事件类型</label>
                       <select
                         className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-2 text-sm"
-                        value={cond.type}
+                        value={currentTrigger.eventType}
                         onChange={(e) => {
-                          const newType = e.target.value as BulletConditionType;
-                          updateCondition(selectedSegmentIdx, selectedTriggerIdx, condIdx, {
-                            type: newType,
+                          const newType = e.target.value as BulletTriggerEventType;
+                          updateTrigger(selectedSegmentIdx, selectedTriggerIdx, {
+                            eventType: newType,
                             params: {}
                           });
                         }}
                       >
-                        {bulletConditionTypes.map(t => (
-                          <option key={t} value={t}>{bulletConditionLabels[t]}</option>
+                        {bulletTriggerEventTypes.map(t => (
+                          <option key={t} value={t}>{bulletTriggerEventLabels[t]}</option>
                         ))}
                       </select>
-
-                      <BulletConditionFields
-                        condition={cond}
-                        onUpdate={(patch) => updateCondition(selectedSegmentIdx, selectedTriggerIdx, condIdx, patch)}
-                      />
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            {/* 行为编辑 */}
-            <div className="bg-slate-800/70 border border-slate-700 rounded-lg p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-lg font-semibold">行为</div>
-                <button
-                  onClick={() => addAction(selectedSegmentIdx, selectedTriggerIdx)}
-                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 rounded text-xs font-semibold"
-                >
-                  新增
-                </button>
-              </div>
+                    <BulletTriggerEventFields
+                      trigger={currentTrigger}
+                      onUpdate={(patch) => updateTrigger(selectedSegmentIdx, selectedTriggerIdx, patch)}
+                    />
+                  </div>
 
-              {!currentTrigger?.actions || currentTrigger.actions.length === 0 ? (
-                <div className="text-xs text-slate-400 py-2">暂无行为</div>
-              ) : (
-                <div className="space-y-3">
-                  {currentTrigger.actions.map((action, actIdx) => (
-                    <div key={actIdx} className="bg-slate-900/50 border border-slate-700 rounded p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs text-slate-400">行为类型</label>
-                        <button
-                          onClick={() => removeAction(selectedSegmentIdx, selectedTriggerIdx, actIdx)}
-                          className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
-                        >
-                          删除
-                        </button>
-                      </div>
-                      <select
-                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-2 text-sm"
-                        value={action.type}
-                        onChange={(e) => {
-                          const newType = e.target.value as BulletActionType;
-                          updateAction(selectedSegmentIdx, selectedTriggerIdx, actIdx, {
-                            type: newType,
-                            params: {}
-                          });
-                        }}
+                  {/* 条件编辑 */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-base font-semibold text-slate-300">条件</div>
+                      <button
+                        onClick={() => addCondition(selectedSegmentIdx, selectedTriggerIdx)}
+                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 rounded text-xs font-semibold"
                       >
-                        {bulletActionTypes.map(t => (
-                          <option key={t} value={t}>{bulletActionLabels[t]}</option>
-                        ))}
-                      </select>
-
-                      <BulletActionFields
-                        action={action}
-                        onUpdate={(patch) => updateAction(selectedSegmentIdx, selectedTriggerIdx, actIdx, patch)}
-                      />
+                        新增
+                      </button>
                     </div>
-                  ))}
+
+                    {!currentTrigger.conditions || currentTrigger.conditions.length === 0 ? (
+                      <div className="text-xs text-slate-400 py-2">暂无条件</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {currentTrigger.conditions.map((cond, condIdx) => (
+                          <div key={condIdx} className="bg-slate-900/50 border border-slate-700 rounded p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs text-slate-400">条件类型</label>
+                              <button
+                                onClick={() => removeCondition(selectedSegmentIdx, selectedTriggerIdx, condIdx)}
+                                className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
+                              >
+                                删除
+                              </button>
+                            </div>
+                            <select
+                              className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-2 text-sm"
+                              value={cond.type}
+                              onChange={(e) => {
+                                const newType = e.target.value as BulletConditionType;
+                                updateCondition(selectedSegmentIdx, selectedTriggerIdx, condIdx, {
+                                  type: newType,
+                                  params: {}
+                                });
+                              }}
+                            >
+                              {bulletConditionTypes.map(t => (
+                                <option key={t} value={t}>{bulletConditionLabels[t]}</option>
+                              ))}
+                            </select>
+
+                            <BulletConditionFields
+                              condition={cond}
+                              onUpdate={(patch) => updateCondition(selectedSegmentIdx, selectedTriggerIdx, condIdx, patch)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 行为编辑 */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-base font-semibold text-slate-300">行为</div>
+                      <button
+                        onClick={() => addAction(selectedSegmentIdx, selectedTriggerIdx)}
+                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 rounded text-xs font-semibold"
+                      >
+                        新增
+                      </button>
+                    </div>
+
+                    {!currentTrigger.actions || currentTrigger.actions.length === 0 ? (
+                      <div className="text-xs text-slate-400 py-2">暂无行为</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {currentTrigger.actions.map((action, actIdx) => (
+                          <div key={actIdx} className="bg-slate-900/50 border border-slate-700 rounded p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs text-slate-400">行为类型</label>
+                              <button
+                                onClick={() => removeAction(selectedSegmentIdx, selectedTriggerIdx, actIdx)}
+                                className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
+                              >
+                                删除
+                              </button>
+                            </div>
+                            <select
+                              className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-2 text-sm"
+                              value={action.type}
+                              onChange={(e) => {
+                                const newType = e.target.value as BulletActionType;
+                                updateAction(selectedSegmentIdx, selectedTriggerIdx, actIdx, {
+                                  type: newType,
+                                  params: {}
+                                });
+                              }}
+                            >
+                              {bulletActionTypes.map(t => (
+                                <option key={t} value={t}>{bulletActionLabels[t]}</option>
+                              ))}
+                            </select>
+
+                            <BulletActionFields
+                              action={action}
+                              onUpdate={(patch) => updateAction(selectedSegmentIdx, selectedTriggerIdx, actIdx, patch)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

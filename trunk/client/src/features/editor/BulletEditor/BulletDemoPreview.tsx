@@ -49,32 +49,42 @@ export const BulletDemoPreview: React.FC<Props> = ({ bulletConfig, isOpen, onClo
 
         const demoBulletId = bulletConfig?.id ?? 2;
 
-        // 注入演示用临时配置（子弹演示关卡 + 技能/行为 + 单位）
-        configManager.setTempConfigs('unit', {
-          9101: {
-            id: 9101,
-            name: '演示攻击者',
-            modelId: 'monkey',
-            skillIds: [9001],
-            attackSkillId: 9001,
-            hitY: 1.2,
-            sightRange: 10,
-            moveSpeed: 5,
-            obstacleCheckDistance: 3
-          },
-          9102: {
-            id: 9102,
-            name: '演示目标',
-            modelId: 'monkey',
-            skillIds: [],
-            attackSkillId: 1,
-            hitY: 1.0,
-            sightRange: 10,
-            moveSpeed: 5,
-            obstacleCheckDistance: 3
+        // 从地图配置中读取2号点坐标
+        const mapConfigsData = Configs.Get('map') || {};
+        const mapConfig2 = mapConfigsData[2];
+        console.log('[BulletDemo] mapConfig2:', mapConfig2);
+        console.log('[BulletDemo] mapConfig2?.points:', mapConfig2?.points);
+        
+        let targetPos = { x: 24, y: 0, z: 79 }; // 默认坐标
+        if (mapConfig2?.points) {
+          const point2 = mapConfig2.points.find((p: any) => p.id === 2);
+          console.log('[BulletDemo] Found point2:', point2);
+          if (point2) {
+            targetPos = { x: point2.x, y: point2.y ?? 0, z: point2.z ?? 0 };
+            console.log('[BulletDemo] Updated targetPos from map point 2:', targetPos);
+          } else {
+            console.log('[BulletDemo] Point 2 not found in mapConfig2.points');
           }
+        } else {
+          console.log('[BulletDemo] mapConfig2.points is undefined, using default targetPos');
+        }
+
+        // 注入演示用临时配置
+        // 覆盖单位101的配置，让它使用演示技能
+        configManager.setTempConfig('unit', 101, {
+          id: 101,
+          name: '演示攻击者',
+          modelId: 'monkey',
+          skillIds: [9001],
+          attackSkillId: 9001,
+          hitY: 1.2,
+          sightRange: 10,
+          moveSpeed: 2,
+          obstacleCheckDistance: 3
         });
 
+        console.log('[BulletDemo] Final targetPos before setting level config:', targetPos);
+        
         configManager.setTempConfig('level', 9901, {
           id: 9901,
           name: '子弹演示关卡',
@@ -90,29 +100,38 @@ export const BulletDemoPreview: React.FC<Props> = ({ bulletConfig, isOpen, onClo
           initialResources: {},
           startUnits: [
             {
-              unitId: 9101,
+              actorType: 'unit',
+              unitId: 101,  // 使用覆盖后的配置
               campId: 1,
-              positionName: 101,
+              positionName: 1,
               level: 1,
               command: {
                 type: 'AttackMove',
-                targetPos: { x: 15, y: 30 }
+                targetPos: { x: targetPos.x, z: targetPos.z }
               }
             },
             {
-              unitId: 9102,
+              actorType: 'unit',
+              unitId: 102,  // 使用现有的弓箭手配置作为目标
               campId: 2,
-              positionName: 102,
+              positionName: 2,
               level: 1,
               command: {
                 type: 'HoldPosition',
-                guardPos: { x: 15, y: 30 }
+                guardPos: { x: targetPos.x, z: targetPos.z }
               }
             }
           ],
           winCondition: '',
           loseCondition: '',
           triggers: []
+        });
+        
+        console.log('[BulletDemo] Level config startUnits:', Configs.Get('level')?.[9901]?.startUnits);
+        
+        // 详细打印每个单位的命令信息
+        Configs.Get('level')?.[9901]?.startUnits?.forEach((unit: any, idx: number) => {
+          console.log(`[BulletDemo] startUnits[${idx}] command:`, unit.command);
         });
 
         configManager.setTempConfig('skill', 9001, {

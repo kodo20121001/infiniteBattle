@@ -10,6 +10,10 @@ import type { LevelConfig, LevelTriggerConfig, LevelActionConfig, LevelTriggerEv
 import type { MapConfig } from './Map';
 import { MovementSystem } from './MovementSystem';
 import { Unit } from './Unit';
+import { FixedVector3 } from '../base/fixed/FixedVector3';
+import { getUnitConfig } from '../config/UnitConfig';
+import { getModelConfig } from '../config/ModelConfig';
+import type { StatusSystem } from './StatusSystem';
 
 /**
  * 关卡事件类型
@@ -45,6 +49,7 @@ export class LevelManager {
   private _levelVariables: Map<string, any> = new Map();
   private _scheduledTasks: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private _triggers: LevelTriggerConfig[] = [];
+  private _triggerTimers: Map<string, number> = new Map(); // 跟踪 intervalTimer 的经过时间
 
   constructor(game: Game, sceneManager: SceneManager) {
     this._game = game;
@@ -94,6 +99,9 @@ export class LevelManager {
     }
 
     this._isRunning = true;
+
+    // 初始化定时器触发器
+    this._initializeTimers();
 
     // 运行关卡开始触发器
     this._runEventTriggers('levelStart');
@@ -191,6 +199,7 @@ export class LevelManager {
     this._clearListeners();
     this._levelVariables.clear();
     this._triggers = [];
+    this._triggerTimers.clear();
     this._currentLevelConfig = null;
     this._currentMapConfig = null;
     this._isRunning = false;
@@ -326,19 +335,28 @@ export class LevelManager {
     const movement = this._game.getSystem('movement');
     const actors = this._game.getActors();
 
-    const matched = this._triggers.filter(t => t.eventType === eventType);
+    let matched = this._triggers.filter(t => t.eventType === eventType);
+    
+    // 如果有context.triggerId，则只匹配该especific触发器（用于intervalTimer）
+    if (context.triggerId !== undefined) {
+      matched = matched.filter(t => t.id === context.triggerId);
+    }
+
     for (const trigger of matched) {
       // 暂不处理条件，直接执行动作
       for (const action of trigger.actions || []) {
-        this._executeAction(action, { movement, actors });
+        this._executeAction(action, { movement, actors, mapConfig: this._currentMapConfig });
       }
 
       this._emit('triggerFired', { triggerId: trigger.id, eventType });
     }
   }
 
-  private _executeAction(action: LevelActionConfig, ctx: { movement: any; actors: any[] }): void {
+  private _executeAction(action: LevelActionConfig, ctx: { movement: any; actors: any[]; mapConfig?: any }): void {
     switch (action.type) {
+      case 'createUnit':
+        this._handleCreateUnit(action.params, ctx);
+        break;
       case 'moveUnit':
         this._handleMoveUnit(action.params, ctx);
         break;
@@ -415,6 +433,78 @@ export class LevelManager {
   }
 
   /**
+   * 创建单位动作处理
+   */
+  private _handleCreateUnit(params: any, ctx: { mapConfig?: any }): void {
+    let unitId = params?.unitId;
+    const campId = params?.campId;
+    let positionName = params?.positionName;
+
+    // 将unitId转换为数字
+    if (typeof unitId === 'string') {
+      unitId = Number(unitId);
+    }
+
+    // 将positionName转换为数字（地图点id是数字）
+    if (typeof positionName === 'string') {
+      positionName = Number(positionName);
+    }
+
+    if (unitId === undefined || isNaN(unitId) || campId === undefined) {
+      console.warn('[LevelManager] createUnit: unitId or campId missing');
+      return;
+    }
+
+    const unitConfig = getUnitConfig(unitId);
+    if (!unitConfig) {
+      console.warn(`[LevelManager] createUnit: Unit config not found: ${unitId}`);
+      return;
+    }
+
+    const modelConfig = getModelConfig(unitConfig.modelId);
+    if (!modelConfig) {
+      console.warn(`[LevelManager] createUnit: Model config not found: ${unitConfig.modelId}`);
+      return;
+    }
+
+    // 获取单位位置（从地图配置中查找）
+    let x = 0, y = 0, z = 0;
+    if (ctx.mapConfig && ctx.mapConfig.points && positionName !== undefined) {
+      const point = ctx.mapConfig.points.find((p: any) => p.id === positionName);
+      if (point) {
+        x = point.x;
+        y = point.y ?? 0;
+        z = point.z ?? 0;
+      } else {
+        console.warn(`[LevelManager] createUnit: Position not found: ${positionName}`);
+      }
+    }
+
+    // 创建角色
+    const actorId = `${campId}_${unitId}_${Date.now()}_${Math.random()}`;
+    const position = new FixedVector3(x, y, z);
+    const unit = new Unit(
+      actorId,
+      unitConfig.modelId,
+      unitId,  // 单位类型（对应 unit.json 的 id）
+      campId,
+      position
+    );
+
+    // 初始化角色
+    unit.init(unitConfig, modelConfig);
+
+    // 添加到游戏
+    this._game.addActor(unit);
+
+    // 初始化状态
+    const statusSystem = this._game.getSystem<StatusSystem>('status');
+    statusSystem?.setIdle(unit.actorNo);
+
+    console.log(`[LevelManager] createUnit: Unit created at position ${positionName}`, { unitId, campId, position });
+  }
+
+  /**
    * 触发事件
    */
   private _emit(eventType: LevelEventType, data: any): void {
@@ -438,6 +528,52 @@ export class LevelManager {
       clearTimeout(timeout);
     }
     this._scheduledTasks.clear();
+  }
+
+  /**
+   * 清理事件监听器
+   */
+  private _clearListeners(): void {
+    this._listeners.clear();
+  }
+
+  /**
+   * 初始化定时器触发器
+   */
+  private _initializeTimers(): void {
+    // 为所有 intervalTimer 类型的触发器初始化定时器
+    for (const trigger of this._triggers) {
+      if (trigger.eventType === 'intervalTimer') {
+        const triggerId = String(trigger.id);
+        this._triggerTimers.set(triggerId, 0);
+      }
+    }
+  }
+
+  /**
+   * 更新关卡（每帧调用）
+   */
+  update(deltaTime: number): void {
+    if (!this._isRunning) return;
+
+    // 处理 intervalTimer 触发器
+    for (const trigger of this._triggers) {
+      if (trigger.eventType === 'intervalTimer') {
+        const triggerId = String(trigger.id);
+        const elapsedTime = this._triggerTimers.get(triggerId) ?? 0;
+        const intervalSec = trigger.params?.intervalSec ?? 1;
+        
+        const newElapsedTime = elapsedTime + deltaTime;
+        
+        // 如果经过的时间超过了间隔，触发并重置计时器
+        if (newElapsedTime >= intervalSec) {
+          this._runEventTriggers('intervalTimer', { triggerId: trigger.id });
+          this._triggerTimers.set(triggerId, 0);
+        } else {
+          this._triggerTimers.set(triggerId, newElapsedTime);
+        }
+      }
+    }
   }
 
   /**

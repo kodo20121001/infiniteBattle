@@ -1,0 +1,284 @@
+{
+  "ProductionQueue": {
+    "name": "生产队列",
+    "description": "生产单位的队列。队列项中包含单位ID、生产时间（秒）和数量",
+    "icon": "🏭",
+    "fields": [
+      {
+        "key": "queue",
+        "label": "生产队列",
+        "type": "array",
+        "itemType": "object",
+        "default": [],
+        "description": "生产项列表，每项包含: unitId(单位ID), productionTime(秒), quantity(数量)"
+      }
+    ]
+  },
+  "HeroAltar": {
+    "name": "英雄祭坛",
+    "description": "训练和复活英雄",
+    "icon": "⚔️",
+    "fields": [
+      {
+        "key": "heroes",
+        "label": "可训练英雄列表",
+        "type": "array",
+        "itemType": "string",
+        "default": [],
+        "description": "填入英雄ID"
+      },
+      {
+        "key": "reviveCostMultiplier",
+        "label": "复活成本倍率",
+        "type": "number",
+        "default": 1.0,
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.1
+      },
+      {
+        "key": "reviveTimeMultiplier",
+        "label": "复活时间倍率",
+        "type": "number",
+        "default": 1.0,
+        "min": 0.1,
+        "max": 5.0,
+        "step": 0.1
+      }
+    ]
+  },
+  "TechResearcher": {
+    "name": "科技研发",
+    "description": "研究科技升级",
+    "icon": "🔬",
+    "fields": [
+      {
+        "key": "techs",
+        "label": "可研究科技列表",
+        "type": "array",
+        "itemType": "string",
+        "default": [],
+        "description": "填入科技ID，如 melee_weapons_1"
+      },
+      {
+        "key": "researchSpeedMultiplier",
+        "label": "研究速度倍率",
+        "type": "number",
+        "default": 1.0,
+        "min": 0.1,
+        "max": 5.0,
+        "step": 0.1
+      }
+    ]
+  },
+  "TurretAttack": {
+    "name": "炮塔攻击",
+    "description": "自动攻击范围内的敌人",
+    "icon": "🎯",
+    "fields": [
+      {
+        "key": "range",
+        "label": "攻击射程",
+        "type": "number",
+        "default": 600,
+        "min": 100,
+        "max": 2000,
+        "description": "单位为游戏内距离"
+      },
+      {
+        "key": "damage",
+        "label": "攻击伤害",
+        "type": "number",
+        "default": 20,
+        "min": 1,
+        "max": 1000
+      },
+      {
+        "key": "attackSpeed",
+        "label": "攻击速度",
+        "type": "number",
+        "default": 1.0,
+        "min": 0.1,
+        "max": 5.0,
+        "step": 0.1,
+        "description": "每秒攻击次数"
+      },
+      {
+        "key": "attackSkillId",
+        "label": "攻击技能ID",
+        "type": "number",
+        "default": 0,
+        "description": "直接填写技能ID"
+      },
+      {
+        "key": "targetAir",
+        "label": "可攻击空中单位",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "key": "targetGround",
+        "label": "可攻击地面单位",
+        "type": "boolean",
+        "default": true
+      }
+    ]
+  },
+  "ResourceCollector": {
+    "name": "资源采集点",
+    "description": "允许工人提交资源",
+    "icon": "💰",
+    "fields": [
+      {
+        "key": "resourceTypes",
+        "label": "接收资源类型",
+        "type": "multiSelect",
+        "options": ["gold", "wood", "stone", "food"],
+        "default": ["gold", "wood"]
+      },
+      {
+        "key": "gatherBonus",
+        "label": "采集加成",
+        "type": "number",
+        "default": 0,
+        "min": 0,
+        "max": 100,
+        "description": "百分比加成"
+      }
+    ]
+  },
+  "ResourceGenerator": {
+    "name": "资源生成",
+    "description": "自动生成资源",
+    "icon": "⚡",
+    "fields": [
+      {
+        "key": "resourceType",
+        "label": "资源类型",
+        "type": "select",
+        "options": ["gold", "wood", "stone", "food"],
+        "default": "gold"
+      },
+      {
+        "key": "amount",
+        "label": "生成数量",
+        "type": "number",
+        "default": 10,
+        "min": 1,
+        "max": 1000
+      },
+      {
+        "key": "interval",
+        "label": "生成间隔(秒)",
+        "type": "number",
+        "default": 60,
+        "min": 1,
+        "max": 600
+      }
+    ]
+  },
+  "SupplyProvider": {
+    "name": "人口供给",
+    "description": "提供人口上限",
+    "icon": "🏠",
+    "fields": [
+      {
+        "key": "supplyAmount",
+        "label": "提供人口数",
+        "type": "number",
+        "default": 5,
+        "min": 0,
+        "max": 100
+      }
+    ]
+  },
+  "Aura": {
+    "name": "光环效果",
+    "description": "对周围单位施加增益/减益",
+    "icon": "✨",
+    "fields": [
+      {
+        "key": "radius",
+        "label": "作用半径",
+        "type": "number",
+        "default": 300,
+        "min": 50,
+        "max": 1000
+      },
+      {
+        "key": "target",
+        "label": "作用目标",
+        "type": "select",
+        "options": ["ally", "enemy", "all"],
+        "default": "ally"
+      },
+      {
+        "key": "effects",
+        "label": "效果列表",
+        "type": "array",
+        "itemType": "object",
+        "default": [],
+        "description": "格式: {type: 'attackBonus', value: 10}"
+      }
+    ]
+  },
+  "DefenseSystem": {
+    "name": "防御系统",
+    "description": "提供额外的防御能力",
+    "icon": "🛡️",
+    "fields": [
+      {
+        "key": "armor",
+        "label": "护甲值",
+        "type": "number",
+        "default": 5,
+        "min": 0,
+        "max": 100
+      },
+      {
+        "key": "armorType",
+        "label": "护甲类型",
+        "type": "select",
+        "options": ["light", "medium", "heavy", "fortified"],
+        "default": "fortified"
+      },
+      {
+        "key": "regeneration",
+        "label": "生命回复(每秒)",
+        "type": "number",
+        "default": 0,
+        "min": 0,
+        "max": 100
+      }
+    ]
+  },
+  "Teleporter": {
+    "name": "传送门",
+    "description": "传送单位到指定位置",
+    "icon": "🌀",
+    "fields": [
+      {
+        "key": "targetBuildingId",
+        "label": "目标建筑ID",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "key": "cooldown",
+        "label": "冷却时间(秒)",
+        "type": "number",
+        "default": 30,
+        "min": 1,
+        "max": 300
+      },
+      {
+        "key": "capacity",
+        "label": "一次传送容量",
+        "type": "number",
+        "default": 1,
+        "min": 1,
+        "max": 20
+      }
+    ]
+  }
+}

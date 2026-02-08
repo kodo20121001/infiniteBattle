@@ -21,6 +21,8 @@ export type BulletEventType = 'bulletStarted' | 'bulletEnded' | 'triggerFired';
 export interface BulletRuntimeContext {
     /** 可用于查询单位位置 */
     getPositionByActorNo?: (actorNo: number | string) => VectorLike | null;
+    /** 可用于造成伤害 */
+    causeDamage?: (attackerId: string, targetId: string, damage: number) => boolean;
     /** 可用于通知外部命中/结束 */
     onBulletEnd?: (data: { bulletId: string; reason?: string }) => void;
     /** 运行时默认目标（无需写回配置） */
@@ -112,11 +114,12 @@ export class Bullet extends Actor {
             for (const trigger of segment.triggers || []) {
                 if (trigger.eventType !== eventType) continue;
 
-                // 优先使用触发器自带条件/行为，兼容旧版分段级条件/行为
-                const conditions = trigger.conditions ?? segment.conditions ?? [];
+                // 检查条件
+                const conditions = trigger.conditions ?? [];
                 if (!this._checkConditions(conditions, ctx)) continue;
 
-                const actions = trigger.actions ?? segment.actions ?? [];
+                // 执行行为
+                const actions = trigger.actions ?? [];
                 for (const action of actions) {
                     this._executeAction(action, ctx);
                 }
@@ -130,6 +133,9 @@ export class Bullet extends Actor {
         switch (action.type as BulletActionType) {
             case 'bulletFlyToTarget':
                 this._handleFlyToTarget(action.params, ctx);
+                break;
+            case 'bulletDamage':
+                this._handleBulletDamage(action.params, ctx);
                 break;
             case 'customAction':
             default:
@@ -167,7 +173,7 @@ export class Bullet extends Actor {
             stopOnHit
         };
 
-        const getTargetPos = (unitNo: number) => {
+        const getTargetPos = (unitNo?: number) => {
             if (unitNo !== undefined && ctx?.getPositionByActorNo) {
                 return ctx.getPositionByActorNo(unitNo);
             }
@@ -181,6 +187,49 @@ export class Bullet extends Actor {
         );
     }
 
+    private _handleBulletDamage(params: any, ctx: BulletRuntimeContext | undefined): void {
+        if (!ctx?.causeDamage) {
+            console.warn('[Bullet] bulletDamage: causeDamage not available in context');
+            return;
+        }
+
+        // TODO: 支持triggerType='range'的范围伤害
+        // 目前只实现了triggerType='target'的单体伤害
+        
+        // 获取目标ID（从ctx的defaultTargetActorNo获取）
+        const targetId = ctx.defaultTargetActorNo;
+        if (!targetId) {
+            console.warn('[Bullet] bulletDamage: no target specified');
+            return;
+        }
+
+        // 计算伤害值（参考SkillSystem._applyDamageEvent）
+        let damage = params?.damageValue || 0;
+        
+        // 注意：子弹没有skill.table，所以damageKey和damageRatioKey暂时无法使用
+        // 如果需要支持，需要在runtime context中传递table
+        if (params?.damageKey) {
+            console.warn('[Bullet] bulletDamage: damageKey not supported yet (no skill table in bullet context)');
+        }
+
+        // 应用伤害倍率
+        if (params?.damageRatio) {
+            damage *= params.damageRatio;
+        }
+        if (params?.damageRatioKey) {
+            console.warn('[Bullet] bulletDamage: damageRatioKey not supported yet (no skill table in bullet context)');
+        }
+
+        if (damage <= 0) {
+            console.warn('[Bullet] bulletDamage: damage is 0 or negative');
+            return;
+        }
+
+        console.log(`[Bullet] ${this.actorNo} dealing ${Math.floor(damage)} damage to ${targetId}`);
+        const success = ctx.causeDamage(this.actorNo, String(targetId), Math.floor(damage));
+        console.log(`[Bullet] Damage result: ${success ? 'success' : 'failed'}`);
+    }
+
     private _updateFlight(deltaTime: number): void {
         if (!this._flightController) return;
         
@@ -189,6 +238,10 @@ export class Bullet extends Actor {
         if (!moveVec) {
             // 飞行结束（命中或丢失目标）
             if (this._flightController.shouldStopOnHit()) {
+                console.log(`[Bullet] ${this.actorNo} collision detected! Triggering bulletHit and end('hit')`);
+                // 先触发击中事件
+                this._runEventTriggers('bulletHit', this._runtimeCtx);
+                // 再触发结束事件
                 this.end('hit');
             }
             return;

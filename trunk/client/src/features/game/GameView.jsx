@@ -148,23 +148,6 @@ const GameView = ({ theme, levelId = DEFAULT_LEVEL_ID }) => {
     }
   };
 
-  // 监听全局鼠标移动
-  useEffect(() => {
-    if (placingBuilding) {
-      window.addEventListener('mousemove', handleWindowMouseMove);
-      window.addEventListener('touchmove', handleWindowMouseMove);
-      return () => {
-        window.removeEventListener('mousemove', handleWindowMouseMove);
-        window.removeEventListener('touchmove', handleWindowMouseMove);
-      };
-    }
-  }, [placingBuilding]);
-
-  useEffect(() => {
-    if (!canvasRef.current || !placingBuilding || !runnerRef.current) return;
-    runnerRef.current.setBuildingPreview(placingBuilding, mousePos.x, mousePos.y);
-  }, [placingBuilding, mousePos]);
-
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
       <canvas 
