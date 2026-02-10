@@ -110,14 +110,12 @@ export class Building extends Actor {
 
         const currentItem = this._productionQueue[this._currentQueueIndex];
         currentItem.elapsedTime += deltaTime;
-        console.log('[Building] updateProduction:', { buildingId: this.buildingId, deltaTime, elapsedTime: currentItem.elapsedTime, productionTime: currentItem.productionTime, currentCount: currentItem.currentCount, quantity: currentItem.quantity });
 
         // 检查是否完成一个单位
         while (currentItem.elapsedTime >= currentItem.productionTime && currentItem.currentCount < currentItem.quantity) {
             currentItem.elapsedTime -= currentItem.productionTime;
             currentItem.currentCount++;
             producedUnitIds.push(currentItem.unitId);
-            console.log('[Building] unitProduced:', { buildingId: this.buildingId, unitId: currentItem.unitId, currentCount: currentItem.currentCount });
 
             // 如果该队列项完成，移到下一个
             if (currentItem.currentCount >= currentItem.quantity) {

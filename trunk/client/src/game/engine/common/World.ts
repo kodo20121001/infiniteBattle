@@ -2,6 +2,7 @@ import { Camera } from '../base/Camera';
 import { Renderer } from './Renderer';
 import { SpriteManager } from './SpriteManager';
 import { Time } from './Time';
+import { perfMonitor } from './PerformanceMonitor';
 
 
 /**
@@ -140,6 +141,10 @@ export class World {
                 console.error('[World] Render callback error:', err);
             }
         }
+        
+        // 性能监控
+        perfMonitor.update();
+        
         this._updateFps(currentTime);
     }
 

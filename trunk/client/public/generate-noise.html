@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生成噪音纹理</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    input, select, button {
+      margin: 5px 0;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    button {
+      background: #0066cc;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 10px 20px;
+    }
+    button:hover {
+      background: #0052a3;
+    }
+    .container {
+      background: #2a2a2a;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    #canvas {
+      border: 1px solid #444;
+      margin-top: 15px;
+      display: block;
+    }
+    .info {
+      font-size: 12px;
+      color: #aaa;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>噪音纹理生成器</h1>
+  
+  <div class="container">
+    <h3>参数设置</h3>
+    <label>宽度: <input type="number" id="width" value="512" min="64" max="2048" step="64"></label><br>
+    <label>高度: <input type="number" id="height" value="512" min="64" max="2048" step="64"></label><br>
+    
+    <label>缩放: <input type="number" id="scale" value="50" min="10" max="200" step="10"></label><br>
+    <label>八度数: <input type="number" id="octaves" value="4" min="1" max="10" step="1"></label><br>
+    <label>持久性: <input type="number" id="persistence" value="0.5" min="0.1" max="1" step="0.1"></label><br>
+    
+    <label>噪音类型: 
+      <select id="noiseType">
+        <option value="perlin">Simplex 3D (火球专用)</option>
+        <option value="white">白噪音</option>
+        <option value="cellular">细胞噪音</option>
+      </select>
+    </label><br>
+    
+    <button onclick="generateNoise()">生成预览</button>
+    <button onclick="downloadCanvas()">下载为PNG</button>
+    <button onclick="generateFrameSequence()">生成8帧序列</button>
+    
+    <div class="info" id="info"></div>
+  </div>
+  
+  <canvas id="canvas" width="512" height="512"></canvas>
+
+  <script>
+    // Simplex 3D Noise (取自fire_ball.js的shader算法)
+    class SimplexNoise {
+      constructor(seed = 0) {
+        this.p = [];
+        for (let i = 0; i < 256; i++) {
+          this.p[i] = Math.floor(Math.random() * 256);
+        }
+        for (let i = 0; i < 256; i++) {
+          this.p[256 + i] = this.p[i];
+        }
+      }
+
+      fade(t) {
+        return t * t * t * (t * (t * 6 - 15) + 10);
+      }
+
+      lerp(t, a, b) {
+        return a + t * (b - a);
+      }
+
+      grad3(hash, x, y, z) {
+        const h = hash & 15;
+        const u = h < 8 ? x : y;
+        const v = h < 8 ? y : z;
+        return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+      }
+
+      noise(x, y, z) {
+        const xi = Math.floor(x) & 255;
+        const yi = Math.floor(y) & 255;
+        const zi = Math.floor(z) & 255;
+        
+        const xf = x - Math.floor(x);
+        const yf = y - Math.floor(y);
+        const zf = z - Math.floor(z);
+
+        const u = this.fade(xf);
+        const v = this.fade(yf);
+        const w = this.fade(zf);
+
+        const p = this.p;
+        const aa = p[p[xi] + yi];
+        const ba = p[p[xi + 1] + yi];
+        const ab = p[p[xi] + yi + 1];
+        const bb = p[p[xi + 1] + yi + 1];
+
+        const aaa = p[aa + zi];
+        const baa = p[ba + zi];
+        const aba = p[ab + zi];
+        const bba = p[bb + zi];
+        const aab = p[aa + zi + 1];
+        const bab = p[ba + zi + 1];
+        const abb = p[ab + zi + 1];
+        const bbb = p[bb + zi + 1];
+
+        let x1 = this.lerp(u, 
+          this.grad3(aaa, xf, yf, zf),
+          this.grad3(baa, xf - 1, yf, zf)
+        );
+        let x2 = this.lerp(u,
+          this.grad3(aba, xf, yf - 1, zf),
+          this.grad3(bba, xf - 1, yf - 1, zf)
+        );
+        let y1 = this.lerp(v, x1, x2);
+
+        x1 = this.lerp(u,
+          this.grad3(aab, xf, yf, zf - 1),
+          this.grad3(bab, xf - 1, yf, zf - 1)
+        );
+        x2 = this.lerp(u,
+          this.grad3(abb, xf, yf - 1, zf - 1),
+          this.grad3(bbb, xf - 1, yf - 1, zf - 1)
+        );
+        let y2 = this.lerp(v, x1, x2);
+
+        return this.lerp(w, y1, y2);
+      }
+    }
+
+    // 白噪音
+    function generateWhiteNoise(width, height) {
+      const data = new Uint8ClampedArray(width * height * 4);
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = Math.random() * 255;
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray;
+        data[i + 3] = 255;
+      }
+      return data;
+    }
+
+    // 细胞噪音（Voronoi）
+    function generateCellularNoise(width, height, cellSize = 50) {
+      const data = new Uint8ClampedArray(width * height * 4);
+      
+      // 生成随机点
+      const points = [];
+      for (let y = 0; y < height; y += cellSize) {
+        for (let x = 0; x < width; x += cellSize) {
+          points.push({
+            x: x + Math.random() * cellSize,
+            y: y + Math.random() * cellSize,
+            color: Math.random() * 255
+          });
+        }
+      }
+
+      // 为每个像素分配最近的点的颜色
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          let minDist = Infinity;
+          let color = 0;
+          
+          for (const p of points) {
+            const dx = x - p.x;
+            const dy = y - p.y;
+            const dist = dx * dx + dy * dy;
+            if (dist < minDist) {
+              minDist = dist;
+              color = p.color;
+            }
+          }
+
+          const idx = (y * width + x) * 4;
+          data[idx] = color;
+          data[idx + 1] = color;
+          data[idx + 2] = color;
+          data[idx + 3] = 255;
+        }
+      }
+
+      return data;
+    }
+
+    // Simplex分形布朗运动 (3D, 用于模拟火焰)
+    function generateSimplexNoise(width, height, scale = 50, octaves = 4, persistence = 0.5, timeSlice = 0) {
+      const noise = new SimplexNoise();
+      const data = new Uint8ClampedArray(width * height * 4);
+      const values = new Float32Array(width * height);
+
+      let maxValue = 0;
+
+      // 第一遍计算值
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          let value = 0;
+          let amplitude = 1;
+          let frequency = 1;
+          let maxAmp = 0;
+
+          // 使用3D noise，Z轴是时间
+          for (let i = 0; i < octaves; i++) {
+            value += amplitude * noise.noise(
+              x * frequency / scale,
+              y * frequency / scale,
+              timeSlice + i * 0.5
+            );
+            maxAmp += amplitude;
+            amplitude *= persistence;
+            frequency *= 2;
+          }
+
+          value /= maxAmp;
+          values[y * width + x] = value;
+          maxValue = Math.max(maxValue, Math.abs(value));
+        }
+      }
+
+      // 第二遍写入像素
+      for (let i = 0; i < width * height; i++) {
+        const normalized = ((values[i] / maxValue + 1) / 2) * 255;
+        const gray = Math.max(0, Math.min(255, Math.floor(normalized)));
+        data[i * 4] = gray;
+        data[i * 4 + 1] = gray;
+        data[i * 4 + 2] = gray;
+        data[i * 4 + 3] = 255;
+      }
+
+      return data;
+    }
+
+    function generateNoise() {
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const width = parseInt(document.getElementById('width').value);
+      const height = parseInt(document.getElementById('height').value);
+      const scale = parseInt(document.getElementById('scale').value);
+      const octaves = parseInt(document.getElementById('octaves').value);
+      const persistence = parseFloat(document.getElementById('persistence').value);
+      const noiseType = document.getElementById('noiseType').value;
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const startTime = performance.now();
+      let imageData;
+
+      if (noiseType === 'perlin') {
+        // 使用 Simplex 3D Noise (与 fire_ball.js 相同)
+        imageData = generateSimplexNoise(width, height, scale, octaves, persistence, 0);
+      } else if (noiseType === 'white') {
+        imageData = generateWhiteNoise(width, height);
+      } else if (noiseType === 'cellular') {
+        imageData = generateCellularNoise(width, height, scale);
+      }
+
+      const imgData = ctx.createImageData(width, height);
+      imgData.data.set(imageData);
+      ctx.putImageData(imgData, 0, 0);
+
+      const elapsed = performance.now() - startTime;
+      document.getElementById('info').textContent = 
+        `生成耗时: ${elapsed.toFixed(2)}ms | 类型: ${noiseType} | 分辨率: ${width}x${height}`;
+    }
+
+    function downloadCanvas() {
+      const canvas = document.getElementById('canvas');
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `noise_${Date.now()}.png`;
+      link.click();
+    }
+
+    // 生成多帧动画序列 (模拟fire_ball的时间动画)
+    async function generateFrameSequence() {
+      const width = parseInt(document.getElementById('width').value);
+      const height = parseInt(document.getElementById('height').value);
+      const scale = parseInt(document.getElementById('scale').value);
+      const octaves = parseInt(document.getElementById('octaves').value);
+      const persistence = parseFloat(document.getElementById('persistence').value);
+      const frameCount = 8;
+
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      canvas.width = width;
+      canvas.height = height;
+
+      const startTime = performance.now();
+      const frames = [];
+
+      // 为每个时间步生成一帧
+      for (let t = 0; t < frameCount; t++) {
+        const imageData = generateSimplexNoise(width, height, scale, octaves, persistence, t * 0.5);
+        const imgData = ctx.createImageData(width, height);
+        imgData.data.set(imageData);
+        
+        ctx.putImageData(imgData, 0, 0);
+        frames.push(canvas.toDataURL('image/png'));
+      }
+
+      const elapsed = performance.now() - startTime;
+
+      // 下载所有帧
+      const zip = new JSZip();
+      for (let i = 0; i < frames.length; i++) {
+        const base64 = frames[i].split(',')[1];
+        zip.file(`noise_${String(i).padStart(2, '0')}.png`, base64, { base64: true });
+      }
+
+      zip.generateAsync({ type: 'blob' }).then(blob => {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `noise_sequence_${Date.now()}.zip`;
+        link.click();
+      });
+
+      document.getElementById('info').textContent = 
+        `生成 ${frameCount} 帧耗时: ${elapsed.toFixed(2)}ms | 分辨率: ${width}x${height}`;
+    }
+
+    // 页面加载时生成一张缩略图
+    window.onload = () => {
+      document.getElementById('width').value = 512;
+      document.getElementById('height').value = 512;
+      generateNoise();
+    };
+  </script>
+</body>
+</html>

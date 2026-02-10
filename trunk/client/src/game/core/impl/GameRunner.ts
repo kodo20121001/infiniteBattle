@@ -18,6 +18,7 @@ import { Sprite3D } from '../../engine/base/Sprite3D';
 import { getModelConfig } from '../config/ModelConfig';
 import { createSpriteByModel } from '../../engine/base/model';
 import { getUnitConfig } from '../config/UnitConfig';
+import { perfMonitor } from '../../engine/common/PerformanceMonitor';
 import { getBuildingAbilityDef, getDefaultAbilityConfig } from '../config/BuildingAbilityConfig';
 import { Configs } from '../../common/Configs';
 
@@ -130,6 +131,13 @@ export class ClientGameRunner {
                     // Unit 需要应用动画
                     if (actor instanceof Unit) {
                         this._applyUnitAnimation(actor, sprite, true);
+                    }
+                    
+                    // 检查 actor 是否仍然活跃（防止异步加载过程中 actor 已被销毁）
+                    if (!actor.isActive()) {
+                        console.log(`[GameRunner] Actor ${actor.actorNo} is inactive, destroying sprite before adding`);
+                        sprite.destroy();
+                        return;
                     }
                     
                     spriteManager.add(spriteId, sprite);
@@ -381,6 +389,8 @@ export class ClientGameRunner {
      * 将世界坐标投影到屏幕坐标
      */
     private _onRender(deltaTime: number): void {
+        perfMonitor.increment('GameRunner.render');
+        
         const spriteManager = this._world.getSpriteManager();
         const actors = this._game.getActors();
         const mapConfig = this._map?.getConfig();
@@ -409,8 +419,14 @@ export class ClientGameRunner {
             const sprite = spriteManager.get(spriteId);
             if (!sprite) continue;
             
-            const pos = actor.getPosition();
-            sprite.setPosition(pos.x, Math.max(0.5, pos.y), pos.z);
+            // 优化：建筑通常不移动，跳过位置更新
+            const isBuilding = actor.actorType === ActorType.Building;
+            if (!isBuilding) {
+                perfMonitor.increment('GameRunner.posUpdate');
+                const pos = actor.getPosition();
+                sprite.setPosition(pos.x, Math.max(0.5, pos.y), pos.z);
+            }
+            
             sprite.visible = actor.isVisible();
 
             // 同步 Bullet 朝向到 sprite（初始旋转在 sprite 中自动处理）
@@ -426,6 +442,7 @@ export class ClientGameRunner {
             
             // 更新 Unit 动画状态
             if (sprite instanceof AnimatedSprite2D || sprite instanceof Sprite3D) {
+                perfMonitor.increment('GameRunner.animUpdate');
                 this._applyUnitAnimation(actor, sprite, false);
             }
         }
@@ -717,7 +734,7 @@ export class ClientGameRunner {
         const buildingInstance = new Building(
             buildingActorNo,
             building?.modelId || 'default_building_model',
-            typeof building?.id === 'number' ? building.id : 0,
+            building.id,
             1 // 玩家阵营
         );
 

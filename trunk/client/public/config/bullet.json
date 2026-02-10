@@ -17,7 +17,11 @@
               {
                 "type": "bulletFlyToTarget",
                 "params": {
-                  "speed": 20
+                  "speed": 20,
+                  "collisionRadius": 1,
+                  "stopOnHit": true,
+                  "homing": true,
+                  "homingRate": 360
                 }
               }
             ]
@@ -35,6 +39,12 @@
                 }
               }
             ]
+          },
+          {
+            "eventType": "bulletEnd",
+            "params": {},
+            "conditions": [],
+            "actions": []
           }
         ]
       }

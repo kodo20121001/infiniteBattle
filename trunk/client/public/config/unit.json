@@ -1,54 +1,24 @@
 [
   {
     "id": 101,
-    "name": "剑士",
+    "name": "猴子",
     "modelId": "monkey",
     "skillIds": [],
     "attackSkillId": 1,
     "hitY": 1.2,
-    "sightRange": 800,
+    "sightRange": 10,
     "moveSpeed": 2,
     "obstacleCheckDistance": 3
   },
   {
     "id": 102,
-    "name": "弓箭手",
+    "name": "丧尸",
     "modelId": "zombie",
     "skillIds": [],
     "attackSkillId": 1,
     "hitY": 1.0,
-    "sightRange": 1000,
+    "sightRange": 5,
     "moveSpeed": 3,
-    "obstacleCheckDistance": 3
-  },
-  {
-    "id": 103,
-    "name": "法师",
-    "modelId": "monkey",
-    "skillIds": [3001, 3002, 3003, 3004],
-    "hitY": 1.1,
-    "sightRange": 900,
-    "moveSpeed": 1,
-    "obstacleCheckDistance": 3
-  },
-  {
-    "id": 104,
-    "name": "骑士",
-    "modelId": "monkey",
-    "skillIds": [4001, 4002],
-    "hitY": 1.5,
-    "sightRange": 700,
-    "moveSpeed": 1,
-    "obstacleCheckDistance": 3
-  },
-  {
-    "id": 105,
-    "name": "刺客",
-    "modelId": "monkey",
-    "skillIds": [5001, 5002, 5003],
-    "hitY": 1.0,
-    "sightRange": 850,
-    "moveSpeed": 1,
     "obstacleCheckDistance": 3
   }
 ]

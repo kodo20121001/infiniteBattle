@@ -3,6 +3,7 @@ import { AnimationClip } from './AnimationClip';
 import { Texture } from './Texture';
 import { assets } from '../common/Assets';
 import { Time } from '../common/Time';
+import { perfMonitor } from '../common/PerformanceMonitor';
 
 /**
  * video_to_spritesheet 生成的 JSON 格式接口
@@ -52,7 +53,9 @@ export class AnimatedSprite2D extends Sprite2D {
 
   private applyFrameTexture(texture: Texture): void {
     // 只改变纹理，不改变几何体尺寸（保持初始尺寸）
-    this.setTexture(texture);
+    // 使用高效的帧更新方法，避免重建 mesh
+    perfMonitor.increment('AnimatedSprite2D.frameChange');
+    this.updateFrameTexture(texture);
   }
 
   constructor(clips: AnimationClip | AnimationClip[], blackboard: Record<string, any> = {}) {
@@ -202,7 +205,8 @@ export class AnimatedSprite2D extends Sprite2D {
       const textures: Texture[] = [];
       let totalDuration = 0;
       
-      for (const { data: frameData } of frames) {
+        for (let frameIndex = 0; frameIndex < frames.length; frameIndex++) {
+          const { key, data: frameData } = frames[frameIndex];
         const sheetImage = sheetImages.get(frameData.image);
         if (!sheetImage) {
           console.warn(`Sheet image not found: ${frameData.image}`);
@@ -246,7 +250,9 @@ export class AnimatedSprite2D extends Sprite2D {
             }
           }
           
-          textures.push(new Texture(finalCanvas));
+            // 生成稳定的 imageId：JSON路径 + 动作名 + 帧索引
+            const stableImageId = `${jsonPath}#${actionName}#${frameIndex}`;
+            textures.push(new Texture(finalCanvas, stableImageId));
         }
         
         totalDuration = Math.max(totalDuration, frameData.duration);
@@ -351,6 +357,8 @@ export class AnimatedSprite2D extends Sprite2D {
    * 更新动画状态
    */
   update(): void {
+    perfMonitor.increment('AnimatedSprite2D.update');
+    
     if (!this.isPlaying || this.currentClip.frames.length <= 1) {
       return;
     }

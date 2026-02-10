@@ -5,13 +5,16 @@
 export class Texture {
   private image: HTMLImageElement | HTMLCanvasElement;
   private glTexture: WebGLTexture | null = null;
+  private imageId: string;  // 图像唯一标识（用于缓存）
   readonly width: number;
   readonly height: number;
 
-  constructor(image: HTMLImageElement | HTMLCanvasElement) {
+  constructor(image: HTMLImageElement | HTMLCanvasElement, imageId?: string) {
     this.image = image;
     this.width = image.width;
     this.height = image.height;
+    // 如果没有指定 ID，尝试从 src 属性获取，否则使用时间戳+随机数
+    this.imageId = imageId || (image instanceof HTMLImageElement ? image.src : `canvas_${Date.now()}_${Math.random()}`);
   }
 
   /**
@@ -61,6 +64,13 @@ export class Texture {
    */
   getImage(): HTMLImageElement | HTMLCanvasElement {
     return this.image;
+  }
+
+  /**
+   * 获取图像 ID（用于缓存）
+   */
+  getImageId(): string {
+    return this.imageId;
   }
 
   /**

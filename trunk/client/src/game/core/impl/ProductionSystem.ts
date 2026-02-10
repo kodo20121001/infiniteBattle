@@ -10,6 +10,8 @@ import { Unit } from './Unit';
 import { ActorType } from './Actor';
 import { FixedVector3 } from '../base/fixed/FixedVector3';
 import { getUnitConfig } from '../config/UnitConfig';
+import { getModelConfig } from '../config/ModelConfig';
+import type { StatusSystem } from './StatusSystem';
 
 /**
  * 生产系统 - 处理建筑的单位生产
@@ -60,6 +62,12 @@ export class ProductionSystem extends GameSystem {
             return;
         }
         
+        const modelConfig = getModelConfig(unitConfig.modelId);
+        if (!modelConfig) {
+            console.warn(`[ProductionSystem] Model config not found: ${unitConfig.modelId}`);
+            return;
+        }
+        
         const buildingPos = building.getPosition();
         const unitPosition = new FixedVector3(buildingPos.x, 0, buildingPos.z);
         const unit = new Unit(
@@ -70,8 +78,15 @@ export class ProductionSystem extends GameSystem {
             unitPosition
         );
         
+        // 初始化单位（重要！设置 attackSkillId 和其他配置）
+        unit.init(unitConfig, modelConfig);
+        
         // 添加到游戏中
         this.game.addActor(unit);
+
+        // 新生产单位默认设置为 Idle，确保可被状态过滤命令选中
+        const statusSystem = this.game.getSystem<StatusSystem>('status');
+        statusSystem?.setIdle(unit.actorNo);
     }
 
     fixedUpdate(fixedDeltaTime: number): void {

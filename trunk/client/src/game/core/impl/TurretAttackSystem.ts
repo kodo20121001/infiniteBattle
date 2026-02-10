@@ -84,6 +84,7 @@ export class TurretAttackSystem extends GameSystem {
 
         const posA = actor.getPosition();
         for (const other of actors) {
+            if (other.actorType !== ActorType.Unit && other.actorType !== ActorType.Building) continue;
             if (other.campId === actor.campId || other.isDead()) continue;
             const posB = other.getPosition();
             const dx = posB.x - posA.x;

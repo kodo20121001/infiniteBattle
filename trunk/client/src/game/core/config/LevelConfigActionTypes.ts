@@ -93,6 +93,18 @@ export interface LevelConfigActionCustomAction {
     params?: Record<string, any>;
 }
 
+// 下达命令给阵营单位行为
+export interface LevelConfigActionIssueCommandToCamp {
+    /** 阵营ID */
+    campId: number;
+    /** 单位状态过滤（可选，默认 'Idle'） */
+    unitStatus?: 'Idle' | 'Moving' | 'Attacking' | string;
+    /** 命令类型 */
+    commandType: 'AttackMove' | 'AttackMovePath' | 'MoveTo' | 'HoldPosition' | 'Guard' | 'Stop' | 'Idle';
+    /** 命令参数 */
+    commandParams?: any;
+}
+
 /**
  * 行为类型与数据结构映射
  */
@@ -108,4 +120,5 @@ export type LevelConfigActionDataMap = {
     winGame: LevelConfigActionWinGame;
     loseGame: LevelConfigActionLoseGame;
     customAction: LevelConfigActionCustomAction;
+    issueCommandToCamp: LevelConfigActionIssueCommandToCamp;
 };

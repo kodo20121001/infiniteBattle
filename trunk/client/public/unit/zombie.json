@@ -6,7 +6,5 @@
     "die": "zombie_die.fbx",
     "attack": "zombie_attack.fbx",
     "move": "zombie_move.fbx"
-  },
-  "defaultAction": "idle",
-  "scale": 1.0
+  }
 }

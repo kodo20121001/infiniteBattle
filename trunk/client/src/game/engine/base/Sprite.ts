@@ -71,6 +71,10 @@ export class Sprite {
     }
 
     setPosition(x: number, y: number, z: number = 0): void {
+        // 优化：只在位置真的改变时才触发更新
+        if (this._position.x === x && this._position.y === y && this._position.z === z) {
+            return;
+        }
         this._position.x = x;
         this._position.y = y;
         this._position.z = z;
@@ -94,6 +98,10 @@ export class Sprite {
     }
 
     setRotation(x: number, y: number, z: number = 0): void {
+        // 优化：只在旋转改变时才触发更新
+        if (this._rotation.x === x && this._rotation.y === y && this._rotation.z === z) {
+            return;
+        }
         this._rotation.x = x;
         this._rotation.y = y;
         this._rotation.z = z;
@@ -130,6 +138,9 @@ export class Sprite {
     }
 
     set x(value: number) {
+        if (this._position.x === value) {
+            return;
+        }
         this._position.x = value;
         this.onTransformChanged();
     }
@@ -142,6 +153,9 @@ export class Sprite {
     }
 
     set y(value: number) {
+        if (this._position.y === value) {
+            return;
+        }
         this._position.y = value;
         this.onTransformChanged();
     }
@@ -154,6 +168,9 @@ export class Sprite {
     }
 
     set z(value: number) {
+        if (this._position.z === value) {
+            return;
+        }
         this._position.z = value;
         this.onTransformChanged();
     }
@@ -172,6 +189,10 @@ export class Sprite {
     }
 
     setScale(x: number, y: number, z: number = 1): void {
+        // 优化：只在缩放改变时才触发更新
+        if (this._scale.x === x && this._scale.y === y && this._scale.z === z) {
+            return;
+        }
         this._scale.x = x;
         this._scale.y = y;
         this._scale.z = z;
@@ -190,7 +211,12 @@ export class Sprite {
     }
 
     set alpha(value: number) {
-        this._alpha = Math.max(0, Math.min(1, value));
+        const clamped = Math.max(0, Math.min(1, value));
+        // 优化：只在透明度改变时才触发更新
+        if (this._alpha === clamped) {
+            return;
+        }
+        this._alpha = clamped;
         this.onTransformChanged();
     }
 
@@ -202,6 +228,10 @@ export class Sprite {
     }
 
     set visible(value: boolean) {
+        // 优化：只在可见性改变时才触发更新
+        if (this._visible === value) {
+            return;
+        }
         this._visible = value;
         this.onTransformChanged();
     }
@@ -284,6 +314,10 @@ export class Sprite {
      * @internal
      */
     updatePlugins(deltaTime: number): void {
+        // 优化：如果没有插件，直接返回
+        if (this._plugins.length === 0) {
+            return;
+        }
         for (const plugin of this._plugins) {
             plugin.onUpdate?.(this, deltaTime);
         }
@@ -313,7 +347,13 @@ export class Sprite {
         }
         this._plugins = [];
 
-        // 清理 Three.js 对象
-        this._threeObject = null;
+        // 从场景中移除 Three.js 对象
+        if (this._threeObject) {
+            if (this._threeObject.parent) {
+                this._threeObject.parent.remove(this._threeObject);
+            }
+            // 清理 Three.js 对象
+            this._threeObject = null;
+        }
     }
 }

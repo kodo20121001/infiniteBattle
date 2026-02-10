@@ -10,6 +10,7 @@ import type { LevelConfig, LevelTriggerConfig, LevelActionConfig, LevelTriggerEv
 import type { MapConfig } from './Map';
 import { MovementSystem } from './MovementSystem';
 import { Unit } from './Unit';
+import { ActorType } from './Actor';
 import { FixedVector3 } from '../base/fixed/FixedVector3';
 import { getUnitConfig } from '../config/UnitConfig';
 import { getModelConfig } from '../config/ModelConfig';
@@ -206,6 +207,13 @@ export class LevelManager {
   }
 
   /**
+   * 获取场景管理器
+   */
+  getSceneManager(): SceneManager {
+    return this._sceneManager;
+  }
+
+  /**
    * 订阅关卡事件
    * @param eventType 事件类型
    * @param listener 监听器
@@ -363,6 +371,9 @@ export class LevelManager {
       case 'moveCamp':
         this._handleMoveCamp(action.params, ctx);
         break;
+      case 'issueCommandToCamp':
+        this._handleIssueCommandToCamp(action.params);
+        break;
       default:
         console.warn(`[LevelManager] Unsupported action type: ${action.type}`);
         break;
@@ -429,6 +440,80 @@ export class LevelManager {
         targetZ: targetPos.y,
         speed,
       });
+    }
+  }
+
+  /**
+   * 下达命令给阵营单位
+   */
+  private _handleIssueCommandToCamp(params: any): void {
+    const campId = params?.campId;
+    const commandType = params?.commandType;
+    const commandParams = params?.commandParams || {};
+    const unitStatus = params?.unitStatus || 'Idle';
+
+    if (campId === undefined || !commandType) {
+      console.warn('[LevelManager] issueCommandToCamp: campId or commandType missing', { campId, commandType });
+      return;
+    }
+
+    const commandSystem = this._game.getSystem('unitCommand');
+    if (!commandSystem) {
+      console.warn('[LevelManager] issueCommandToCamp: unitCommand system not found');
+      return;
+    }
+
+    const statusSystem = this._game.getSystem<StatusSystem>('status');
+    const actors = this._game.getActors();
+
+    // 过滤目标单位：指定阵营 + 指定状态
+    const targetActors = actors.filter(actor => {
+      if (actor.actorType !== ActorType.Unit) {
+        return false;
+      }
+      if (actor.campId !== campId) {
+        return false;
+      }
+      
+      // 检查状态（如果提供了状态系统）
+      if (statusSystem) {
+        const statusData = statusSystem.get(actor.actorNo);
+        if (!statusData) return false;
+        
+        // 根据状态字符串匹配布尔字段
+        switch (unitStatus) {
+          case 'Idle':
+            if (!statusData.isIdle) return false;
+            break;
+          case 'Walk':
+          case 'Moving':
+            if (!statusData.isWalk) return false;
+            break;
+          case 'Cast':
+          case 'Casting':
+            if (!statusData.isCast) return false;
+            break;
+          case 'Die':
+          case 'Dead':
+            if (!statusData.isDie) return false;
+            break;
+          default:
+            // 如果状态未知，跳过检查
+            break;
+        }
+      }
+      
+      return true;
+    });
+
+    // 下达命令
+    for (const actor of targetActors) {
+      const command: any = {
+        type: commandType,
+        ...commandParams
+      };
+      
+      commandSystem.issueCommand(actor.actorNo, command);
     }
   }
 
@@ -500,8 +585,6 @@ export class LevelManager {
     // 初始化状态
     const statusSystem = this._game.getSystem<StatusSystem>('status');
     statusSystem?.setIdle(unit.actorNo);
-
-    console.log(`[LevelManager] createUnit: Unit created at position ${positionName}`, { unitId, campId, position });
   }
 
   /**

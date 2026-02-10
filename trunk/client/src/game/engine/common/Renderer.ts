@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Camera } from '../base/Camera';
 import { SpriteManager } from './SpriteManager';
+import { perfMonitor } from './PerformanceMonitor';
 
 /**
  * Renderer - Three.js 3D 渲染器
@@ -93,51 +94,57 @@ export class Renderer {
 
     /**
      * 渲染一帧
+     * 优化：不再每帧删除/添加 sprite 到场景
+     * 改为：sprite 添加到场景一次，通过改变位置/可见性更新
      */
     render(): void {
-        // 清理场景中的旧精灵网格（保留其他对象如灯光）
-        const toRemove: THREE.Object3D[] = [];
-        this.scene.children.forEach((child: THREE.Object3D) => {
-            if (child.userData.isSpriteQuad || child.userData.isSprite3D || child.userData.isSpriteObject) {
-                toRemove.push(child);
-            }
-        });
-        toRemove.forEach(obj => this.scene.remove(obj));
-
-        // 按深度排序
+        perfMonitor.increment('Renderer.render');
+        perfMonitor.set('Renderer.sceneObjects', this.scene.children.length);
+        
+        // 清理已销毁的 sprite（它们的 mesh 已在 dispose 中移除）
+        const sprites = this.spriteManager.getAll();
+        perfMonitor.set('Renderer.sprites', sprites.length);
+        
+        // 按深度排序（更新 z-index，但不重建场景结构）
         this.spriteManager.sortByZIndex((sprite) => sprite.position.z);
 
-        // 添加精灵网格到场景
-        const sprites = this.spriteManager.getAll();
+        // 更新所有 sprite 对象的场景关联
         for (const sprite of sprites) {
             if (sprite.destroyed) continue;
 
-            // 只处理 Sprite2D（有 getThreeMesh 方法）
+            // Sprite2D
             if ('getThreeMesh' in sprite && typeof (sprite as any).getThreeMesh === 'function') {
                 const mesh = (sprite as any).getThreeMesh();
                 if (mesh) {
-                    mesh.userData.isSpriteQuad = true;
-                    this.scene.add(mesh);
+                    // 确保 mesh 在场景中（只在第一次添加时）
+                    if (mesh.parent !== this.scene) {
+                        perfMonitor.increment('Renderer.spriteAdd');
+                        mesh.userData.isSpriteQuad = true;
+                        this.scene.add(mesh);
+                    }
                 }
             }
 
-            // 处理 Sprite3D（有 getThreeGroup 方法）
+            // Sprite3D
             if ('getThreeGroup' in sprite && typeof (sprite as any).getThreeGroup === 'function') {
                 const group = (sprite as any).getThreeGroup();
                 if (group) {
-                    group.userData.isSprite3D = true;
-                    this.scene.add(group);
+                    if (group.parent !== this.scene) {
+                        group.userData.isSprite3D = true;
+                        this.scene.add(group);
+                    }
                 }
             }
 
-            // 处理基础 Sprite（有 getThreeObject 方法）- 用于插件系统
+            // 基础 Sprite（插件系统）
             if ('getThreeObject' in sprite && typeof (sprite as any).getThreeObject === 'function') {
-                // 确保不是 Sprite2D 或 Sprite3D（它们有专门的处理）
                 if (!('getThreeMesh' in sprite) && !('getThreeGroup' in sprite)) {
                     const obj = (sprite as any).getThreeObject();
                     if (obj) {
-                        obj.userData.isSpriteObject = true;
-                        this.scene.add(obj);
+                        if (obj.parent !== this.scene) {
+                            obj.userData.isSpriteObject = true;
+                            this.scene.add(obj);
+                        }
                     }
                 }
             }

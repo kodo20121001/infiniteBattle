@@ -19,7 +19,6 @@ import { PathfindingSystem, type FlowField, type PathNode } from './PathfindingS
 import { StraightMovementSystem } from './StraightMovementSystem';
 import { PathFollowingSystem } from './PathFollowingSystem';
 import { ObstacleDetection } from './ObstacleDetection';
-import { AvoidanceSystem } from './AvoidanceSystem';
 import { SteeringBehavior, type AgentState, type SteeringOutput } from './SteeringBehavior';
 import type { Game } from './GameSystem';
 import type { Actor } from './Actor';
@@ -169,6 +168,8 @@ export class MovementSystem extends GameSystem {
         const r = actor.getRadius();
         const map = this._map;
         let step = dist;
+        
+        const shouldLog = Math.random() < 0.02; // 2% 采样率
 
         const clampTarget = (tx: number, tz: number) => {
             if (!map) return { x: tx, z: tz };
@@ -179,14 +180,21 @@ export class MovementSystem extends GameSystem {
             return { x: clampedX, z: clampedZ };
         };
 
-        const isStepValid = (tx: number, tz: number) => {
+        const isStepValid = (tx: number, tz: number, debugLabel?: string) => {
             if (!map) return true;
-            if (!map.isWalkable(tx, tz)) return false;
+            const walkable = map.isWalkable(tx, tz);
+            if (!walkable) {
+                if (shouldLog) console.log(`[_safeMove] ${actor.actorNo} ${debugLabel || ''}: NOT walkable at [${tx.toFixed(2)}, ${tz.toFixed(2)}]`);
+                return false;
+            }
             const los = ObstacleDetection.hasLineOfSight(
                 { x: pos.x, y: pos.y, z: pos.z },
                 { x: tx, y: pos.y, z: tz },
                 map
             );
+            if (!los && shouldLog) {
+                console.log(`[_safeMove] ${actor.actorNo} ${debugLabel || ''}: NO line of sight from [${pos.x.toFixed(2)}, ${pos.z.toFixed(2)}] to [${tx.toFixed(2)}, ${tz.toFixed(2)}]`);
+            }
             return los;
         };
 
@@ -194,7 +202,7 @@ export class MovementSystem extends GameSystem {
         let targetX = pos.x + dir.x * step;
         let targetZ = pos.z + dir.z * step;
         ({ x: targetX, z: targetZ } = clampTarget(targetX, targetZ));
-        if (isStepValid(targetX, targetZ)) {
+        if (isStepValid(targetX, targetZ, 'step1')) {
             return { x: targetX - pos.x, z: targetZ - pos.z };
         }
 
@@ -233,7 +241,11 @@ export class MovementSystem extends GameSystem {
             }
         }
 
-        // 放弃移动
+        // 放弃移动 - 检查当前位置是否本身就不可行走
+        if (shouldLog) {
+            const currentWalkable = map ? map.isWalkable(pos.x, pos.z) : true;
+            console.log(`[_safeMove] ${actor.actorNo}: FAILED all attempts! pos=[${pos.x.toFixed(2)}, ${pos.z.toFixed(2)}], currentWalkable=${currentWalkable}, dist=${dist.toFixed(3)}, dir=[${dir.x.toFixed(2)}, ${dir.z.toFixed(2)}]`);
+        }
         return { x: 0, z: 0 };
     }
 
@@ -439,16 +451,14 @@ export class MovementSystem extends GameSystem {
             moveDistance = data.speed * deltaSeconds;
         }
         
-        // 滑动（接触其他单位时自动绕过）
-        const slide = AvoidanceSystem.trySlideOnContact(data.actor, moveDir, moveDistance, this._game);
+        // 执行移动（只检测地图障碍物）
+        const delta = this._safeMove(data.actor, moveDir, moveDistance, data.lastTangentDir, false);
         
-        // 执行移动
-        const delta = this._safeMove(data.actor, slide.dir, slide.dist, data.lastTangentDir, false);
         data.actor.move(delta.x, 0, delta.z);
         
         // 更新朝向（仅在传统模式下更新，Steering Behavior 模式下已在上面更新）
         if (!this._enableSteeringBehavior) {
-            const targetAngle = Math.atan2(slide.dir.z, slide.dir.x) * (180 / Math.PI);
+            const targetAngle = Math.atan2(moveDir.z, moveDir.x) * (180 / Math.PI);
             this._updateRotation(data.actor, targetAngle, data.turnSpeed, deltaSeconds);
         }
     }
@@ -692,14 +702,13 @@ export class MovementSystem extends GameSystem {
             moveDir = { x: dirX, z: dirZ };
         }
         
-        const slide = AvoidanceSystem.trySlideOnContact(data.actor, moveDir, moveDistance, this._game);
-        const delta = this._safeMove(data.actor, slide.dir, slide.dist, data.lastTangentDir, false);
+        const delta = this._safeMove(data.actor, moveDir, moveDistance, data.lastTangentDir, false);
         
         data.actor.move(delta.x, 0, delta.z);
 
         // 更新朝向（仅在传统模式下更新，Steering Behavior 模式下已在上面更新）
         if (!this._enableSteeringBehavior) {
-            const targetAngle = Math.atan2(slide.dir.z, slide.dir.x) * (180 / Math.PI);
+            const targetAngle = Math.atan2(moveDir.z, moveDir.x) * (180 / Math.PI);
             this._updateRotation(data.actor, targetAngle, data.turnSpeed, deltaSeconds);
         }
     }
@@ -799,16 +808,13 @@ export class MovementSystem extends GameSystem {
             moveDir = flowDir;
         }
         
-        // 滑动（接触其他单位时自动绕过）
-        const slide = AvoidanceSystem.trySlideOnContact(data.actor, moveDir, moveDistance, this._game);
-        
-        // 执行移动
-        const delta = this._safeMove(data.actor, slide.dir, slide.dist, data.lastTangentDir, false);
+        // 执行移动（只检测地图障碍物）
+        const delta = this._safeMove(data.actor, moveDir, moveDistance, data.lastTangentDir, false);
         data.actor.move(delta.x, 0, delta.z);
         
         // 更新朝向（仅在传统模式下更新，Steering Behavior 模式下已在上面更新）
         if (!this._enableSteeringBehavior) {
-            const targetAngle = Math.atan2(slide.dir.z, slide.dir.x) * (180 / Math.PI);
+            const targetAngle = Math.atan2(moveDir.z, moveDir.x) * (180 / Math.PI);
             this._updateRotation(data.actor, targetAngle, data.turnSpeed, deltaSeconds);
         }
     }
@@ -858,8 +864,7 @@ export class MovementSystem extends GameSystem {
         const dirX = dx / distance;
         const dirZ = dz / distance;
         
-        const slide = AvoidanceSystem.trySlideOnContact(data.actor, { x: dirX, z: dirZ }, moveDistance, this._game);
-        const delta = this._safeMove(data.actor, slide.dir, slide.dist, data.lastTangentDir, false);
+        const delta = this._safeMove(data.actor, { x: dirX, z: dirZ }, moveDistance, data.lastTangentDir, false);
         
         // 有微小进展就继续
         const moveDist = Math.sqrt(delta.x * delta.x + delta.z * delta.z);

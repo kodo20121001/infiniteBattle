@@ -235,6 +235,65 @@ export default function ActionFields({ action, onUpdate }) {
           </div>
         );
 
+      case 'issueCommandToCamp':
+        return (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <div className="text-slate-400">阵营ID</div>
+                <input
+                  type="number"
+                  className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs"
+                  value={params.campId || 1}
+                  onChange={e => updateField('campId', Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-1">
+                <div className="text-slate-400">单位状态</div>
+                <select
+                  className="w-28 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs"
+                  value={params.unitStatus || 'Idle'}
+                  onChange={e => updateField('unitStatus', e.target.value)}
+                >
+                  <option value="Idle">Idle - 空闲</option>
+                  <option value="Walk">Walk - 移动</option>
+                  <option value="Cast">Cast - 施法</option>
+                  <option value="Die">Die - 死亡</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <div className="text-slate-400">命令类型</div>
+                <select
+                  className="w-32 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs"
+                  value={params.commandType || 'AttackMove'}
+                  onChange={e => updateField('commandType', e.target.value)}
+                >
+                  <option value="AttackMove">AttackMove - 攻击移动</option>
+                  <option value="AttackMovePath">AttackMovePath - 沿路径攻击</option>
+                  <option value="MoveTo">MoveTo - 移动到</option>
+                  <option value="HoldPosition">HoldPosition - 守住位置</option>
+                  <option value="Guard">Guard - 守卫</option>
+                  <option value="Stop">Stop - 停止</option>
+                  <option value="Idle">Idle - 空闲</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-400 mb-1">命令参数 (JSON)</div>
+              <textarea
+                className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono min-h-[80px]"
+                placeholder={'例: {"pathId": 1, "direction": 1}'}
+                value={JSON.stringify(params.commandParams || {}, null, 2)}
+                onChange={e => {
+                  try {
+                    updateField('commandParams', JSON.parse(e.target.value));
+                  } catch {}
+                }}
+              />
+            </div>
+          </div>
+        );
+
       case 'customAction':
         return (
           <div className="space-y-2">

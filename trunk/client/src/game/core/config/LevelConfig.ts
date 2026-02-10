@@ -154,15 +154,16 @@ export interface LevelActionConfig {
  * 行为类型枚举
  */
 export type LevelActionType =
-    | 'createUnit'      // 创建单位
-    | 'removeUnit'      // 移除单位
-    | 'moveUnit'        // 移动单位
-    | 'moveCamp'        // 移动阵营内所有单位
-    | 'setVariable'     // 设置变量
-    | 'playEffect'      // 播放特效
-    | 'playSound'       // 播放音效
-    | 'showMessage'     // 显示消息
-    | 'changeCamp'      // 改变阵营
-    | 'winGame'         // 胜利
-    | 'loseGame'        // 失败
-    | 'customAction';   // 自定义行为
+    | 'createUnit'           // 创建单位
+    | 'removeUnit'           // 移除单位
+    | 'moveUnit'             // 移动单位
+    | 'moveCamp'             // 移动阵营内所有单位
+    | 'setVariable'          // 设置变量
+    | 'playEffect'           // 播放特效
+    | 'playSound'            // 播放音效
+    | 'showMessage'          // 显示消息
+    | 'changeCamp'           // 改变阵营
+    | 'winGame'              // 胜利
+    | 'loseGame'             // 失败
+    | 'issueCommandToCamp'   // 下达命令给阵营
+    | 'customAction';        // 自定义行为

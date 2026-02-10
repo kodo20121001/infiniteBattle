@@ -1,26 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Building2, ChevronDown, ChevronUp, Castle, Swords, Shield } from 'lucide-react';
+import { Building2, ChevronDown, ChevronUp } from 'lucide-react';
 
-const defaultBuildings = [
-  {
-    id: 'tower',
-    name: '箭塔',
-    icon: Castle,
-    count: 3,
-  },
-  {
-    id: 'barracks',
-    name: '兵营',
-    icon: Swords,
-    count: 2,
-  },
-  {
-    id: 'barrier',
-    name: '路障',
-    icon: Shield,
-    count: 5,
-  },
-];
+const defaultBuildings = [];
 
 const GameUI = ({ theme, buildings = defaultBuildings, onPlace, onToggle }) => {
   const [expanded, setExpanded] = useState(false);
@@ -79,7 +60,6 @@ const GameUI = ({ theme, buildings = defaultBuildings, onPlace, onToggle }) => {
               <div className="overflow-x-auto -mx-4 px-4" style={{ pointerEvents: 'auto' }}>
                 <div className="flex gap-4 pb-2">
                   {list.map((item) => {
-                    const Icon = item.icon;
                     return (
                       <div
                         key={item.id}
@@ -97,7 +77,16 @@ const GameUI = ({ theme, buildings = defaultBuildings, onPlace, onToggle }) => {
                         {/* Decorative corner elements */}
                         <div className="relative pointer-events-none">
                           <div className="w-16 h-16 rounded-lg border-2 flex items-center justify-center transition-all backdrop-blur-sm border-purple-500/40 bg-gradient-to-br from-purple-500/10 to-black/50 hover:border-purple-400/60 hover:shadow-md hover:shadow-purple-500/30">
-                            <Icon size={28} className="text-purple-300/80" />
+                            {item.icon && (
+                              <img 
+                                src={item.icon} 
+                                alt={item.name}
+                                className="w-10 h-10 object-contain"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            )}
                           </div>
                         </div>
                         {/* Name and count with background */}

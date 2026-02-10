@@ -5,11 +5,23 @@
     "description": "",
     "mapId": 1,
     "camps": [
-      { "id": 1, "name": "玩家", "playerControlled": true },
-      { "id": 2, "name": "敌人" }
+      {
+        "id": 1,
+        "name": "玩家",
+        "playerControlled": true
+      },
+      {
+        "id": 2,
+        "name": "敌人"
+      }
     ],
     "alliances": [
-      { "sourceCampId": 1, "targetCampId": 2, "relation": "enemy", "shareVision": false }
+      {
+        "sourceCampId": 1,
+        "targetCampId": 2,
+        "relation": "enemy",
+        "shareVision": false
+      }
     ],
     "initialResources": {},
     "startUnits": [],
@@ -21,14 +33,14 @@
         "name": "定时生成敌人",
         "eventType": "intervalTimer",
         "params": {
-          "intervalSec": 3
+          "intervalSec": 5
         },
         "conditions": [],
         "actions": [
           {
             "type": "createUnit",
             "params": {
-              "unitId": "101",
+              "unitId": "102",
               "campId": 2,
               "positionName": "3"
             }
@@ -36,7 +48,7 @@
           {
             "type": "createUnit",
             "params": {
-              "unitId": "101",
+              "unitId": "102",
               "campId": 2,
               "positionName": "4"
             }
@@ -44,9 +56,55 @@
           {
             "type": "createUnit",
             "params": {
-              "unitId": "101",
+              "unitId": "102",
               "campId": 2,
               "positionName": "5"
+            }
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "30秒后-阵营1沿路径前进",
+        "eventType": "intervalTimer",
+        "params": {
+          "intervalSec": 1
+        },
+        "conditions": [],
+        "actions": [
+          {
+            "type": "issueCommandToCamp",
+            "params": {
+              "campId": 1,
+              "unitStatus": "Idle",
+              "commandType": "AttackMovePath",
+              "commandParams": {
+                "pathId": 1,
+                "direction": 1
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "name": "10秒后-阵营2沿路径反向前进",
+        "eventType": "intervalTimer",
+        "params": {
+          "intervalSec": 1
+        },
+        "conditions": [],
+        "actions": [
+          {
+            "type": "issueCommandToCamp",
+            "params": {
+              "campId": 2,
+              "unitStatus": "Idle",
+              "commandType": "AttackMovePath",
+              "commandParams": {
+                "pathId": 1,
+                "direction": -1
+              }
             }
           }
         ]
@@ -59,11 +117,23 @@
     "description": "技能编辑器专用演示关卡",
     "mapId": 1,
     "camps": [
-      { "id": 1, "name": "玩家", "playerControlled": true },
-      { "id": 2, "name": "敌人" }
+      {
+        "id": 1,
+        "name": "玩家",
+        "playerControlled": true
+      },
+      {
+        "id": 2,
+        "name": "敌人"
+      }
     ],
     "alliances": [
-      { "sourceCampId": 1, "targetCampId": 2, "relation": "enemy", "shareVision": false }
+      {
+        "sourceCampId": 1,
+        "targetCampId": 2,
+        "relation": "enemy",
+        "shareVision": false
+      }
     ],
     "initialResources": {},
     "startUnits": [
@@ -74,7 +144,10 @@
         "level": 1,
         "command": {
           "type": "HoldPosition",
-          "guardPos": { "x": 200, "y": 200 },
+          "guardPos": {
+            "x": 200,
+            "y": 200
+          },
           "visionRadius": 600
         }
       },
@@ -85,7 +158,10 @@
         "level": 1,
         "command": {
           "type": "HoldPosition",
-          "guardPos": { "x": 400, "y": 200 },
+          "guardPos": {
+            "x": 400,
+            "y": 200
+          },
           "visionRadius": 200
         }
       }

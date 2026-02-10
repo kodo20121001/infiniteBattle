@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { Texture } from './Texture';
 import { Sprite } from './Sprite';
 import { Vector2 } from './Vector2';
+import { assets } from '../common/Assets';
+import { perfMonitor } from '../common/PerformanceMonitor';
 
 /**
  * Sprite2D - 2D 精灵类
@@ -21,6 +23,8 @@ export class Sprite2D extends Sprite {
     private threeMaterial: THREE.MeshBasicMaterial | null = null;
     private threeMesh: THREE.Mesh | null = null;
     private threeTexture: THREE.Texture | null = null;
+    private currentImageId: string | null = null;  // 用于追踪当前纹理的 ID
+    private usedImageIds: Set<string> = new Set(); // 记录使用过的纹理ID，避免动画切帧反复创建
 
     constructor(imageOrTexture?: HTMLImageElement | HTMLCanvasElement | Texture, width?: number, height?: number, blackboard: Record<string, any> = {}) {
         super(blackboard);
@@ -49,6 +53,8 @@ export class Sprite2D extends Sprite {
     private createThreeMesh(): void {
         if (!this._texture) return;
 
+        perfMonitor.increment('Sprite2D.createMesh');
+
         // 销毁旧的网格
         this.destroyThreeMesh();
 
@@ -59,17 +65,12 @@ export class Sprite2D extends Sprite {
         // 创建几何体（使用米单位）
         this.threeGeometry = new THREE.PlaneGeometry(this._width, this._height);
         
-        // 创建纹理
+        // 创建纹理（使用缓存避免重复创建）
         const image = this._texture.getImage();
-    
-        // 对 HTMLImageElement 使用 Texture（CanvasTexture 更适合 HTMLCanvasElement）
-        this.threeTexture = image instanceof HTMLCanvasElement
-            ? new THREE.CanvasTexture(image)
-            : new THREE.Texture(image);
-        this.threeTexture.needsUpdate = true;
-        this.threeTexture.colorSpace = THREE.SRGBColorSpace;
-        this.threeTexture.magFilter = THREE.NearestFilter;
-        this.threeTexture.minFilter = THREE.NearestFilter;
+        const imageId = this._texture.getImageId();
+        this.currentImageId = imageId;
+        this.threeTexture = assets.getThreeTexture(image, imageId) as THREE.Texture;
+        this.usedImageIds.add(imageId);
 
         // 创建材质
         this.threeMaterial = new THREE.MeshBasicMaterial({
@@ -99,6 +100,8 @@ export class Sprite2D extends Sprite {
      */
     private updateThreeMesh(): void {
         if (!this.threeMesh || !this._texture) return;
+
+        perfMonitor.increment('Sprite2D.updateMesh');
 
         // 设置位置
         // 坐标系：原点在左下角，X向右，Y向上（米单位）
@@ -142,6 +145,10 @@ export class Sprite2D extends Sprite {
      * 清理资源
      */
     dispose(): void {
+        // 从场景中移除 mesh（如果在场景中）
+        if (this.threeMesh && this.threeMesh.parent) {
+            this.threeMesh.parent.remove(this.threeMesh);
+        }
         this.destroyThreeMesh();
     }
 
@@ -157,10 +164,15 @@ export class Sprite2D extends Sprite {
             this.threeMaterial.dispose();
             this.threeMaterial = null;
         }
-        if (this.threeTexture) {
-            this.threeTexture.dispose();
-            this.threeTexture = null;
+        // 释放纹理的缓存引用（由 Assets 管理，不直接 dispose）
+        if (this.usedImageIds.size > 0) {
+            for (const imageId of this.usedImageIds) {
+                assets.releaseThreeTexture(imageId);
+            }
+            this.usedImageIds.clear();
         }
+        this.currentImageId = null;
+        this.threeTexture = null;
         this.threeMesh = null;
         this._threeObject = null;
     }
@@ -184,6 +196,37 @@ export class Sprite2D extends Sprite {
             this._texture = new Texture(imageOrTexture);
         }
         this.createThreeMesh();
+    }
+
+    /**
+     * 设置纹理（内部方法，只更新 material 的贴图，不重建 mesh）
+     * 用于动画帧切换，性能优于 setTexture
+     */
+    setThreeTextureOnly(texture: THREE.Texture | THREE.CanvasTexture): void {
+        if (this.threeMaterial && texture) {
+            this.threeMaterial.map = texture;
+            this.threeMaterial.needsUpdate = true;
+        }
+        this.threeTexture = texture;
+    }
+
+    /**
+     * 高效的纹理更新方法（用于动画帧切换）
+     * 避免重建 mesh，只更新 material 贴图
+     */
+    updateFrameTexture(newTexture: Texture): void {
+        if (!newTexture) return;
+
+        // 更新为新纹理
+        this._texture = newTexture;
+        const image = newTexture.getImage();
+        const imageId = newTexture.getImageId();
+        this.currentImageId = imageId;
+        this.usedImageIds.add(imageId);
+
+        // 直接更新 THREE 材质中的纹理，避免重建 mesh
+        const threeTexture = assets.getThreeTexture(image, imageId);
+        this.setThreeTextureOnly(threeTexture as THREE.Texture);
     }
 
     /**
@@ -239,7 +282,12 @@ export class Sprite2D extends Sprite {
     }
 
     set rotationZ(value: number) {
-        this._rotation2D = value * (Math.PI / 180);
+        const radians = value * (Math.PI / 180);
+        // 优化：只在旋转改变时才触发更新
+        if (this._rotation2D === radians) {
+            return;
+        }
+        this._rotation2D = radians;
         this.updateThreeMesh();
     }
 

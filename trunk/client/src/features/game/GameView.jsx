@@ -15,6 +15,7 @@ const GameView = ({ theme, levelId = DEFAULT_LEVEL_ID }) => {
   const [message, setMessage] = useState('初始化游戏中...');
   const [placingBuilding, setPlacingBuilding] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [buildings, setBuildings] = useState([]);
 
   const cleanupRunner = () => {
     if (resizeHandlerRef.current) {
@@ -63,6 +64,21 @@ const GameView = ({ theme, levelId = DEFAULT_LEVEL_ID }) => {
 
         await runner.loadLevel(levelId, levelConfig.mapId);
         runnerRef.current = runner;
+
+        // 加载建筑配置
+        const buildingConfigs = Configs.Get('building') || {};
+        const buildingArray = Array.isArray(buildingConfigs)
+          ? buildingConfigs
+          : Object.values(buildingConfigs);
+        const buildingList = buildingArray.map(cfg => ({
+          id: cfg.id,
+          name: cfg.name,
+          icon: cfg.icon,
+          modelId: cfg.modelId,
+          abilities: cfg.abilities,
+          count: cfg.id === 'town_hall_001' ? 1 : cfg.id === 'cannon_tower_001' ? 5 : 3,
+        }));
+        setBuildings(buildingList);
 
         // 处理窗口大小改变
         const handleResize = () => {
@@ -168,6 +184,7 @@ const GameView = ({ theme, levelId = DEFAULT_LEVEL_ID }) => {
       {theme && status === 'running' && (
         <GameUI
           theme={theme}
+          buildings={buildings}
           onPlace={handlePlaceBuilding}
           onToggle={handleToggleBuildingPanel}
         />

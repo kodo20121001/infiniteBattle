@@ -10,6 +10,7 @@ import { AnimatedSprite2D } from './AnimatedSprite2D';
 import { Sprite3D } from './Sprite3D';
 import { Sprite, type SpritePlugin } from './Sprite';
 import * as THREE from 'three';
+import { assets } from '../common/Assets';
 
 /**
  * 根据模型配置创建对应类型的精灵
@@ -103,7 +104,7 @@ export async function createSpriteByModel(
                         throw new Error(`Invalid plugin at ${resourceConfig.scriptPath}: must have onAttach() method`);
                     }
 
-                    sprite.addPlugin(plugin, THREE, blackboard);
+                    sprite.addPlugin(plugin, THREE, assets, blackboard);
                 }
             } else {
                 console.warn('[Model] Failed to fetch resource config:', response.status);

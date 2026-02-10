@@ -1,137 +1,10 @@
 [
   {
-    "id": "barracks_human_001",
-    "name": "人族兵营",
-    "description": "训练步兵和骑士",
-    "modelId": "barracks",
-    "icon": "/building/barracks_icon.png",
-    "baseData": {
-      "hp": 1500,
-      "hpMax": 1500,
-      "cost": {
-        "gold": 200,
-        "wood": 50
-      },
-      "buildTime": 60,
-      "occupiedCells": [
-        [
-          -1,
-          -1
-        ],
-        [
-          0,
-          -1
-        ],
-        [
-          1,
-          -1
-        ],
-        [
-          -1,
-          0
-        ],
-        [
-          0,
-          0
-        ],
-        [
-          1,
-          0
-        ],
-        [
-          -1,
-          1
-        ],
-        [
-          0,
-          1
-        ],
-        [
-          1,
-          1
-        ]
-      ],
-      "armor": 5,
-      "armorType": "fortified"
-    },
-    "abilities": [
-      {
-        "type": "ProductionQueue",
-        "config": {
-          "queue": [
-            {
-              "unitId": "101",
-              "productionTime": 3,
-              "quantity": 5
-            }
-          ]
-        }
-      }
-    ]
-  },
-  {
-    "id": "arrow_tower_001",
-    "name": "箭塔",
-    "description": "防御建筑，攻击地面和空中单位",
-    "modelId": "arrow_tower",
-    "icon": "/building/arrow_tower_icon.png",
-    "baseData": {
-      "hp": 800,
-      "hpMax": 800,
-      "cost": {
-        "gold": 150,
-        "wood": 0
-      },
-      "buildTime": 40,
-      "occupiedCells": [
-        [
-          -1,
-          -1
-        ],
-        [
-          0,
-          -1
-        ],
-        [
-          -1,
-          0
-        ],
-        [
-          0,
-          0
-        ]
-      ],
-      "armor": 10,
-      "armorType": "fortified"
-    },
-    "abilities": [
-      {
-        "type": "TurretAttack",
-        "config": {
-          "range": 700,
-          "damage": 28,
-          "attackSpeed": 1.5,
-          "attackSkillId": 1,
-          "targetAir": true,
-          "targetGround": true
-        }
-      },
-      {
-        "type": "DefenseSystem",
-        "config": {
-          "armor": 5,
-          "armorType": "fortified",
-          "regeneration": 0
-        }
-      }
-    ]
-  },
-  {
     "id": "town_hall_001",
     "name": "市政厅",
     "description": "主基地，训练农民并提供资源采集点",
-    "modelId": "town_hall",
-    "icon": "/building/town_hall_icon.png",
+    "modelId": "base",
+    "icon": "/building/base.png",
     "baseData": {
       "hp": 2500,
       "hpMax": 2500,
@@ -249,125 +122,11 @@
     ]
   },
   {
-    "id": "farm_001",
-    "name": "农场",
-    "description": "提供人口供给",
-    "modelId": "farm",
-    "icon": "/building/farm_icon.png",
-    "baseData": {
-      "hp": 500,
-      "hpMax": 500,
-      "cost": {
-        "gold": 80,
-        "wood": 20
-      },
-      "buildTime": 30,
-      "occupiedCells": [
-        [
-          -1,
-          -1
-        ],
-        [
-          0,
-          -1
-        ],
-        [
-          -1,
-          0
-        ],
-        [
-          0,
-          0
-        ]
-      ],
-      "armor": 0,
-      "armorType": "light"
-    },
-    "abilities": [
-      {
-        "type": "SupplyProvider",
-        "config": {
-          "supplyAmount": 6
-        }
-      }
-    ]
-  },
-  {
-    "id": "altar_of_kings_001",
-    "name": "王者祭坛",
-    "description": "训练和复活英雄",
-    "modelId": "altar_of_kings",
-    "icon": "/building/altar_icon.png",
-    "baseData": {
-      "hp": 1200,
-      "hpMax": 1200,
-      "cost": {
-        "gold": 180,
-        "wood": 50
-      },
-      "buildTime": 60,
-      "occupiedCells": [
-        [
-          -1,
-          -1
-        ],
-        [
-          0,
-          -1
-        ],
-        [
-          1,
-          -1
-        ],
-        [
-          -1,
-          0
-        ],
-        [
-          0,
-          0
-        ],
-        [
-          1,
-          0
-        ],
-        [
-          -1,
-          1
-        ],
-        [
-          0,
-          1
-        ],
-        [
-          1,
-          1
-        ]
-      ],
-      "armor": 5,
-      "armorType": "fortified"
-    },
-    "abilities": [
-      {
-        "type": "HeroAltar",
-        "config": {
-          "heroes": [
-            "paladin",
-            "archmage",
-            "mountain_king"
-          ],
-          "reviveCostMultiplier": 1,
-          "reviveTimeMultiplier": 1
-        }
-      }
-    ]
-  },
-  {
     "id": "cannon_tower_001",
     "name": "火炮塔",
     "description": "对地强力攻击建筑",
     "modelId": "fire_tower",
-    "icon": "/building/cannon_tower_icon.png",
+    "icon": "/building/fire_tower.png",
     "baseData": {
       "hp": 700,
       "hpMax": 700,
@@ -415,6 +174,76 @@
           "armor": 3,
           "armorType": "fortified",
           "regeneration": 0
+        }
+      }
+    ]
+  },
+  {
+    "id": "barracks_human_001",
+    "name": "人族兵营",
+    "description": "训练步兵和骑士",
+    "modelId": "barracks",
+    "icon": "/building/barracks.png",
+    "baseData": {
+      "hp": 1500,
+      "hpMax": 1500,
+      "cost": {
+        "gold": 200,
+        "wood": 50
+      },
+      "buildTime": 60,
+      "occupiedCells": [
+        [
+          -1,
+          -1
+        ],
+        [
+          0,
+          -1
+        ],
+        [
+          1,
+          -1
+        ],
+        [
+          -1,
+          0
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          -1,
+          1
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "armor": 5,
+      "armorType": "fortified"
+    },
+    "abilities": [
+      {
+        "type": "ProductionQueue",
+        "config": {
+          "queue": [
+            {
+              "unitId": "101",
+              "productionTime": 3,
+              "quantity": 5
+            }
+          ]
         }
       }
     ]

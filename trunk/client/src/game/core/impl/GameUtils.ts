@@ -5,6 +5,7 @@
 
 import type { Game } from './GameSystem';
 import type { Actor } from './Actor';
+import { ActorType } from './Actor';
 import type { Unit } from './Unit';
 import { FixedVector2 } from '../base/fixed/FixedVector2';
 
@@ -143,6 +144,7 @@ export class QueryUtils {
         const actors = game.getActors();
 
         for (const actor of actors) {
+            if (actor.actorType !== ActorType.Unit && actor.actorType !== ActorType.Building) continue;
             if (actor.campId === sourceCampId) continue;
 
             const dist = DistanceUtils.distance2D(actor.getPosition(), position);

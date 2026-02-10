@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { assets } from '../common/Assets';
 import { Sprite } from './Sprite';
 
@@ -8,7 +7,6 @@ interface Sprite3DFbxConfig {
     model: string;
     animations?: Record<string, string>;
     defaultAction?: string;
-    scale?: number;
 }
 
 /**
@@ -23,18 +21,25 @@ export class Sprite3D extends Sprite {
     private animations: Map<string, THREE.AnimationAction> = new Map();
     private currentAnimationAction: THREE.AnimationAction | null = null;
     private modelUrl: string = '';
+    private cachedMeshes: Array<{mesh: THREE.Mesh, material: THREE.Material}> = [];  // 缓存模型中的所有 Mesh 以避免重复遍历
+    private lastCachedAlpha: number = 1;
+    private lastCachedVisible: boolean = true;
 
     constructor(blackboard: Record<string, any> = {}) {
         super(blackboard);
-        // 创建 Group 来容纳 3D 模型
+        // 创建 Group 作为模型容器（保持单位变换）
         this.threeGroup = new THREE.Group();
-        this.threeGroup.position.set(0, 0, 0);
     }
 
     /**
      * 清理资源
      */
     dispose(): void {
+        // 从场景中移除 group（如果在场景中）
+        if (this.threeGroup && this.threeGroup.parent) {
+            this.threeGroup.parent.remove(this.threeGroup);
+        }
+
         this.stopAnimation();
         if (this.animationMixer) {
             this.animationMixer.uncacheRoot(this.animationMixer.getRoot() as any);
@@ -90,11 +95,6 @@ export class Sprite3D extends Sprite {
         this.modelUrl = modelUrl;
         this.setModel(baseModel);
 
-        // 应用配置中的缩放到 Sprite 的 _scale（会影响整个 Group）
-        if (typeof config.scale === 'number') {
-            this.setScale(config.scale, config.scale, config.scale);
-        }
-
         // 初始化动画混合器，并先注册 base 模型中的动画
         this.setupMixerAndClips(baseModel.animations ?? []);
 
@@ -133,17 +133,22 @@ export class Sprite3D extends Sprite {
         this.threeGroup.children.forEach(child => {
             this.threeGroup.remove(child);
         });
+        
         // 添加新模型到 Group
         this.threeGroup.add(this.model);
         // 转换材质为不受光照影响的基础材质
         this.convertToUnlitMaterials();
+        // 应用当前变换状态到模型
+        this.onTransformChanged();
     }
 
     /**
      * 将模型材质转换为 MeshBasicMaterial（不受光照影响）
+     * 同时缓存所有 Mesh，避免频繁遍历
      */
     private convertToUnlitMaterials(): void {
         if (!this.model) return;
+        this.cachedMeshes = [];
         this.model.traverse((child: THREE.Object3D) => {
             if (child instanceof THREE.Mesh) {
                 const oldMaterial = child.material;
@@ -169,6 +174,8 @@ export class Sprite3D extends Sprite {
                     basicMat.side = oldMaterial.side;
                     child.material = basicMat;
                 }
+                // 缓存 Mesh 以便后续快速访问
+                this.cachedMeshes.push({mesh: child, material: child.material});
             }
         });
     }
@@ -187,15 +194,8 @@ export class Sprite3D extends Sprite {
     }
 
     private loadFbx(url: string): Promise<THREE.Group & { animations: THREE.AnimationClip[] } > {
-        return new Promise((resolve, reject) => {
-            const loader = new FBXLoader();
-            loader.load(
-                url,
-                (fbx) => resolve(fbx as THREE.Group & { animations: THREE.AnimationClip[] }),
-                undefined,
-                (error) => reject(error)
-            );
-        });
+        // 使用 Assets 缓存加载 FBX（带缓存和克隆）
+        return assets.getFbx(url);
     }
 
     /**
@@ -301,21 +301,37 @@ export class Sprite3D extends Sprite {
      * 当变换属性改变时更新 Group 的变换
      */
     protected onTransformChanged(): void {
-        // 更新 Group 的位置
-        this.threeGroup.position.set(this._position.x, this._position.y, this._position.z);
-        
-        // 更新 Group 的旋转（加上初始旋转）
-        this.threeGroup.rotation.set(
+        if (!this.model) return;
+
+        // 将变换应用在模型根节点（Group 作为容器保持单位变换）
+        this.model.position.set(this._position.x, this._position.y, this._position.z);
+        this.model.rotation.set(
             this._initialRotation.x + this._rotation.x,
             this._initialRotation.y + this._rotation.y,
             this._initialRotation.z + this._rotation.z
         );
+        this.model.scale.set(this._scale.x, this._scale.y, this._scale.z);
+
+        // 更新可见性
+        if (this.threeGroup) {
+            this.threeGroup.visible = this._visible;
+        }
         
-        // 更新 Group 的缩放（3D缩放）
-        this.threeGroup.scale.set(this._scale.x, this._scale.y, this._scale.z);
-        
-        // 更新透明度
-        if (this.model) {
+        // 只在 alpha 或 visible 改变时才遍历更新材质（避免每帧遍历）
+        if (this._alpha !== this.lastCachedAlpha || this._visible !== this.lastCachedVisible) {
+            this.updateMaterialOpacity();
+            this.lastCachedAlpha = this._alpha;
+            this.lastCachedVisible = this._visible;
+        }
+    }
+
+    /**
+     * 更新所有材质的透明度
+     * 使用缓存的 Mesh 列表而不是遍历整棵树
+     */
+    private updateMaterialOpacity(): void {
+        // 如果缓存为空，降级到遍历（仅在未初始化时）
+        if (this.cachedMeshes.length === 0 && this.model) {
             this.model.traverse((child: THREE.Object3D) => {
                 if (child instanceof THREE.Mesh) {
                     const material = child.material as THREE.MeshStandardMaterial | THREE.MeshBasicMaterial;
@@ -325,10 +341,16 @@ export class Sprite3D extends Sprite {
                     }
                 }
             });
+        } else {
+            // 使用缓存的 Mesh，O(1) 访问
+            for (const {mesh} of this.cachedMeshes) {
+                const material = mesh.material as THREE.MeshStandardMaterial | THREE.MeshBasicMaterial;
+                if (material) {
+                    material.transparent = true;
+                    material.opacity = this._alpha;
+                }
+            }
         }
-        
-        // 更新可见性
-        this.threeGroup.visible = this._visible;
     }
 
     /**

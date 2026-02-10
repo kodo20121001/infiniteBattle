@@ -7,17 +7,25 @@
 import { GameSystem } from './GameSystem';
 import type { Game } from './GameSystem';
 import type { Actor } from './Actor';
+import { ActorType } from './Actor';
 import { SkillSystem } from './SkillSystem';
 import { MovementSystem } from './MovementSystem';
 import { getSkillConfig } from '../config/SkillConfig';
+import type { MapPath } from '../config/MapConfig';
+import { Configs } from '../../common/Configs';
 
-export type UnitCommandType = 'Idle' | 'Stop' | 'MoveTo' | 'AttackMove' | 'HoldPosition' | 'Guard';
+export type UnitCommandType = 'Idle' | 'Stop' | 'MoveTo' | 'AttackMove' | 'HoldPosition' | 'Guard' | 'AttackMovePath';
 
 export interface UnitCommand {
     type: UnitCommandType;
     targetPos?: { x: number; z: number }; // 目标位置
     guardPos?: { x: number; z: number };  // 守卫原点
     visionRadius?: number;                // 视野半径
+    
+    // AttackMovePath 参数（由外部指定）
+    pathId?: number;           // 路径ID
+    startIndex?: number;       // 起始点索引
+    direction?: 1 | -1;        // 方向：1=正向，-1=反向
 }
 
 interface CommandState {
@@ -25,6 +33,11 @@ interface CommandState {
     hasIssuedMove?: boolean;
     hasStoppedOnce?: boolean;
     lastChaseTargetPos?: { x: number; z: number };
+    lastTrackedPos?: { x: number; z: number };  // 为了追踪位置变化
+    
+    // AttackMovePath 状态
+    currentPathIndex?: number;  // 当前目标点索引
+    pathPoints?: Array<{ x: number; z: number }>;  // 缓存的路径点
 }
 
 interface AutoSkill {
@@ -61,6 +74,7 @@ export class UnitCommandSystem extends GameSystem {
         const nowSeconds = this._game.getGameState().getElapsedTime();
 
         for (const actor of actors) {
+            if (actor.actorType !== ActorType.Unit) continue;
             const state = this._commands.get(actor.actorNo);
             if (!state) continue;
 
@@ -81,6 +95,11 @@ export class UnitCommandSystem extends GameSystem {
                 if ((cmd.type === 'HoldPosition' || cmd.type === 'Guard') && !autoSkill) {
                     this._tryBaseAttack(skillSystem, actor, nowSeconds);
                 }
+            }
+
+            // AttackMovePath：沿路径攻击移动
+            if (cmd.type === 'AttackMovePath') {
+                this._handleAttackMovePath(actor, state, movement, skillSystem, nowSeconds);
             }
 
             // 移动类命令 - 使用新的 MovementSystem
@@ -192,7 +211,30 @@ export class UnitCommandSystem extends GameSystem {
      * 下达指令
      */
     issueCommand(actorId: string, command: UnitCommand): void {
-        this._commands.set(actorId, { command, hasIssuedMove: false });
+        const state: CommandState = { command, hasIssuedMove: false };
+        
+        // 初始化 AttackMovePath 状态
+        if (command.type === 'AttackMovePath' && command.pathId !== undefined) {
+            const pathPoints = this._loadPathPoints(command.pathId);
+            if (pathPoints) {
+                state.pathPoints = pathPoints;
+                
+                // 如果没有指定起始点，根据方向自动查找
+                if (command.startIndex === undefined) {
+                    const actor = this._game.getActors().find(a => a.actorNo === actorId);
+                    if (actor) {
+                        const direction = command.direction ?? 1;
+                        const startIndex = this._findPathStartIndex(actor.getPosition(), pathPoints, direction);
+                        state.currentPathIndex = startIndex;
+                    }
+                } else {
+                    state.currentPathIndex = command.startIndex;
+                }
+            }
+        }
+        
+        this._commands.set(actorId, state);
+        
         if (command.type === 'Stop' || command.type === 'Idle') {
             const movement = this._game.getSystem<MovementSystem>('movement');
             movement?.stopMove(actorId);
@@ -220,6 +262,7 @@ export class UnitCommandSystem extends GameSystem {
         let bestDist = Number.MAX_VALUE;
 
         for (const other of actors) {
+            if (other.actorType !== ActorType.Unit && other.actorType !== ActorType.Building) continue;
             if (other.campId === actor.campId || other.isDead()) continue;
             const posA = actor.getPosition();
             const posB = other.getPosition();
@@ -247,6 +290,163 @@ export class UnitCommandSystem extends GameSystem {
             skillData: skillConfig,
             behaviorConfig: skillConfig,
         });
+    }
+
+    /**
+     * 加载路径点
+     */
+    private _loadPathPoints(pathId: number): Array<{ x: number; z: number }> | null {
+        const levelManager = this._game.getLevelManager();
+        if (!levelManager) {
+            console.warn('[UnitCommandSystem] _loadPathPoints: levelManager not found');
+            return null;
+        }
+        
+        const sceneManager = levelManager.getSceneManager();
+        const mapConfig = sceneManager?.getMapConfig();
+        if (!mapConfig || !mapConfig.paths) return null;
+        
+        const path = mapConfig.paths.find((p: MapPath) => p.id === pathId);
+        if (!path || !path.points) return null;
+        
+        return path.points.map(p => ({ x: p.x, z: p.z }));
+    }
+
+    /**
+     * 查找路径起始点索引
+     * @param unitPos 单位当前位置
+     * @param pathPoints 路径点数组
+     * @param direction 方向：1=找z大于单位的第一个点，-1=找z小于单位的第一个点
+     */
+    private _findPathStartIndex(
+        unitPos: { x: number; y: number; z: number },
+        pathPoints: Array<{ x: number; z: number }>,
+        direction: 1 | -1
+    ): number {
+        if (direction === 1) {
+            // 正向：找第一个 z > unitPos.z 的点
+            for (let i = 0; i < pathPoints.length; i++) {
+                if (pathPoints[i].z > unitPos.z) {
+                    return i;
+                }
+            }
+            // 没找到，返回最后一个点
+            return pathPoints.length - 1;
+        } else {
+            // 反向：找第一个 z < unitPos.z 的点（从后往前找）
+            for (let i = pathPoints.length - 1; i >= 0; i--) {
+                if (pathPoints[i].z < unitPos.z) {
+                    return i;
+                }
+            }
+            // 没找到，返回第一个点
+            return 0;
+        }
+    }
+
+    /**
+     * 处理 AttackMovePath 命令
+     */
+    private _handleAttackMovePath(
+        actor: Actor,
+        state: CommandState,
+        movement: MovementSystem | null,
+        skillSystem: SkillSystem | null,
+        nowSeconds: number
+    ): void {
+        const cmd = state.command;
+        
+        // 初始化移动追踪
+        if (!state.lastTrackedPos) {
+            state.lastTrackedPos = actor.getPosition();
+        }
+        
+        if (!state.pathPoints || state.currentPathIndex === undefined || !movement) {
+            if (!state.pathPoints) console.warn(`[AttackMovePath] unit ${actor.actorNo}: no pathPoints`);
+            if (state.currentPathIndex === undefined) console.warn(`[AttackMovePath] unit ${actor.actorNo}: no currentPathIndex`);
+            if (!movement) console.warn('[AttackMovePath] no movement system');
+            return;
+        }
+        
+        const direction = cmd.direction ?? 1;
+        const pathPoints = state.pathPoints;
+        const currentIndex = state.currentPathIndex;
+        
+        // 检查是否到达路径终点
+        if (currentIndex < 0 || currentIndex >= pathPoints.length) {
+            console.warn(`[AttackMovePath] unit ${actor.actorNo}: index out of range ${currentIndex}, pathLength=${pathPoints.length}`);
+            return;
+        }
+        
+        const targetPoint = pathPoints[currentIndex];
+        const pos = actor.getPosition();
+        
+        // 处理敌人（类似 AttackMove）
+        let shouldMoveToWaypoint = true;
+        
+        if (skillSystem) {
+            const unitCfg = actor.getUnitConfig();
+            const sightRange = unitCfg?.sightRange ?? 0;
+            const attackSkillId = actor.getAttackSkillId();
+            const skillConfig = attackSkillId > 0 ? getSkillConfig(attackSkillId) : undefined;
+            const castRange = skillConfig?.castRange ?? 5;
+            
+            if (sightRange > 0) {
+                const enemy = this._findNearestEnemy(actor, sightRange);
+                if (enemy) {
+                    const targetPos = enemy.getPosition();
+                    const dx = targetPos.x - pos.x;
+                    const dz = targetPos.z - pos.z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+                    
+                    if (dist > castRange) {
+                        // 追击敌人
+                        const last = state.lastChaseTargetPos;
+                        const movedEnough = !last || Math.hypot(targetPos.x - last.x, targetPos.z - last.z) > 0.5;
+                        if (movedEnough) {
+                            movement.moveTo({
+                                actorId: actor.actorNo,
+                                targetX: targetPos.x,
+                                targetZ: targetPos.z,
+                                speed: actor.getSpeed(),
+                            });
+                            state.lastChaseTargetPos = { x: targetPos.x, z: targetPos.z };
+                        }
+                    } else {
+                        // 停下攻击
+                        movement.stopMove(actor.actorNo);
+                        this._tryBaseAttack(skillSystem, actor, nowSeconds, enemy);
+                    }
+                    shouldMoveToWaypoint = false;
+                }
+            }
+        }
+        
+        // 没有敌人时，移动到路点
+        if (shouldMoveToWaypoint) {
+            const dx = targetPoint.x - pos.x;
+            const dz = targetPoint.z - pos.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            
+            // 到达当前路点，前进到下一个
+            if (dist < 1.5) {
+                const nextIndex = currentIndex + direction;
+                if (nextIndex >= 0 && nextIndex < pathPoints.length) {
+                    state.currentPathIndex = nextIndex;
+                }
+            } else {
+                // 移动到当前路点
+                movement.moveTo({
+                    actorId: actor.actorNo,
+                    targetX: targetPoint.x,
+                    targetZ: targetPoint.z,
+                    speed: actor.getSpeed(),
+                });
+            }
+        }
+        
+        // 更新位置追踪
+        state.lastTrackedPos = actor.getPosition();
     }
 
     /**

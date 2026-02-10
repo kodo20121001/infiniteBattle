@@ -1,3 +1,8 @@
+import * as THREE from 'three';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { perfMonitor } from './PerformanceMonitor';
+
 type ResourceLoader<T> = (key: string) => Promise<T>;
 
 type CacheEntry<T> = {
@@ -5,14 +10,21 @@ type CacheEntry<T> = {
   refs: number;
 };
 
+type TextureCacheEntry = {
+  texture: THREE.Texture | THREE.CanvasTexture;
+  refs: number;
+};
+
 class Assets {
   private loaders = new Map<string, ResourceLoader<unknown>>();
   private cache = new Map<string, CacheEntry<unknown>>();
+  private textureCache = new Map<string, TextureCacheEntry>();
 
   constructor() {
     this.register('image', Assets.loadImage);
     this.register('imageSequence', Assets.loadImageSequence);
     this.register('json', Assets.loadJson);
+    this.register('fbx', Assets.loadFbx);
   }
 
   register<T>(type: string, loader: ResourceLoader<T>): void {
@@ -38,11 +50,76 @@ class Assets {
   }
 
   async getImage(url: string): Promise<HTMLImageElement> {
+    perfMonitor.increment('Assets.imageLoad');
     return this.get<HTMLImageElement>('image', url);
   }
 
   async getJson<T = any>(url: string): Promise<T> {
     return this.get<T>('json', url);
+  }
+
+  /**
+   * 获取FBX模型（带缓存）
+   * 每次都会返回一个克隆，避免多个Sprite实例共享同一个模型对象
+   */
+  async getFbx(url: string): Promise<THREE.Group & { animations: THREE.AnimationClip[] }> {
+    const cachedFbx = await this.get<THREE.Group & { animations: THREE.AnimationClip[] }>('fbx', url);
+    
+    perfMonitor.increment('Assets.fbxClone');
+    
+    // 使用 SkeletonUtils.clone 正确克隆带骨骼的 FBX 模型
+    const clonedModel = SkeletonUtils.clone(cachedFbx) as THREE.Group;
+    const clonedAnimations = cachedFbx.animations.map(clip => clip.clone());
+
+    return Object.assign(clonedModel, { animations: clonedAnimations });
+  }
+
+  /**
+   * 获取缓存的 THREE.Texture 对象
+   * @param image 图像对象
+   * @param imageId 图像唯一标识（通常是图像URL）
+   * @returns 缓存的 THREE.Texture 对象
+   */
+  getThreeTexture(image: HTMLImageElement | HTMLCanvasElement, imageId: string): THREE.Texture | THREE.CanvasTexture {
+    let entry = this.textureCache.get(imageId);
+
+    if (!entry) {
+      // 创建新的 Texture
+      perfMonitor.increment('Assets.textureCreate');
+      const texture = image instanceof HTMLCanvasElement
+        ? new THREE.CanvasTexture(image)
+        : new THREE.Texture(image);
+
+      texture.needsUpdate = true;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.magFilter = THREE.NearestFilter;
+      texture.minFilter = THREE.NearestFilter;
+
+      entry = {
+        texture,
+        refs: 0,
+      };
+      this.textureCache.set(imageId, entry);
+    }
+
+    entry.refs++;
+    perfMonitor.increment('Assets.textureReuse');
+    return entry.texture;
+  }
+
+  /**
+   * 释放 THREE.Texture 引用，如果引用计数为 0 则销毁
+   * @param imageId 图像唯一标识
+   */
+  releaseThreeTexture(imageId: string): void {
+    const entry = this.textureCache.get(imageId);
+    if (!entry) return;
+
+    entry.refs--;
+    if (entry.refs <= 0) {
+      entry.texture.dispose();
+      this.textureCache.delete(imageId);
+    }
   }
 
   release(type: string, key: string): void {
@@ -58,6 +135,23 @@ class Assets {
 
   clear(): void {
     this.cache.clear();
+    // 销毁所有缓存的 Texture
+    for (const entry of this.textureCache.values()) {
+      entry.texture.dispose();
+    }
+    this.textureCache.clear();
+  }
+
+  /**
+   * 获取缓存统计信息（用于调试性能）
+   */
+  getStats() {
+    return {
+      cachedTextures: this.textureCache.size,
+      totalTextureRefCount: Array.from(this.textureCache.values()).reduce((sum, e) => sum + e.refs, 0),
+      cachedResources: this.cache.size,
+      totalResourceRefCount: Array.from(this.cache.values()).reduce((sum, e) => sum + e.refs, 0),
+    };
   }
 
   private static loadImage(url: string): Promise<HTMLImageElement> {
@@ -104,6 +198,21 @@ class Assets {
       throw new Error(`Failed to load JSON: ${url}`);
     }
     return response.json();
+  }
+
+  private static loadFbx(url: string): Promise<THREE.Group & { animations: THREE.AnimationClip[] }> {
+    return new Promise((resolve, reject) => {
+      const loader = new FBXLoader();
+      loader.load(
+        url,
+        (fbx) => {
+          perfMonitor.increment('Assets.fbxParse');
+          resolve(fbx as THREE.Group & { animations: THREE.AnimationClip[] });
+        },
+        undefined,
+        (error) => reject(error)
+      );
+    });
   }
 }
 

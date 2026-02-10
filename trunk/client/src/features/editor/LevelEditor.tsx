@@ -92,7 +92,7 @@ const conditionTypeLabels: Record<LevelConditionType, string> = {
 const actionTypes: LevelActionType[] = [
   'createUnit', 'removeUnit', 'moveUnit', 'setVariable',
   'playEffect', 'playSound', 'showMessage', 'changeCamp',
-  'winGame', 'loseGame', 'customAction'
+  'issueCommandToCamp', 'winGame', 'loseGame', 'customAction'
 ];
 
 const actionTypeLabels: Record<LevelActionType, string> = {
@@ -104,6 +104,7 @@ const actionTypeLabels: Record<LevelActionType, string> = {
   'playSound': '播放音效',
   'showMessage': '显示消息',
   'changeCamp': '改变阵营',
+  'issueCommandToCamp': '下达命令给阵营',
   'winGame': '胜利',
   'loseGame': '失败',
   'customAction': '自定义行为'

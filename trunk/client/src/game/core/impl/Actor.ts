@@ -71,9 +71,6 @@ export class Actor {
         this.modelId = modelId;
         this.campId = campId;
         this._position = position;
-        if (this.actorType === ActorType.Unit) {
-            console.log(`[Actor] create unit: actorNo=${this.actorNo}, campId=${this.campId}, pos=(${position.x},${position.y},${position.z})`);
-        }
     }
 
     /**
