@@ -1,4 +1,5 @@
 export class ConfigManager {
+    public static instance: ConfigManager = new ConfigManager();
     private configCache: Map<string, any> = new Map();
 
     // 从 JSON 配置中读取数据的方法
@@ -50,7 +51,7 @@ export class ConfigManager {
                     const data = JSON.parse(xhr.responseText);
                     // 如果数据是数组，转换为对象映射（便于按 ID 查询）
                     if (Array.isArray(data)) {
-                        const map: Record<number, any> = {};
+                        const map: Record<string, any> = {};
                         data.forEach(item => {
                             if (item.id !== undefined) {
                                 map[item.id] = item;

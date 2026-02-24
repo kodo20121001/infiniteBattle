@@ -1,0 +1,240 @@
+[
+  {
+    "id": 1000,
+    "name": "免费钻石补给",
+    "category": "gems",
+    "cost": {
+      "type": "currency",
+      "id": "rmb",
+      "count": 0
+    },
+    "reward": {
+      "type": "currency",
+      "id": "diamond",
+      "count": 1000
+    },
+    "ui": {
+      "icon": "Diamond",
+      "color": "text-cyan-400",
+      "popular": true
+    },
+    "limit": {
+      "daily": 1
+    },
+    "sortWeight": 110
+  },
+  {
+    "id": 1001,
+    "name": "一小袋宝石",
+    "category": "gems",
+    "cost": {
+      "type": "currency",
+      "id": "rmb",
+      "count": 6
+    },
+    "reward": {
+      "type": "currency",
+      "id": "diamond",
+      "count": 100
+    },
+    "ui": {
+      "icon": "Diamond",
+      "color": "text-cyan-400",
+      "popular": false
+    },
+    "sortWeight": 100
+  },
+  {
+    "id": 1002,
+    "name": "英雄宝石箱",
+    "category": "gems",
+    "cost": {
+      "type": "currency",
+      "id": "rmb",
+      "count": 30
+    },
+    "reward": {
+      "type": "currency",
+      "id": "diamond",
+      "count": 550
+    },
+    "ui": {
+      "icon": "Diamond",
+      "color": "text-cyan-400",
+      "popular": false
+    },
+    "sortWeight": 90
+  },
+  {
+    "id": 4001,
+    "name": "大金币箱",
+    "category": "resources",
+    "cost": {
+      "type": "currency",
+      "id": "diamond",
+      "count": 200
+    },
+    "reward": {
+      "type": "currency",
+      "id": "gold",
+      "count": 50000
+    },
+    "ui": {
+      "amountText": "50k 金币",
+      "icon": "Package"
+    },
+    "limit": {
+      "daily": 5
+    },
+    "sortWeight": 100
+  },
+  {
+    "id": 4002,
+    "name": "小金币袋",
+    "category": "resources",
+    "cost": {
+      "type": "currency",
+      "id": "diamond",
+      "count": 50
+    },
+    "reward": {
+      "type": "currency",
+      "id": "gold",
+      "count": 10000
+    },
+    "ui": {
+      "amountText": "10k 金币",
+      "icon": "Package"
+    },
+    "limit": {
+      "daily": 20
+    },
+    "sortWeight": 90
+  },
+  {
+    "id": 2001,
+    "name": "水晶鸟碎片",
+    "desc": "集齐碎片合成强力战宠",
+    "category": "characters",
+    "cost": {
+      "type": "currency",
+      "id": "gold",
+      "count": 100
+    },
+    "reward": {
+      "type": "pet_fragment",
+      "id": "pet_crystal_bird",
+      "count": 1
+    },
+    "ui": {
+      "rank": "SSR",
+      "icon": "Ghost",
+      "amountText": "1 碎片"
+    },
+    "sortWeight": 100
+  },
+  {
+    "id": 2002,
+    "name": "火龙碎片",
+    "desc": "集齐碎片合成火属性战宠",
+    "category": "characters",
+    "cost": {
+      "type": "currency",
+      "id": "gold",
+      "count": 100
+    },
+    "reward": {
+      "type": "pet_fragment",
+      "id": "pet_fire_dragon",
+      "count": 1
+    },
+    "ui": {
+      "rank": "SR",
+      "icon": "Ghost",
+      "amountText": "1 碎片"
+    },
+    "sortWeight": 90
+  },
+  {
+    "id": 3001,
+    "name": "精钢长剑",
+    "category": "equipment",
+    "cost": {
+      "type": "currency",
+      "id": "gold",
+      "count": 5000
+    },
+    "reward": {
+      "type": "equipment",
+      "id": "eq_sword_01",
+      "count": 1
+    },
+    "ui": {
+      "rank": "R",
+      "power": "+25 攻击",
+      "icon": "Shield"
+    },
+    "sortWeight": 100
+  },
+  {
+    "id": 3002,
+    "name": "龙鳞胸甲",
+    "category": "equipment",
+    "cost": {
+      "type": "currency",
+      "id": "gold",
+      "count": 12000
+    },
+    "reward": {
+      "type": "equipment",
+      "id": "eq_armor_01",
+      "count": 1
+    },
+    "ui": {
+      "rank": "SR",
+      "power": "+120 生命",
+      "icon": "Shield"
+    },
+    "sortWeight": 90
+  },
+  {
+    "id": 5001,
+    "name": "传送卷轴",
+    "desc": "瞬间移动到指定位置",
+    "category": "items",
+    "cost": {
+      "type": "currency",
+      "id": "gold",
+      "count": 500
+    },
+    "reward": {
+      "type": "item",
+      "id": "item_teleport",
+      "count": 1
+    },
+    "ui": {
+      "icon": "Zap"
+    },
+    "sortWeight": 100
+  },
+  {
+    "id": 5002,
+    "name": "经验药水",
+    "desc": "增加角色经验",
+    "category": "items",
+    "cost": {
+      "type": "currency",
+      "id": "gold",
+      "count": 1000
+    },
+    "reward": {
+      "type": "item",
+      "id": "item_exp_potion",
+      "count": 1
+    },
+    "ui": {
+      "icon": "Zap"
+    },
+    "sortWeight": 90
+  }
+]

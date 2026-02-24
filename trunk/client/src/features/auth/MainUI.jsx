@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   ShoppingCart,
@@ -12,34 +12,67 @@ import {
   Coins,
   Drumstick,
   Gift,
+  Ghost,
 } from 'lucide-react';
 import CharacterUI from './CharacterUI';
 import GameUI from './GameUI';
 import LotteryUI from './LotteryUI';
 import BattleUI from './BattleUI';
 import ShopUI from './ShopUI';
+import PetUI from './PetUI';
+import { PlayerData } from '../../data/PlayerData';
 
 export default function MainUI({ theme, buildings, onPlace, onToggle }) {
   const [activeNav, setActiveNav] = useState('lottery');
-
-  // 模拟用户数据
-  const userData = {
-    name: '龙阳焱',
-    level: 56,
+  
+  // Real user data state
+  const [userData, setUserData] = useState({
+    name: 'Player',
+    level: 1,
     avatar: '/api/placeholder/44/44',
-    experience: 65, // 经验百分比
+    experience: 0,
     resources: {
-      diamond: '2032',
-      coins: '50519',
-      stamina: '6106/30',
+      diamond: 0,
+      coins: 0,
+      stamina: '0/30', // Custom format for UI
     },
-    power: 1057,
-  };
+    power: 0,
+  });
+
+  // Load and subscribe to player data
+  useEffect(() => {
+    const loadData = () => {
+      const player = PlayerData.getInstance();
+      setUserData({
+        name: player.name,
+        level: player.level,
+        avatar: '/api/placeholder/44/44', // Still placeholder for now
+        experience: 0, // Not fully implemented in PlayerData yet
+        resources: {
+          diamond: player.resources.diamond,
+          coins: player.resources.coins,
+          stamina: `${player.resources.stamina}/100`, // Assuming max stamina is 100
+        },
+        power: 0, // Not implemented yet
+      });
+    };
+
+    loadData();
+
+    // Listen for changes
+    const handleDataChange = () => loadData();
+    window.addEventListener('playerDataChanged', handleDataChange);
+    
+    return () => {
+      window.removeEventListener('playerDataChanged', handleDataChange);
+    };
+  }, []);
 
   const navItems = [
     { id: 'shop', name: '商城', icon: ShoppingCart },
     { id: 'character', name: '角色', icon: User },
     { id: 'lottery', name: '抽奖', icon: Gift, special: true }, // The new center
+    { id: 'pet', name: '战宠', icon: Ghost },
     { id: 'battle', name: '战斗', icon: Swords },
     { id: 'journey', name: '征途', icon: Flag },
   ];
@@ -104,12 +137,12 @@ export default function MainUI({ theme, buildings, onPlace, onToggle }) {
         )}
         {activeNav === 'character' && <CharacterUI userData={userData} />}
         {activeNav === 'lottery' && <LotteryUI />}
+        {activeNav === 'pet' && <PetUI onClose={() => setActiveNav('character')} />}
         {activeNav === 'battle' && <BattleUI />}
         {activeNav === 'shop' && <ShopUI />}
-        {/* 其他导航内容可以在这里添加 */}
-        {activeNav !== 'character' && activeNav !== 'base' && activeNav !== 'lottery' && activeNav !== 'battle' && activeNav !== 'shop' && (
+        {activeNav === 'journey' && (
           <div className="flex-1 flex items-center justify-center text-slate-400">
-            <span>{navItems.find(item => item.id === activeNav)?.name} 页面</span>
+            <span>征途功能开发中...</span>
           </div>
         )}
         

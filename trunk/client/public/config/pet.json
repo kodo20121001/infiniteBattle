@@ -1,0 +1,41 @@
+[
+  {
+    "id": "pet_crystal_bird",
+    "name": "水晶鸟",
+    "model": "crystal_bird",
+    "quality": "orange",
+    "baseFragmentsNeeded": 50,
+    "statsBonus": {
+      "critDamageBoost": 73.0
+    },
+    "skills": [
+      { "id": "ice", "level": 10 }
+    ]
+  },
+  {
+    "id": "pet_fire_dragon",
+    "name": "火龙",
+    "model": "fire_dragon",
+    "quality": "purple",
+    "baseFragmentsNeeded": 80,
+    "statsBonus": {
+      "attackBoost": 15.0
+    },
+    "skills": [
+      { "id": "fire", "level": 5 }
+    ]
+  },
+  {
+    "id": "pet_thunder_beast",
+    "name": "雷兽",
+    "model": "thunder_beast",
+    "quality": "blue",
+    "baseFragmentsNeeded": 100,
+    "statsBonus": {
+      "speedBoost": 20.0
+    },
+    "skills": [
+      { "id": "lightning", "level": 8 }
+    ]
+  }
+]
