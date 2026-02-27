@@ -1,0 +1,118 @@
+[
+  {
+    "id": "wpn_sword_001",
+    "name": "新手铁剑",
+    "type": "weapon",
+    "icon": "sword",
+    "description": "一把普通的铁剑，适合新手使用。",
+    "tier": 1,
+    "rarity": "common",
+    "baseStats": {
+      "attack": 15
+    }
+  },
+  {
+    "id": "hlm_iron_001",
+    "name": "精铁头盔",
+    "type": "helmet",
+    "icon": "helmet",
+    "description": "坚固的精铁打造的头盔。",
+    "tier": 2,
+    "rarity": "uncommon",
+    "baseStats": {
+      "defense": 15,
+      "hp": 50
+    }
+  },
+  {
+    "id": "arm_steel_001",
+    "name": "百炼钢甲",
+    "type": "armor",
+    "icon": "armor",
+    "description": "经过百炼成钢的护甲，防御力出色。",
+    "tier": 3,
+    "rarity": "rare",
+    "baseStats": {
+      "defense": 35,
+      "hp": 150
+    }
+  },
+  {
+    "id": "pnt_dragon_001",
+    "name": "龙鳞腿甲",
+    "type": "pants",
+    "icon": "pants",
+    "description": "传说用龙鳞制作的腿甲，坚不可摧。",
+    "tier": 4,
+    "rarity": "epic",
+    "baseStats": {
+      "defense": 50,
+      "hp": 300,
+      "speed": 10
+    }
+  },
+  {
+    "id": "bot_hermes_001",
+    "name": "赫尔墨斯之靴",
+    "type": "boots",
+    "icon": "boots",
+    "description": "神话中的飞鞋，赋予穿戴者极快的速度。",
+    "tier": 5,
+    "rarity": "legendary",
+    "baseStats": {
+      "defense": 20,
+      "speed": 100
+    }
+  },
+  {
+    "id": "glv_silk_001",
+    "name": "天蚕丝手套",
+    "type": "glove",
+    "icon": "glove",
+    "description": "天蚕丝编织的手套，轻便且坚韧。",
+    "tier": 2,
+    "rarity": "uncommon",
+    "baseStats": {
+      "defense": 10,
+      "attack": 15
+    }
+  },
+  {
+    "id": "rng_silver_001",
+    "name": "秘银戒指",
+    "type": "ring",
+    "icon": "ring",
+    "description": "秘银打造的戒指，蕴含魔力。",
+    "tier": 3,
+    "rarity": "rare",
+    "baseStats": {
+      "attack": 40
+    }
+  },
+  {
+    "id": "nck_star_001",
+    "name": "星辰项链",
+    "type": "necklace",
+    "icon": "necklace",
+    "description": "仿佛凝聚了星辰之力的项链。",
+    "tier": 4,
+    "rarity": "epic",
+    "baseStats": {
+      "hp": 500,
+      "attack": 20
+    }
+  },
+  {
+    "id": "art_holy_grail",
+    "name": "圣杯",
+    "type": "artifact",
+    "icon": "artifact",
+    "description": "传说中的圣物，拥有起死回生的力量。",
+    "tier": 5,
+    "rarity": "legendary",
+    "baseStats": {
+      "hp": 2000,
+      "defense": 100
+    }
+  }
+]

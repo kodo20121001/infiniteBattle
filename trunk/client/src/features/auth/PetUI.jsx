@@ -1,9 +1,368 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Info, ChevronLeft, Lock, Sparkles, X, Swords, Shield, Zap, Move } from 'lucide-react';
+import { Settings, Info, Lock, Sparkles, X, Swords, Shield, Zap, Move } from 'lucide-react';
+import PetSynthesisEffect from './PetSynthesisEffect';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { MToonMaterial } from '@pixiv/three-vrm';
 import { PetConfig } from '../../config/PetConfig';
 import { PlayerData } from '../../data/PlayerData';
 import { getFragmentsNeeded, upgradePet } from '../../data/Pet';
+
+// --- 3D Model Viewer Component ---
+const PetModelViewer = ({ modelId, isActivated }) => {
+  const containerRef = useRef(null);
+  const sceneRef = useRef(null);
+  const cameraRef = useRef(null);
+  const rendererRef = useRef(null);
+  const controlsRef = useRef(null);
+  const mixerRef = useRef(null);
+  const modelRef = useRef(null);
+  const animFrameRef = useRef(null);
+  const clockRef = useRef(new THREE.Clock());
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const w = containerRef.current.clientWidth;
+    const h = containerRef.current.clientHeight;
+
+    // Scene
+    const scene = new THREE.Scene();
+    sceneRef.current = scene;
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
+    camera.position.set(0, 2.3, 5); // Moved camera further back and slightly higher
+    cameraRef.current = camera;
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    containerRef.current.appendChild(renderer.domElement);
+    rendererRef.current = renderer;
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(5, 10, 5);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 20;
+    dirLight.shadow.camera.left = -5;
+    dirLight.shadow.camera.right = 5;
+    dirLight.shadow.camera.top = 5;
+    dirLight.shadow.camera.bottom = -5;
+    dirLight.shadow.bias = -0.001;
+    scene.add(dirLight);
+
+    // ── Pet Base Effects (Arcane / Crystal style) ──────────────────
+
+    const baseGroup = new THREE.Group();
+    baseGroup.position.y = -0.5; // align with model feet (model is at y=-0.5)
+    scene.add(baseGroup);
+
+    // Shadow receiver plane
+    const shadowPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(8, 8),
+      new THREE.ShadowMaterial({ opacity: 0.35 })
+    );
+    shadowPlane.rotation.x = -Math.PI / 2;
+    shadowPlane.position.y = 0.06;
+    shadowPlane.receiveShadow = true;
+    baseGroup.add(shadowPlane);
+
+    // Hexagonal core disc (cyan/arcane)
+    const coreMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.85, 0.95, 0.06, 6),
+      new THREE.MeshBasicMaterial({
+        color: 0x00ccff, transparent: true, opacity: 0.25,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+      })
+    );
+    coreMesh.position.y = 0.03;
+    baseGroup.add(coreMesh);
+
+    // Hex edge ring
+    const edgeMesh = new THREE.Mesh(
+      new THREE.RingGeometry(0.88, 0.98, 6),
+      new THREE.MeshBasicMaterial({
+        color: 0x44eeff, transparent: true, opacity: 0.6,
+        side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
+      })
+    );
+    edgeMesh.rotation.x = -Math.PI / 2;
+    edgeMesh.position.y = 0.062;
+    baseGroup.add(edgeMesh);
+
+    // Outer slow-rotating purple rune ring
+    const outerRingMesh = new THREE.Mesh(
+      new THREE.RingGeometry(1.15, 1.25, 6),
+      new THREE.MeshBasicMaterial({
+        color: 0xaa44ff, transparent: true, opacity: 0.45,
+        side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
+      })
+    );
+    outerRingMesh.rotation.x = -Math.PI / 2;
+    outerRingMesh.position.y = 0.01;
+    baseGroup.add(outerRingMesh);
+
+    // Second counter-rotating ring (inner, thin)
+    const innerRingMesh = new THREE.Mesh(
+      new THREE.RingGeometry(1.0, 1.05, 12),
+      new THREE.MeshBasicMaterial({
+        color: 0x00ffdd, transparent: true, opacity: 0.35,
+        side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
+      })
+    );
+    innerRingMesh.rotation.x = -Math.PI / 2;
+    innerRingMesh.position.y = 0.015;
+    baseGroup.add(innerRingMesh);
+
+    // Radial glow plane (cyan → purple gradient)
+    const glowCanvas = document.createElement('canvas');
+    glowCanvas.width = 256; glowCanvas.height = 256;
+    const glowCtx = glowCanvas.getContext('2d');
+    const glowGrad = glowCtx.createRadialGradient(128, 128, 0, 128, 128, 128);
+    glowGrad.addColorStop(0,   'rgba(0, 200, 255, 0.32)');
+    glowGrad.addColorStop(0.5, 'rgba(140, 0, 255, 0.12)');
+    glowGrad.addColorStop(1,   'rgba(0, 0, 0, 0)');
+    glowCtx.fillStyle = glowGrad;
+    glowCtx.fillRect(0, 0, 256, 256);
+    const glowMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.5, 4.5),
+      new THREE.MeshBasicMaterial({
+        map: new THREE.CanvasTexture(glowCanvas), transparent: true,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+      })
+    );
+    glowMesh.rotation.x = -Math.PI / 2;
+    glowMesh.position.y = 0.005;
+    baseGroup.add(glowMesh);
+
+    // ── Floating Crystal Particles ──────────────────────────────────
+    const petParticleCount = 80;
+    const petPosArray = new Float32Array(petParticleCount * 3);
+    const petVels = [];
+    for (let i = 0; i < petParticleCount; i++) {
+      const r = 0.8 + Math.random() * 2.0;
+      const theta = Math.random() * Math.PI * 2;
+      const y = Math.random() * 3.0; // Relative to baseGroup
+      petPosArray[i * 3]     = Math.cos(theta) * r;
+      petPosArray[i * 3 + 1] = y;
+      petPosArray[i * 3 + 2] = Math.sin(theta) * r;
+      petVels.push({
+        ySpeed: 0.05 + Math.random() * 0.15,
+        wobbleSpeed: 1 + Math.random() * 3,
+        wobbleAmt: 0.04 + Math.random() * 0.08,
+        ix: petPosArray[i * 3], iz: petPosArray[i * 3 + 2],
+        tOffset: Math.random() * Math.PI * 2
+      });
+    }
+    const petParticleGeo = new THREE.BufferGeometry();
+    petParticleGeo.setAttribute('position', new THREE.BufferAttribute(petPosArray, 3));
+
+    const pCanvas = document.createElement('canvas');
+    pCanvas.width = 32; pCanvas.height = 32;
+    const pCtx = pCanvas.getContext('2d');
+    const pGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    pGrad.addColorStop(0, 'rgba(200, 130, 255, 1)');
+    pGrad.addColorStop(0.4, 'rgba(60, 210, 255, 0.6)');
+    pGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    pCtx.fillStyle = pGrad;
+    pCtx.fillRect(0, 0, 32, 32);
+
+    const petParticleSystem = new THREE.Points(
+      petParticleGeo,
+      new THREE.PointsMaterial({
+        size: 0.18, map: new THREE.CanvasTexture(pCanvas),
+        transparent: true, opacity: 0.8,
+        blending: THREE.AdditiveBlending, depthWrite: false, color: 0xcc99ff
+      })
+    );
+    // Add particles to baseGroup so they also stay stationary when rotating
+    baseGroup.add(petParticleSystem);
+
+    // Controls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 1.0, 0); // Raised target slightly to match camera height
+    controls.enableDamping = true;
+    controls.enablePan = false;
+    controls.enableZoom = false; // Disable zooming with mouse wheel
+    
+    // Restrict rotation to Y-axis only (horizontal rotation)
+    // Adjusted polar angle slightly to look down a bit since camera is higher
+    controls.minPolarAngle = Math.PI / 2.1; 
+    controls.maxPolarAngle = Math.PI / 2.1; 
+    
+    controls.minDistance = 2;
+    controls.maxDistance = 15;
+    controls.update();
+    controlsRef.current = controls;
+
+    // Animation Loop
+    let elapsed = 0;
+    const animate = () => {
+      animFrameRef.current = requestAnimationFrame(animate);
+      const dt = clockRef.current.getDelta();
+      elapsed += dt;
+      if (mixerRef.current) mixerRef.current.update(dt);
+
+      // Counter-rotate baseGroup so it stays stationary relative to the camera
+      if (controlsRef.current) {
+        baseGroup.rotation.y = controlsRef.current.getAzimuthalAngle();
+      }
+
+      // Rotate rings
+      outerRingMesh.rotation.z += dt * 0.4;
+      innerRingMesh.rotation.z -= dt * 0.7;
+
+      // Animate particles
+      const pos = petParticleGeo.attributes.position.array;
+      for (let i = 0; i < petParticleCount; i++) {
+        const v = petVels[i];
+        pos[i * 3 + 1] += v.ySpeed * dt;
+        pos[i * 3]     = v.ix + Math.sin(elapsed * v.wobbleSpeed + v.tOffset) * v.wobbleAmt;
+        pos[i * 3 + 2] = v.iz + Math.cos(elapsed * v.wobbleSpeed + v.tOffset) * v.wobbleAmt;
+        if (pos[i * 3 + 1] > 3.2) pos[i * 3 + 1] = 0; // Relative to baseGroup now
+      }
+      petParticleGeo.attributes.position.needsUpdate = true;
+
+      controls.update();
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    // Resize handler
+    const onResize = () => {
+      if (!containerRef.current) return;
+      const nw = containerRef.current.clientWidth;
+      const nh = containerRef.current.clientHeight;
+      camera.aspect = nw / nh;
+      camera.updateProjectionMatrix();
+      renderer.setSize(nw, nh);
+    };
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      window.removeEventListener('resize', onResize);
+      cancelAnimationFrame(animFrameRef.current);
+      if (rendererRef.current && rendererRef.current.domElement) {
+        rendererRef.current.domElement.remove();
+      }
+      rendererRef.current?.dispose();
+    };
+  }, []);
+
+  // Load Model and Animation
+  useEffect(() => {
+    if (!modelId || !sceneRef.current) return;
+
+    const scene = sceneRef.current;
+    const loader = new GLTFLoader();
+
+    // Clear previous model
+    if (modelRef.current) {
+      scene.remove(modelRef.current);
+      modelRef.current = null;
+    }
+    if (mixerRef.current) {
+      mixerRef.current.stopAllAction();
+      mixerRef.current = null;
+    }
+
+    const modelUrl = `/3d/Character/${modelId}/${modelId}.glb`;
+    const animUrl = `/3d/Animation/${modelId}/${modelId}@daiji.glb`;
+
+    loader.load(modelUrl, (gltf) => {
+      const model = gltf.scene;
+      
+      // Scale down the model
+      model.scale.set(0.06, 0.06, 0.06);
+      // Adjust position slightly downwards to center it better
+      model.position.set(0, -0.5, 0);
+
+      modelRef.current = model;
+      scene.add(model);
+
+      // Apply MToon Shader and Shadows
+      const meshes = [];
+      model.traverse((child) => {
+        if (child.isMesh) {
+          meshes.push(child);
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+
+      meshes.forEach((child) => {
+        const origMat = child.material;
+        
+        // Main MToon Material
+        const mtoon = new MToonMaterial();
+        if (origMat.color) mtoon.color.copy(origMat.color);
+        mtoon.shadeColorFactor.setHex(0x888888);
+        mtoon.shadingToonyFactor = 0.9;
+        if (origMat.map) {
+          mtoon.map = origMat.map;
+          mtoon.shadeMultiplyTexture = origMat.map;
+        }
+        
+        // Grayscale if not activated
+        if (!isActivated) {
+           mtoon.color.setHex(0x555555);
+           mtoon.shadeColorFactor.setHex(0x222222);
+        }
+
+        child.material = mtoon;
+
+        // Outline
+        if (child.isSkinnedMesh) {
+          const outline = new MToonMaterial();
+          if (origMat.color) outline.color.copy(origMat.color);
+          outline.shadeColorFactor.setHex(0x888888);
+          outline.shadingToonyFactor = 0.9;
+          outline.outlineWidthMode = 'worldCoordinates';
+          outline.outlineWidthFactor = 0.03;
+          outline.outlineColorFactor.setHex(0x000000);
+          outline.side = THREE.BackSide;
+          outline.isOutline = true;
+          if (origMat.map) {
+            outline.map = origMat.map;
+            outline.shadeMultiplyTexture = origMat.map;
+          }
+          
+          if (!isActivated) {
+             outline.color.setHex(0x555555);
+             outline.shadeColorFactor.setHex(0x222222);
+          }
+
+          const outlineMesh = new THREE.SkinnedMesh(child.geometry, outline);
+          if (child.skeleton) outlineMesh.bind(child.skeleton, child.bindMatrix);
+          outlineMesh.userData.isOutline = true;
+          child.add(outlineMesh);
+        }
+      });
+
+      // Load Animation
+      loader.load(animUrl, (animGltf) => {
+        if (animGltf.animations && animGltf.animations.length > 0) {
+          const mixer = new THREE.AnimationMixer(model);
+          mixerRef.current = mixer;
+          const action = mixer.clipAction(animGltf.animations[0]);
+          action.play();
+        }
+      });
+    });
+  }, [modelId, isActivated]);
+
+  return <div ref={containerRef} className="w-full h-full" />;
+};
 
 // --- Detail Modal Component ---
 const PetDetailModal = ({ petConfig, petData, onClose, onUpgrade }) => {
@@ -209,7 +568,9 @@ export default function PetUI({ onClose }) {
   const [playerPets, setPlayerPets] = useState([]);
   const [selectedPetId, setSelectedPetId] = useState(null);
   const [showSynthModal, setShowSynthModal] = useState(false);
-  const [showDetailModal, setShowDetailModal] = useState(false); // New State
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  // null | 'playing' | 'fade-out'
+  const [synthPhase, setSynthPhase] = useState(null);
 
   useEffect(() => {
     // Load configs
@@ -223,6 +584,24 @@ export default function PetUI({ onClose }) {
     const playerData = PlayerData.getInstance();
     setPlayerPets(playerData.getAllPets());
   }, []);
+
+  // Close modals and launch the synthesis effect
+  const triggerSynthEffect = () => {
+    setShowSynthModal(false);
+    setShowDetailModal(false);
+    setSynthPhase('playing');
+  };
+
+  // Called by the effect when it reaches the final black frame
+  const handleEffectComplete = () => {
+    // Run actual synthesis logic while screen is still black
+    handleSynthesize();
+    // Tiny delay so state update propagates, then fade the overlay out
+    setTimeout(() => {
+      setSynthPhase('fade-out');
+      setTimeout(() => setSynthPhase(null), 800);
+    }, 80);
+  };
 
   const handleSynthesize = () => {
     // This is now reused for upgrade too
@@ -268,14 +647,9 @@ export default function PetUI({ onClose }) {
       exit={{ opacity: 0, scale: 0.95 }}
       className="absolute inset-0 z-50 bg-[#1a1510] flex flex-col font-sans text-white overflow-hidden"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 z-20 relative shrink-0">
-        <button onClick={onClose} className="w-8 h-8 bg-black/50 rounded-full flex items-center justify-center border border-white/20 hover:bg-black/70 transition-colors">
-          <ChevronLeft size={20} />
-        </button>
-        <div className="text-lg font-bold tracking-widest text-amber-500 drop-shadow-md">战宠</div>
-        
-        {/* Info/Detail Button - REMOVED */}
+      {/* Header - overlaid on model, no layout space taken */}
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-center pt-3 pb-2 z-30 pointer-events-none">
+        <div className="text-lg font-bold tracking-widest text-amber-400 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">战宠</div>
       </div>
 
       {/* Detail Modal */}
@@ -285,58 +659,63 @@ export default function PetUI({ onClose }) {
              petConfig={selectedConfig} 
              petData={selectedPlayerPet} 
              onClose={() => setShowDetailModal(false)}
-             onUpgrade={handleSynthesize}
+             onUpgrade={triggerSynthEffect}
           />
         )}
       </AnimatePresence>
       
-      {/* 3D Model Area (Mock) */}
+      {/* 3D Model Area */}
       <div className="relative flex-1 flex flex-col items-center justify-center z-10">
+        {/* Synthesis Effect Overlay — covers model area only */}
+        {synthPhase !== null && (
+          <div
+            style={{
+              position: 'absolute', inset: 0, zIndex: 50,
+              opacity: synthPhase === 'fade-out' ? 0 : 1,
+              transition: synthPhase === 'fade-out' ? 'opacity 0.75s ease-in' : 'none',
+              pointerEvents: synthPhase === 'fade-out' ? 'none' : 'auto',
+            }}
+          >
+            {synthPhase === 'playing' && (
+              <PetSynthesisEffect onComplete={handleEffectComplete} />
+            )}
+            {synthPhase === 'fade-out' && (
+              <div style={{ position: 'absolute', inset: 0, background: '#000' }} />
+            )}
+          </div>
+        )}
         {/* Background glow */}
         <div className="absolute inset-0 bg-gradient-to-b from-purple-900/30 via-transparent to-transparent pointer-events-none"></div>
         
-        {/* Pet Model Placeholder */}
-        <motion.div 
-          animate={{ y: [-10, 10, -10] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-          className="relative z-10 w-64 h-64 flex items-center justify-center"
-        >
-          {isActivated ? (
-            <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-[0_0_25px_rgba(167,243,208,0.8)]">
-              <path d="M100 20 L140 80 L100 140 L60 80 Z" fill="#e0f2fe" stroke="#bae6fd" strokeWidth="2" />
-              <path d="M100 20 L180 60 L140 80 Z" fill="#bae6fd" />
-              <path d="M100 20 L20 60 L60 80 Z" fill="#bae6fd" />
-              <path d="M140 80 L180 120 L100 140 Z" fill="#7dd3fc" />
-              <path d="M60 80 L20 120 L100 140 Z" fill="#7dd3fc" />
-              {/* Tail */}
-              <path d="M100 140 L120 180 L100 160 L80 180 Z" fill="#e0f2fe" />
-              {/* Sparkles */}
-              <circle cx="40" cy="40" r="2" fill="#fff" className="animate-ping" />
-              <circle cx="160" cy="50" r="3" fill="#fff" className="animate-pulse" />
-              <circle cx="150" cy="150" r="2" fill="#fff" className="animate-ping" />
-              <circle cx="50" cy="140" r="2" fill="#fff" className="animate-pulse" />
-            </svg>
-          ) : canActivate ? (
-            <div 
-              className="w-48 h-48 rounded-full bg-amber-500/20 border-4 border-amber-400/50 flex flex-col items-center justify-center cursor-pointer hover:bg-amber-500/30 transition-colors shadow-[0_0_50px_rgba(251,191,36,0.6)] animate-pulse"
-              onClick={() => setShowSynthModal(true)}
-            >
-              <Sparkles size={48} className="text-amber-300 mb-2" />
-              <span className="text-amber-200 font-bold text-lg tracking-widest">点击合成</span>
-            </div>
-          ) : (
-            <div className="w-48 h-48 rounded-full bg-stone-900/50 border-4 border-stone-700/50 flex flex-col items-center justify-center grayscale opacity-50">
-              <Lock size={48} className="text-stone-500 mb-2" />
-              <span className="text-stone-400 font-bold text-sm">碎片不足</span>
-              <span className="text-stone-500 text-xs mt-1">{currentFragments} / {neededFragments}</span>
-            </div>
-          )}
-        </motion.div>
-
-        {/* Platform */}
-        <div className="absolute bottom-16 w-72 h-20 bg-amber-900/40 rounded-[100%] border-2 border-amber-700/50 shadow-[0_0_40px_rgba(217,119,6,0.4)]" style={{ transform: 'rotateX(60deg)' }}>
-          <div className="absolute inset-2 border border-amber-500/30 rounded-[100%]"></div>
-          <div className="absolute inset-4 border border-amber-400/20 rounded-[100%]"></div>
+        {/* Pet Model Viewer */}
+        <div className="relative z-10 w-full h-full flex items-center justify-center pb-13">
+           {selectedConfig && (
+              <PetModelViewer 
+                 modelId={selectedConfig.model} 
+                 isActivated={isActivated} 
+              />
+           )}
+           
+           {/* Overlay for unactivated state */}
+           {!isActivated && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                 {canActivate ? (
+                    <div 
+                      className="w-48 h-48 rounded-full bg-amber-500/20 border-4 border-amber-400/50 flex flex-col items-center justify-center cursor-pointer hover:bg-amber-500/30 transition-colors shadow-[0_0_50px_rgba(251,191,36,0.6)] animate-pulse pointer-events-auto"
+                      onClick={() => setShowSynthModal(true)}
+                    >
+                      <Sparkles size={48} className="text-amber-300 mb-2" />
+                      <span className="text-amber-200 font-bold text-lg tracking-widest">点击合成</span>
+                    </div>
+                 ) : (
+                    <div className="w-48 h-48 rounded-full bg-stone-900/50 border-4 border-stone-700/50 flex flex-col items-center justify-center opacity-80">
+                      <Lock size={48} className="text-stone-500 mb-2" />
+                      <span className="text-stone-400 font-bold text-sm">碎片不足</span>
+                      <span className="text-stone-500 text-xs mt-1">{currentFragments} / {neededFragments}</span>
+                    </div>
+                 )}
+              </div>
+           )}
         </div>
 
         {/* Left side button */}
@@ -352,8 +731,8 @@ export default function PetUI({ onClose }) {
         </div>
 
         {/* Plan Selector & Detail Button */}
-        <div className="absolute bottom-2 w-full flex items-center justify-center gap-4 z-20 pl-8">
-          <div className="flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/5">
+        <div className="absolute bottom-1 w-full flex items-center justify-center gap-3 z-20 px-4">
+          <div className="flex items-center gap-1 bg-black/50 backdrop-blur-sm p-1 rounded-lg border border-white/10">
             {[1, 2, 3, 4, 5].map(plan => (
               <button 
                 key={plan}
@@ -372,20 +751,20 @@ export default function PetUI({ onClose }) {
             </button>
           </div>
 
-          {/* Detail Button (Right Side) */}
+          {/* Detail Button */}
           <button 
              onClick={() => setShowDetailModal(true)}
-             className="h-10 px-4 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold rounded-lg shadow-lg border border-amber-400 flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
+             className="h-10 px-4 flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 border border-amber-300/40 shadow-[0_0_16px_rgba(251,191,36,0.4)] text-white text-sm font-bold tracking-wide transition-all hover:brightness-110 hover:shadow-[0_0_24px_rgba(251,191,36,0.6)] active:scale-95"
           >
-             <Info size={16} />
+             <Info size={15} />
              <span>详情</span>
           </button>
         </div>
       </div>
 
       {/* Bottom Skills Area */}
-      <div className="bg-[#2a241d] rounded-t-2xl p-4 border-t-2 border-amber-900/50 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-20 relative flex flex-col flex-1 min-h-0">
-        <div className="flex justify-between items-center mb-4 shrink-0">
+      <div className="bg-[#2a241d] rounded-t-2xl p-4 border-t-2 border-amber-900/50 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-20 relative flex flex-col" style={{height: '44%'}}>
+        <div className="flex justify-between items-center mb-3 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-amber-500 font-bold text-sm">
               {selectedConfig ? Object.keys(selectedConfig.statsBonus)[0] : '属性增幅'}
@@ -397,59 +776,103 @@ export default function PetUI({ onClose }) {
         </div>
 
         {/* Pet Grid */}
-        <div className="grid grid-cols-3 gap-3 overflow-y-auto p-1 custom-scrollbar content-start">
+        <div className="grid grid-cols-3 gap-2 overflow-y-auto p-1 custom-scrollbar content-start flex-1 min-h-0 auto-rows-min">
           {petConfigs.map(config => {
             const pet = playerPets.find(p => p.id === config.id);
             const isUnlocked = pet && pet.level > 0;
             const isSelected = selectedPetId === config.id;
-            
-            // Fragments logic (assuming pet object exists if fragments > 0, or we need to look elsewhere?)
-            // Based on PlayerData, fragments are stored within the Pet object.
-            // If pet doesn't exist, fragments are 0.
             const frags = pet ? pet.fragments : 0;
             const needed = getFragmentsNeeded(config.id, pet ? pet.level : 0);
+            const fragPct = Math.min((frags / needed) * 100, 100);
 
-            const qualityColors = {
+            const qBorder = {
               green: 'border-green-500',
               blue: 'border-blue-500',
               purple: 'border-purple-500',
               orange: 'border-orange-500',
-            };
-            const qColor = qualityColors[config.quality] || qualityColors.blue;
+            }[config.quality] || 'border-blue-500';
+
+            const qGradient = {
+              green: 'from-green-950 via-green-900/70 to-stone-900',
+              blue: 'from-blue-950 via-blue-900/70 to-stone-900',
+              purple: 'from-purple-950 via-purple-900/70 to-stone-900',
+              orange: 'from-orange-950 via-orange-900/70 to-stone-900',
+            }[config.quality] || 'from-stone-900 to-stone-800';
+
+            const qText = {
+              green: 'text-green-300',
+              blue: 'text-blue-300',
+              purple: 'text-purple-300',
+              orange: 'text-orange-300',
+            }[config.quality] || 'text-white';
+
+            const qBar = {
+              green: 'bg-green-400',
+              blue: 'bg-blue-400',
+              purple: 'bg-purple-400',
+              orange: 'bg-orange-400',
+            }[config.quality] || 'bg-blue-400';
+
+            const qGlow = {
+              green: 'shadow-[0_0_14px_rgba(34,197,94,0.5)]',
+              blue: 'shadow-[0_0_14px_rgba(59,130,246,0.5)]',
+              purple: 'shadow-[0_0_14px_rgba(168,85,247,0.5)]',
+              orange: 'shadow-[0_0_14px_rgba(249,115,22,0.5)]',
+            }[config.quality] || '';
+
+            const qStripe = {
+              green: 'bg-green-400',
+              blue: 'bg-blue-400',
+              purple: 'bg-purple-400',
+              orange: 'bg-orange-400',
+            }[config.quality] || 'bg-blue-400';
 
             return (
-              <div 
-                key={config.id} 
+              <div
+                key={config.id}
                 onClick={() => setSelectedPetId(config.id)}
-                className={`relative aspect-[3/4] bg-[#8a8a8a] rounded border-2 ${isSelected ? 'border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)]' : qColor} p-1 flex flex-col items-center justify-center shadow-inner cursor-pointer transition-all ${isUnlocked ? 'hover:brightness-110' : 'grayscale opacity-60'}`}
+                className={`relative aspect-[3/4] rounded-xl border-2 overflow-hidden cursor-pointer transition-all bg-gradient-to-b ${qGradient}
+                  ${isSelected ? `border-amber-400 ${qGlow}` : qBorder}
+                  ${!isUnlocked ? 'grayscale opacity-55' : 'hover:brightness-110'}`}
               >
+                {/* Quality stripe top */}
+                <div className={`absolute top-0 left-0 right-0 h-[2px] ${qStripe} opacity-80`} />
+
+                {/* Selected corner badge */}
+                {isSelected && (
+                  <div className="absolute top-0 right-0">
+                    <div className="w-0 h-0 border-t-[18px] border-r-[18px] border-t-amber-400 border-r-transparent" />
+                  </div>
+                )}
+
                 {/* Name */}
-                <div className={`absolute top-1 left-1 right-1 text-center font-bold text-xs drop-shadow-sm ${
-                  config.quality === 'green' ? 'text-green-300' :
-                  config.quality === 'blue' ? 'text-blue-300' :
-                  config.quality === 'purple' ? 'text-purple-300' :
-                  config.quality === 'orange' ? 'text-orange-300' : 'text-[#333]'
-                }`}>
+                <div className={`absolute top-2 left-0 right-0 text-center font-bold text-[10px] tracking-wide ${qText} drop-shadow px-0.5`}>
                   {config.name}
                 </div>
 
-                {/* Center Icon (from reference image) */}
-                <div className="w-12 h-12 rounded-full bg-[#4a4a4a] flex items-center justify-center shadow-md mt-2">
-                  <div className="w-8 h-8 rounded-full bg-[#5a5a5a] flex items-center justify-center">
-                    <div className="w-3 h-3 bg-[#aaaaaa] rounded-sm rotate-45"></div>
+                {/* Center icon */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className={`w-11 h-11 rounded-full bg-black/40 border ${qBorder.replace('border-', 'border-').replace('-500', '-500/50')} flex items-center justify-center shadow-inner`}>
+                    <Sparkles size={20} className={qText} />
                   </div>
                 </div>
-                
-                {/* Level text or Fragments */}
-                {isUnlocked ? (
-                  <div className="absolute bottom-1 right-1 text-[#333] font-black text-xs italic drop-shadow-sm">
-                    {pet.level}级
-                  </div>
-                ) : (
-                  <div className="absolute bottom-1 right-1 text-[#333] font-black text-[10px] drop-shadow-sm">
-                    {frags}/{needed}
-                  </div>
-                )}
+
+                {/* Bottom bar */}
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 pt-1 pb-1.5 px-1.5">
+                  {isUnlocked ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-white/50 uppercase tracking-widest">Lv</span>
+                      <span className={`text-[12px] font-black ${qText}`}>{pet.level}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden mb-0.5">
+                        <div className={`h-full rounded-full ${qBar} transition-all`} style={{ width: `${fragPct}%` }} />
+                      </div>
+                      <div className={`text-center text-[9px] ${qText} opacity-70`}>{frags}/{needed}</div>
+                    </>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -485,7 +908,7 @@ export default function PetUI({ onClose }) {
                   取消
                 </button>
                 <button 
-                  onClick={handleSynthesize}
+                  onClick={triggerSynthEffect}
                   className="flex-1 py-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold shadow-lg hover:brightness-110 transition-all"
                 >
                   确认合成
@@ -495,6 +918,7 @@ export default function PetUI({ onClose }) {
           </motion.div>
         )}
       </AnimatePresence>
+
     </motion.div>
   );
 }

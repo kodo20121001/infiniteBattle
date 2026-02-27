@@ -1,3 +1,4 @@
+import { ConfigManager } from '../common/ConfigManager';
 import type { Equipment } from './Equipment';
 import { EquipmentType } from './Equipment';
 import type { Item } from './Item';
@@ -8,10 +9,9 @@ import { ThingType } from '../common/ThingDef';
 import type { Thing } from '../common/ThingDef';
 import type { ShopItemConfig } from '../config/ShopConfig';
 
-const STORAGE_KEY = 'infinite_play_player_data';
-
 export class PlayerData {
     private static instance: PlayerData;
+    private static currentUser: string = 'Player';
 
     public name: string;        // 玩家名称
     public level: number;       // 玩家等级
@@ -20,6 +20,18 @@ export class PlayerData {
         diamond: number;    // 钻石
         coins: number;      // 金币
         stamina: number;    // 体力
+    };
+
+    public equipmentSlots: {    // 装备槽位 (存储 Equipment instanceId)
+        weapon?: string;
+        helmet?: string;
+        armor?: string;
+        pants?: string;
+        boots?: string;
+        glove?: string;
+        ring?: string;
+        necklace?: string;
+        artifact?: string;
     };
 
     private equipments: Equipment[]; // 拥有的装备列表
@@ -40,7 +52,7 @@ export class PlayerData {
     // Helper map for quick lookups if needed, but array filters are fine for small datasets
     
     private constructor() {
-        this.name = 'Player';
+        this.name = PlayerData.currentUser;
         this.level = 1;
         this.experience = 0;
         this.resources = {
@@ -48,6 +60,7 @@ export class PlayerData {
             coins: 0,
             stamina: 0
         };
+        this.equipmentSlots = {};
         this.equipments = [];
         this.items = [];
         this.heroes = [];
@@ -55,12 +68,27 @@ export class PlayerData {
         this.shopRecords = {};
     }
 
+    public static switchUser(username: string) {
+        PlayerData.currentUser = username;
+        localStorage.setItem('infinite_play_last_user', username);
+        PlayerData.instance = new PlayerData();
+        PlayerData.instance.load();
+    }
+
     public static getInstance(): PlayerData {
         if (!PlayerData.instance) {
+            const lastUser = localStorage.getItem('infinite_play_last_user');
+            if (lastUser) {
+                PlayerData.currentUser = lastUser;
+            }
             PlayerData.instance = new PlayerData();
             PlayerData.instance.load();
         }
         return PlayerData.instance;
+    }
+
+    private getStorageKey(): string {
+        return `infinite_play_player_data_${PlayerData.currentUser}`;
     }
 
     // --- Persistence ---
@@ -71,6 +99,7 @@ export class PlayerData {
             level: this.level,
             experience: this.experience,
             resources: this.resources,
+            equipmentSlots: this.equipmentSlots,
             equipments: this.equipments,
             items: this.items,
             heroes: this.heroes,
@@ -78,15 +107,15 @@ export class PlayerData {
             shopRecords: this.shopRecords
         };
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            console.log('Player data saved successfully.');
+            localStorage.setItem(this.getStorageKey(), JSON.stringify(data));
+            console.log(`Player data saved successfully for ${this.name}.`);
         } catch (e) {
             console.error('Failed to save player data:', e);
         }
     }
 
     public load(): void {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem(this.getStorageKey());
         if (raw) {
             try {
                 const data = JSON.parse(raw);
@@ -94,13 +123,14 @@ export class PlayerData {
                 this.level = data.level || 1;
                 this.experience = data.experience || 0;
                 this.resources = data.resources || this.resources;
+                this.equipmentSlots = data.equipmentSlots || {};
                 this.equipments = data.equipments || [];
                 this.items = data.items || [];
                 // Ensure items that shouldn't be null are arrays
                 this.heroes = data.heroes || [];
                 this.pets = data.pets || [];
                 this.shopRecords = data.shopRecords || {};
-                console.log('Player data loaded successfully.');
+                console.log(`Player data loaded successfully for ${this.name}.`);
             } catch (e) {
                 console.error('Failed to load player data:', e);
             }
@@ -131,6 +161,29 @@ export class PlayerData {
 
     public getEquipmentByType(type: EquipmentType): Equipment[] {
         return this.equipments.filter(e => e.type === type);
+    }
+    
+    public equip(equipmentId: string): void {
+        const item = this.getEquipment(equipmentId);
+        if (item) {
+            this.equipmentSlots[item.type] = equipmentId;
+            this.save();
+            this.notifyChange();
+        }
+    }
+
+    public unequip(type: EquipmentType): void {
+        if (this.equipmentSlots[type]) {
+            delete this.equipmentSlots[type];
+            this.save();
+            this.notifyChange();
+        }
+    }
+
+    private notifyChange() {
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('playerDataChanged'));
+        }
     }
 
     // --- Item (Prop) Methods ---
@@ -268,18 +321,39 @@ export class PlayerData {
                 });
                 break;
             case ThingType.EQUIPMENT:
-                 // 简单模拟添加装备
-                 const newEquip: Equipment = {
-                     id: thing.id,
-                     instanceId: `${thing.id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-                     name: `装备 <${thing.id}>`, // 实际应查表
-                     type: EquipmentType.WEAPON, // 默认武器，实际应查表
-                     rarity: EquipmentRarity.COMMON,
-                     level: 1,
-                     stats: { attack: 10 }
-                 };
-                 this.addEquipment(newEquip);
-                 break;
+                const configManager = ConfigManager.instance;
+                // Load equipment data. Ideally this is pre-loaded or async.
+                // Using the synchronous Get() method as per ConfigManager implementation.
+                // It expects "equipment" to map to /config/equipment.json
+                const equipmentMap = configManager.Get('equipment');
+                const equipmentDef = equipmentMap ? equipmentMap[thing.id] : null;
+
+                if (equipmentDef) {
+                     const newEquip: Equipment = {
+                         id: thing.id,
+                         instanceId: `${thing.id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                         name: equipmentDef.name,
+                         type: equipmentDef.type as EquipmentType,
+                         rarity: equipmentDef.rarity,
+                         level: 1,
+                         stats: equipmentDef.baseStats || {}
+                     };
+                     this.addEquipment(newEquip);
+                } else {
+                     // Fallback mechanism
+                     console.warn(`Equipment definition for ${thing.id} not found.`);
+                     const newEquip: Equipment = {
+                         id: thing.id,
+                         instanceId: `${thing.id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                         name: `装备 <${thing.id}>`,
+                         type: EquipmentType.WEAPON, 
+                         rarity: 'common',
+                         level: 1,
+                         stats: { attack: 10 }
+                     };
+                     this.addEquipment(newEquip);
+                }
+                break;
             case ThingType.HERO:
                  // 简单模拟添加英雄
                  const newHero: Hero = {

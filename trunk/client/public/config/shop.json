@@ -2,7 +2,7 @@
   {
     "id": 1000,
     "name": "免费钻石补给",
-    "category": "gems",
+    "category": "resources",
     "cost": {
       "type": "currency",
       "id": "rmb",
@@ -26,7 +26,7 @@
   {
     "id": 1001,
     "name": "一小袋宝石",
-    "category": "gems",
+    "category": "resources",
     "cost": {
       "type": "currency",
       "id": "rmb",
@@ -47,7 +47,7 @@
   {
     "id": 1002,
     "name": "英雄宝石箱",
-    "category": "gems",
+    "category": "resources",
     "cost": {
       "type": "currency",
       "id": "rmb",
@@ -113,9 +113,9 @@
   },
   {
     "id": 2001,
-    "name": "水晶鸟碎片",
+    "name": "战宠 30001 碎片",
     "desc": "集齐碎片合成强力战宠",
-    "category": "characters",
+    "category": "pets",
     "cost": {
       "type": "currency",
       "id": "gold",
@@ -123,21 +123,21 @@
     },
     "reward": {
       "type": "pet_fragment",
-      "id": "pet_crystal_bird",
-      "count": 1
+      "id": "pet_30001",
+      "count": 10
     },
     "ui": {
       "rank": "SSR",
       "icon": "Ghost",
-      "amountText": "1 碎片"
+      "amountText": "10 碎片"
     },
     "sortWeight": 100
   },
   {
     "id": 2002,
-    "name": "火龙碎片",
-    "desc": "集齐碎片合成火属性战宠",
-    "category": "characters",
+    "name": "战宠 30002 碎片",
+    "desc": "集齐碎片合成强力战宠",
+    "category": "pets",
     "cost": {
       "type": "currency",
       "id": "gold",
@@ -145,96 +145,366 @@
     },
     "reward": {
       "type": "pet_fragment",
-      "id": "pet_fire_dragon",
-      "count": 1
+      "id": "pet_30002",
+      "count": 10
     },
     "ui": {
       "rank": "SR",
       "icon": "Ghost",
-      "amountText": "1 碎片"
+      "amountText": "10 碎片"
     },
-    "sortWeight": 90
+    "sortWeight": 99
   },
   {
-    "id": 3001,
-    "name": "精钢长剑",
-    "category": "equipment",
+    "id": 2003,
+    "name": "战宠 30003 碎片",
+    "desc": "集齐碎片合成强力战宠",
+    "category": "pets",
     "cost": {
       "type": "currency",
       "id": "gold",
-      "count": 5000
+      "count": 100
     },
     "reward": {
-      "type": "equipment",
-      "id": "eq_sword_01",
-      "count": 1
+      "type": "pet_fragment",
+      "id": "pet_30003",
+      "count": 10
     },
     "ui": {
       "rank": "R",
-      "power": "+25 攻击",
-      "icon": "Shield"
+      "icon": "Ghost",
+      "amountText": "10 碎片"
     },
-    "sortWeight": 100
+    "sortWeight": 98
   },
   {
-    "id": 3002,
-    "name": "龙鳞胸甲",
-    "category": "equipment",
+    "id": 2004,
+    "name": "战宠 30004 碎片",
+    "desc": "集齐碎片合成强力战宠",
+    "category": "pets",
     "cost": {
       "type": "currency",
       "id": "gold",
-      "count": 12000
+      "count": 100
     },
     "reward": {
-      "type": "equipment",
-      "id": "eq_armor_01",
-      "count": 1
+      "type": "pet_fragment",
+      "id": "pet_30004",
+      "count": 10
+    },
+    "ui": {
+      "rank": "SSR",
+      "icon": "Ghost",
+      "amountText": "10 碎片"
+    },
+    "sortWeight": 97
+  },
+  {
+    "id": 2005,
+    "name": "战宠 30005 碎片",
+    "desc": "集齐碎片合成强力战宠",
+    "category": "pets",
+    "cost": {
+      "type": "currency",
+      "id": "gold",
+      "count": 100
+    },
+    "reward": {
+      "type": "pet_fragment",
+      "id": "pet_30005",
+      "count": 10
     },
     "ui": {
       "rank": "SR",
-      "power": "+120 生命",
-      "icon": "Shield"
+      "icon": "Ghost",
+      "amountText": "10 碎片"
     },
-    "sortWeight": 90
+    "sortWeight": 96
   },
   {
-    "id": 5001,
-    "name": "传送卷轴",
-    "desc": "瞬间移动到指定位置",
-    "category": "items",
+    "id": 2006,
+    "name": "战宠 30006 碎片",
+    "desc": "集齐碎片合成强力战宠",
+    "category": "pets",
+    "cost": {
+      "type": "currency",
+      "id": "gold",
+      "count": 100
+    },
+    "reward": {
+      "type": "pet_fragment",
+      "id": "pet_30006",
+      "count": 10
+    },
+    "ui": {
+      "rank": "R",
+      "icon": "Ghost",
+      "amountText": "10 碎片"
+    },
+    "sortWeight": 95
+  },
+  {
+    "id": 2007,
+    "name": "战宠 30007 碎片",
+    "desc": "集齐碎片合成强力战宠",
+    "category": "pets",
+    "cost": {
+      "type": "currency",
+      "id": "gold",
+      "count": 100
+    },
+    "reward": {
+      "type": "pet_fragment",
+      "id": "pet_30007",
+      "count": 10
+    },
+    "ui": {
+      "rank": "SSR",
+      "icon": "Ghost",
+      "amountText": "10 碎片"
+    },
+    "sortWeight": 94
+  },
+  {
+    "id": 2008,
+    "name": "战宠 30008 碎片",
+    "desc": "集齐碎片合成强力战宠",
+    "category": "pets",
+    "cost": {
+      "type": "currency",
+      "id": "gold",
+      "count": 100
+    },
+    "reward": {
+      "type": "pet_fragment",
+      "id": "pet_30008",
+      "count": 10
+    },
+    "ui": {
+      "rank": "SR",
+      "icon": "Ghost",
+      "amountText": "10 碎片"
+    },
+    "sortWeight": 93
+  },
+  {
+    "id": 2009,
+    "name": "战宠 30009 碎片",
+    "desc": "集齐碎片合成强力战宠",
+    "category": "pets",
+    "cost": {
+      "type": "currency",
+      "id": "gold",
+      "count": 100
+    },
+    "reward": {
+      "type": "pet_fragment",
+      "id": "pet_30009",
+      "count": 10
+    },
+    "ui": {
+      "rank": "R",
+      "icon": "Ghost",
+      "amountText": "10 碎片"
+    },
+    "sortWeight": 92
+  },
+  {
+    "id": 3001,
+    "name": "新手铁剑",
+    "desc": "一把普通的铁剑",
+    "category": "equipment",
     "cost": {
       "type": "currency",
       "id": "gold",
       "count": 500
     },
     "reward": {
-      "type": "item",
-      "id": "item_teleport",
+      "type": "equipment",
+      "id": "wpn_sword_001",
       "count": 1
     },
     "ui": {
-      "icon": "Zap"
+      "icon": "⚔️",
+      "rank": "N",
+      "power": "攻击力 +15"
     },
-    "sortWeight": 100
+    "sortWeight": 80
   },
   {
-    "id": 5002,
-    "name": "经验药水",
-    "desc": "增加角色经验",
-    "category": "items",
+    "id": 3002,
+    "name": "精铁头盔",
+    "desc": "坚固的精铁打造",
+    "category": "equipment",
     "cost": {
       "type": "currency",
       "id": "gold",
-      "count": 1000
+      "count": 800
     },
     "reward": {
-      "type": "item",
-      "id": "item_exp_potion",
+      "type": "equipment",
+      "id": "hlm_iron_001",
       "count": 1
     },
     "ui": {
-      "icon": "Zap"
+      "icon": "🪖",
+      "rank": "R",
+      "power": "防御 +15"
     },
-    "sortWeight": 90
+    "sortWeight": 75
+  },
+  {
+    "id": 3003,
+    "name": "百炼钢甲",
+    "desc": "出色的防御力",
+    "category": "equipment",
+    "cost": {
+      "type": "currency",
+      "id": "diamond",
+      "count": 50
+    },
+    "reward": {
+      "type": "equipment",
+      "id": "arm_steel_001",
+      "count": 1
+    },
+    "ui": {
+      "icon": "🛡️",
+      "rank": "SR",
+      "power": "防御 +35"
+    },
+    "sortWeight": 70
+  },
+  {
+    "id": 3004,
+    "name": "龙鳞腿甲",
+    "desc": "坚不可摧",
+    "category": "equipment",
+    "cost": {
+      "type": "currency",
+      "id": "diamond",
+      "count": 200
+    },
+    "reward": {
+      "type": "equipment",
+      "id": "pnt_dragon_001",
+      "count": 1
+    },
+    "ui": {
+      "icon": "🦵",
+      "rank": "SSR",
+      "power": "防御 +50"
+    },
+    "sortWeight": 65
+  },
+  {
+    "id": 3005,
+    "name": "赫尔墨斯之靴",
+    "desc": "极快的速度",
+    "category": "equipment",
+    "cost": {
+      "type": "currency",
+      "id": "diamond",
+      "count": 500
+    },
+    "reward": {
+      "type": "equipment",
+      "id": "bot_hermes_001",
+      "count": 1
+    },
+    "ui": {
+      "icon": "👢",
+      "rank": "UR",
+      "power": "速度 +100"
+    },
+    "sortWeight": 60
+  },
+  {
+    "id": 3006,
+    "name": "天蚕丝手套",
+    "desc": "轻便且坚韧",
+    "category": "equipment",
+    "cost": {
+      "type": "currency",
+      "id": "gold",
+      "count": 600
+    },
+    "reward": {
+      "type": "equipment",
+      "id": "glv_silk_001",
+      "count": 1
+    },
+    "ui": {
+      "icon": "🧤",
+      "rank": "R",
+      "power": "攻击 +15"
+    },
+    "sortWeight": 55
+  },
+  {
+    "id": 3007,
+    "name": "秘银戒指",
+    "desc": "蕴含魔力",
+    "category": "equipment",
+    "cost": {
+      "type": "currency",
+      "id": "diamond",
+      "count": 80
+    },
+    "reward": {
+      "type": "equipment",
+      "id": "rng_silver_001",
+      "count": 1
+    },
+    "ui": {
+      "icon": "💍",
+      "rank": "SR",
+      "power": "攻击 +40"
+    },
+    "sortWeight": 50
+  },
+  {
+    "id": 3008,
+    "name": "星辰项链",
+    "desc": "凝聚星辰之力",
+    "category": "equipment",
+    "cost": {
+      "type": "currency",
+      "id": "diamond",
+      "count": 250
+    },
+    "reward": {
+      "type": "equipment",
+      "id": "nck_star_001",
+      "count": 1
+    },
+    "ui": {
+      "icon": "📿",
+      "rank": "SSR",
+      "power": "生命 +500"
+    },
+    "sortWeight": 45
+  },
+  {
+    "id": 3009,
+    "name": "圣杯",
+    "desc": "拥有起死回生的力量",
+    "category": "equipment",
+    "cost": {
+      "type": "currency",
+      "id": "diamond",
+      "count": 999
+    },
+    "reward": {
+      "type": "equipment",
+      "id": "art_holy_grail",
+      "count": 1
+    },
+    "ui": {
+      "icon": "🏆",
+      "rank": "UR",
+      "power": "生命 +2000"
+    },
+    "sortWeight": 40
   }
 ]

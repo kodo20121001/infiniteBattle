@@ -4,8 +4,32 @@ const PathfindingTester = lazy(() => import('./PathfindingTester.jsx'));
 const GroupMovementTester = lazy(() => import('./GroupMovementTester.jsx'));
 const EncircleTester = lazy(() => import('./EncircleTester.jsx'));
 const CoordinateTester = lazy(() => import('./CoordinateTester.jsx'));
+const VrmTester = lazy(() => import('./VrmTester.jsx'));
+const UnityTester = lazy(() => import('./UnityTester.jsx'));
+const Model3DTester = lazy(() => import('./Model3DTester.jsx'));
 
 const tests = [
+  {
+    id: 'model3d',
+    title: '3D 模型测试',
+    description: '加载并显示 3D 目录中的模型与动作',
+    icon: '🎭',
+    color: 'from-fuchsia-600 to-pink-600'
+  },
+  {
+    id: 'unity',
+    title: 'Unity 场景测试',
+    description: '加载并显示导出的 Unity WebGL 场景',
+    icon: '🎮',
+    color: 'from-indigo-600 to-blue-600'
+  },
+  {
+    id: 'vrm',
+    title: 'VRM 模型测试',
+    description: '加载并显示 AvatarSample_D1.vrm 模型',
+    icon: '🧍',
+    color: 'from-pink-600 to-purple-600'
+  },
   {
     id: 'coordinate',
     title: '坐标测试',
@@ -77,6 +101,27 @@ const TestHub = ({ onBack }) => {
     return (
       <Suspense fallback={<Loading />}> 
         <EncircleTester onBack={onBack} onBackToHub={() => setCurrent(null)} />
+      </Suspense>
+    );
+  }
+  if (current === 'vrm') {
+    return (
+      <Suspense fallback={<Loading />}> 
+        <VrmTester onBack={() => setCurrent(null)} />
+      </Suspense>
+    );
+  }
+  if (current === 'unity') {
+    return (
+      <Suspense fallback={<Loading />}> 
+        <UnityTester onBack={() => setCurrent(null)} />
+      </Suspense>
+    );
+  }
+  if (current === 'model3d') {
+    return (
+      <Suspense fallback={<Loading />}> 
+        <Model3DTester onBack={() => setCurrent(null)} />
       </Suspense>
     );
   }

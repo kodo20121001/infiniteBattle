@@ -1,8 +1,8 @@
 [
   {
-    "id": "pet_crystal_bird",
-    "name": "水晶鸟",
-    "model": "crystal_bird",
+    "id": "pet_30001",
+    "name": "战宠 30001",
+    "model": "30001",
     "quality": "orange",
     "baseFragmentsNeeded": 50,
     "statsBonus": {
@@ -13,9 +13,9 @@
     ]
   },
   {
-    "id": "pet_fire_dragon",
-    "name": "火龙",
-    "model": "fire_dragon",
+    "id": "pet_30002",
+    "name": "战宠 30002",
+    "model": "30002",
     "quality": "purple",
     "baseFragmentsNeeded": 80,
     "statsBonus": {
@@ -26,9 +26,9 @@
     ]
   },
   {
-    "id": "pet_thunder_beast",
-    "name": "雷兽",
-    "model": "thunder_beast",
+    "id": "pet_30003",
+    "name": "战宠 30003",
+    "model": "30003",
     "quality": "blue",
     "baseFragmentsNeeded": 100,
     "statsBonus": {
@@ -36,6 +36,84 @@
     },
     "skills": [
       { "id": "lightning", "level": 8 }
+    ]
+  },
+  {
+    "id": "pet_30004",
+    "name": "战宠 30004",
+    "model": "30004",
+    "quality": "orange",
+    "baseFragmentsNeeded": 50,
+    "statsBonus": {
+      "critDamageBoost": 50.0
+    },
+    "skills": [
+      { "id": "ice", "level": 5 }
+    ]
+  },
+  {
+    "id": "pet_30005",
+    "name": "战宠 30005",
+    "model": "30005",
+    "quality": "purple",
+    "baseFragmentsNeeded": 80,
+    "statsBonus": {
+      "attackBoost": 20.0
+    },
+    "skills": [
+      { "id": "fire", "level": 8 }
+    ]
+  },
+  {
+    "id": "pet_30006",
+    "name": "战宠 30006",
+    "model": "30006",
+    "quality": "blue",
+    "baseFragmentsNeeded": 100,
+    "statsBonus": {
+      "speedBoost": 15.0
+    },
+    "skills": [
+      { "id": "lightning", "level": 5 }
+    ]
+  },
+  {
+    "id": "pet_30007",
+    "name": "战宠 30007",
+    "model": "30007",
+    "quality": "orange",
+    "baseFragmentsNeeded": 50,
+    "statsBonus": {
+      "critDamageBoost": 60.0
+    },
+    "skills": [
+      { "id": "ice", "level": 8 }
+    ]
+  },
+  {
+    "id": "pet_30008",
+    "name": "战宠 30008",
+    "model": "30008",
+    "quality": "purple",
+    "baseFragmentsNeeded": 80,
+    "statsBonus": {
+      "attackBoost": 25.0
+    },
+    "skills": [
+      { "id": "fire", "level": 10 }
+    ]
+  },
+  {
+    "id": "pet_30009",
+    "name": "战宠 30009",
+    "model": "30009",
+    "quality": "blue",
+    "baseFragmentsNeeded": 100,
+    "statsBonus": {
+      "speedBoost": 25.0
+    },
+    "skills": [
+      { "id": "lightning", "level": 10 }
     ]
   }
 ]

@@ -1,8 +1,13 @@
 export enum EquipmentType {
-    WEAPON = 'weapon',       // 武器
+    WEAPON = 'weapon',       // 武器 (中心)
+    HELMET = 'helmet',       // 头盔
     ARMOR = 'armor',         // 护甲
-    ACCESSORY = 'accessory', // 饰品
-    BOOTS = 'boots'          // 靴子
+    PANTS = 'pants',         // 裤子
+    BOOTS = 'boots',         // 靴子
+    GLOVE = 'glove',         // 手套
+    RING = 'ring',           // 戒指
+    NECKLACE = 'necklace',   // 项链
+    ARTIFACT = 'artifact'    // 神器
 }
 
 export enum EquipmentRarity {
